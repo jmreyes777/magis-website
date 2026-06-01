@@ -275,29 +275,10 @@ const finalizeLogin = async (user, customClaims) => {
   const mfaSessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   sessionStorage.setItem("mfaSessionId", mfaSessionId);
   
-  // 5️⃣ Mark MFA as verified for this session (complements Firebase MFA)
-  try {
-    const token = sessionStorage.getItem("branchAdminToken") || firebaseToken;
-    const res = await fetch(
-      `${process.env.REACT_APP_API_URL}/api/mfa/session-verify`,
-      {
-        method:  "POST",
-        credentials: 'include',
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-          "X-Session-Id": mfaSessionId,
-        },
-      }
-    );
-    if (res.ok) {
-      console.info("[MFA] Session verification recorded");
-    }
-  } catch (err) {
-    console.warn("[MFA] Could not record session verification:", err);
-  }
-
-  // 6️⃣ Exchange for short‑lived HMAC fallback token
+  // 5️⃣ Exchange for short‑lived HMAC fallback token FIRST.
+  // The edge worker only verifies HMAC fallback tokens (signed with JWT_SECRET),
+  // not Firebase RS256 ID tokens. We must obtain and store this token before any
+  // protected API call (e.g. session-verify) so those calls authenticate at the edge.
   try {
     const res = await fetch(
       `${process.env.REACT_APP_API_URL}/api/issue-fallback-token`,
@@ -318,6 +299,31 @@ const finalizeLogin = async (user, customClaims) => {
     }
   } catch (err) {
     console.error("[LOGIN] Error issuing fallback token:", err);
+  }
+
+  // 6️⃣ Mark MFA as verified for this session (complements Firebase MFA).
+  // Uses the fallback HMAC token stored above so the edge worker accepts it.
+  try {
+    const token = sessionStorage.getItem("branchAdminToken") || firebaseToken;
+    const res = await fetch(
+      `${process.env.REACT_APP_API_URL}/api/mfa/session-verify`,
+      {
+        method:  "POST",
+        credentials: 'include',
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+          "X-Session-Id": mfaSessionId,
+        },
+      }
+    );
+    if (res.ok) {
+      console.info("[MFA] Session verification recorded");
+    } else {
+      console.warn(`[MFA] session-verify returned ${res.status}`);
+    }
+  } catch (err) {
+    console.warn("[MFA] Could not record session verification:", err);
   }
 
   // 7️⃣ Notify Service Worker of new token (ID token overwritten by fallback if present)
