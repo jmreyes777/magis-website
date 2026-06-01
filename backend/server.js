@@ -782,6 +782,16 @@ app.post("/api/guest/force-close", async (req, res) => {
   }
 });
 
+// Lightweight health check for load balancers / uptime probes.
+// Registered before the static/catch-all so it always returns JSON 200.
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+  });
+});
+
 //  — Serve React’s build —
 const staticDir = path.join(__dirname, "build");
 app.use(express.static(staticDir));
