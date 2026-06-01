@@ -299,7 +299,7 @@ async function handle(request) {
         "Access-Control-Allow-Origin": allowedOrigin,
         "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
         "Access-Control-Allow-Headers":
-          "Content-Type,Authorization,X-CSRF-Token",
+          "Content-Type,Authorization,X-CSRF-Token,X-Session-Id",
         "Access-Control-Allow-Credentials": "true",
       },
     });
