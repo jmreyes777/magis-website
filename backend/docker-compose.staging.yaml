@@ -1,0 +1,23 @@
+﻿version: "3.8"
+
+# -----------------------------------------------------------------------------
+# docker-compose.staging.yaml - STAGING OVERRIDE
+# Usage: docker compose -f docker-compose.yaml -f docker-compose.staging.yaml up -d
+# -----------------------------------------------------------------------------
+
+services:
+  node:
+    container_name: magis-node-staging
+    env_file:
+      - .env.staging
+    environment:
+      - NODE_ENV=staging
+
+  caddy:
+    container_name: magis-caddy-staging
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL}    # set in your shell or .env.staging
+    volumes:
+      - ./Caddyfile.staging:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config

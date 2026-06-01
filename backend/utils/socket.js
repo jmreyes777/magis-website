@@ -1,0 +1,1134 @@
+/**
+ * utils/socket.js
+ * ---------------------------------------------------------------------------------------
+ * Socket.IO server with Redis adapter + presence TTL + JWT verification (HS256 + Firebase)
+ * Cluster-safe, idempotent Redis connects, and minimal hot-path overhead.
+ *
+ * NOTE TO MAINTAINERS:
+ * - Presence is written to Redis using short TTL keys (PRESENCE_PREFIX + branchEmail).
+ * - Redis adapter is initialized once at startup using ensureRedisConnected() guards.
+ * - Multi-instance correctness: presence + adapter + rate-limits + undelivered queue
+ *   are Redis-backed. We keep some in-memory maps for ephemeral per-process runtime
+ *   conveniences (e.g., sockets, heartbeats, local presence lists for UI push).
+ * ---------------------------------------------------------------------------------------
+ */
+
+const { Server } = require("socket.io");
+const cookie = require("cookie");
+const { db, admin } = require("./firebase");
+const { verifyJWT } = require("./secretPool");   // worker-thread backed JWT ops
+const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
+
+// Message rate-limit (guest -> server). Fixed window = 1 hour.
+const MAX_PER_WINDOW = parseInt(process.env.MAX_MESSAGES_PER_HOUR, 10) || 100;
+const RATE_KEY_PREFIX = process.env.REDIS_RATE_PREFIX || "ratelimit:guest:";
+
+// Redis queue (undelivered guest→admin messages)
+const UNDELIVERED_PREFIX = process.env.REDIS_UNDELIVERED_PREFIX || "queue:undelivered:";
+
+// Optional Redis adapter
+let createAdapter;
+try {
+  createAdapter = require("@socket.io/redis-adapter").createAdapter;
+} catch (err) {
+  console.log("[SOCKET] Redis adapter not available, running without Redis");
+  createAdapter = null;
+}
+
+const { z } = require("zod");
+
+// IMPORTANT: ioredis helper (idempotent connect guards)
+const { getRedis, getRedisSub, ensureRedisConnected } = require("./redis");
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Global-runtime structures (per-process)
+// ─────────────────────────────────────────────────────────────────────────────
+let io;
+const clients = new Map();         // socket.id -> { role, identifier, room, branchEmail, tabId, sessionTabId, lastSeen }
+const sessionTracker = new Map();  // branchEmail -> Set(sessionTabIds)
+const heartbeatMap = new Map();    // "branchEmail::sessionTabId" -> last heartbeat timestamp
+const broadcastMap = new Map();    // "branchEmail::sessionTabId" -> last broadcastAlive timestamp
+const readyAdmins = {};            // branchEmail -> { sessionTabId: true }
+
+const HEARTBEAT_INTERVAL = 30000;
+const MAX_MISSED_PINGS = 10;
+
+// 👥 Track active guests per branch (ephemeral in-memory list of recent/active guests)
+const branchGuests = new Map();     // branchEmail -> Set(guestIds)
+const onlineAdminsMap = {};         // branchEmail -> { sessionTabId: socketId }
+const branchAwayGuests = new Map(); // branchEmail -> Set(guestIds considered idle)
+
+// ─────────────────────────────────────────────────────────────
+// Presence in Redis: TTL keys to mark branch online
+// ─────────────────────────────────────────────────────────────
+const PRESENCE_PREFIX = process.env.REDIS_PRESENCE_PREFIX || "branch:online:";
+const ONLINE_TTL_SEC = Number(process.env.ONLINE_TTL_SEC || 90);
+
+/**
+ * Mark a branch online in Redis with a short TTL (idempotent; refreshes TTL).
+ */
+async function touchBranchOnline(branchEmail) {
+  if (!branchEmail) return;
+  const client = getRedis();
+  try {
+    await ensureRedisConnected(client);
+    await client.set(
+      `${PRESENCE_PREFIX}${branchEmail.toLowerCase()}`,
+      Date.now().toString(),
+      "EX",
+      ONLINE_TTL_SEC
+    );
+  } catch (e) {
+    console.warn("[presence] Redis touch failed:", e.message);
+  }
+}
+
+/**
+ * Normalize a room name. Returns "<prefix>-<identifier>".
+ */
+const normalizeRoomName = (role, id) => {
+  if (!id || typeof id !== "string") {
+    console.warn("[SOCKET] Invalid room identifier received. Defaulting to 'unknown'.");
+    id = "unknown";
+  }
+  const prefix = role === "admin" || role === "branchadmin" ? "admin" : "guest";
+  const regex = new RegExp(`^${prefix}-`, "i");
+  id = id.replace(regex, "");
+  return `${prefix}-${id}`;
+};
+
+const getRoomName = (role, id) => normalizeRoomName(role, id);
+
+/**
+ * Compute away/online lists for guests and emit presence only for those truly online.
+ */
+function checkForStaleGuests(branchEmail) {
+  const liveSet = branchGuests.get(branchEmail);
+  if (!liveSet) return;
+
+  const currentActive = new Set();
+  for (const client of clients.values()) {
+    if (client.role === "user" && client.branchEmail === branchEmail) {
+      currentActive.add(client.identifier);
+    }
+  }
+
+  let awaySet = branchAwayGuests.get(branchEmail);
+  if (!awaySet) {
+    awaySet = new Set();
+    branchAwayGuests.set(branchEmail, awaySet);
+  }
+
+  for (const guestId of liveSet) {
+    if (!currentActive.has(guestId)) awaySet.add(guestId);
+    else awaySet.delete(guestId);
+  }
+
+  const onlineNow = [...liveSet].filter((id) => !awaySet.has(id));
+  io.to(getRoomName("admin", branchEmail)).emit("guestPresenceUpdate", onlineNow);
+}
+
+// ─────────────────────────────────────────────────────────────
+// Redis-backed undelivered queue helpers
+// ─────────────────────────────────────────────────────────────
+async function bufferUndelivered(branchEmail, messageObj) {
+  if (!branchEmail) return;
+  try {
+    const client = getRedis();
+    await ensureRedisConnected(client);
+    await client.rpush(`${UNDELIVERED_PREFIX}${branchEmail.toLowerCase()}`, JSON.stringify(messageObj));
+  } catch (err) {
+    console.warn("[SOCKET] Redis bufferUndelivered unavailable:", err.message);
+  }
+}
+
+/**
+ * Drain all buffered messages for a branch (returns Array<messageObj>).
+ * Uses LRANGE + DEL (simple & sufficient here).
+ */
+async function drainUndelivered(branchEmail) {
+  if (!branchEmail) return [];
+  try {
+    const client = getRedis();
+    await ensureRedisConnected(client);
+    const key = `${UNDELIVERED_PREFIX}${branchEmail.toLowerCase()}`;
+    const messages = await client.lrange(key, 0, -1);
+    if (messages.length > 0) {
+      await client.del(key);
+    }
+    return messages.map((m) => JSON.parse(m));
+  } catch (err) {
+    console.warn("[SOCKET] Redis drainUndelivered unavailable:", err.message);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Zod schema for socket messages
+// ─────────────────────────────────────────────────────────────
+const messageSchema = z.object({
+  guestId: z.string().nonempty(),
+  content: z.string().optional(),
+  media: z
+    .object({
+      url: z.string().url(),
+      type: z.string(),
+    })
+    .optional(),
+  sender: z.string().nonempty(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN INITIALIZER
+// ─────────────────────────────────────────────────────────────────────────────
+const initializeSocket = (server) => {
+  if (io) return io;
+
+  io = new Server(server, {
+    cors: {
+      origin: [
+        "http://localhost:3000",
+        "https://localhost:3000",
+        "http://localhost:3001",
+        "https://localhost:3001",
+        "http://localhost:3002",
+        "https://localhost:3002",
+        "http://localhost:4000",
+        "https://localhost:4000",
+      ],
+      methods: ["GET", "POST"],
+    },
+    pingInterval: 25000,
+    pingTimeout: 60000,
+    perMessageDeflate: true,
+  });
+
+  // Redis adapter for multi-instance Socket.IO (optional)
+  if (createAdapter) {
+    const pubClient = getRedis();
+    const subClient = getRedisSub();
+    (async () => {
+      try {
+        await ensureRedisConnected(pubClient);
+        await ensureRedisConnected(subClient);
+        io.adapter(createAdapter(pubClient, subClient));
+        console.log("[socket] Redis adapter enabled");
+      } catch (err) {
+        console.warn("[socket] Redis adapter not connected, running in-memory only", err.message);
+      }
+    })();
+  } else {
+    console.log("[socket] Running without Redis adapter");
+  }
+
+  const jwt = require("jsonwebtoken"); // used only for cookie decode fallback if needed
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Handshake authentication (HS256 fallback or Firebase ID token)
+  // ───────────────────────────────────────────────────────────────────────────
+  io.use(async (socket, next) => {
+    const { token, tabId, sessionTabId, branchEmail: clientEmail, guestId } =
+      socket.handshake.auth || {};
+
+    console.log("[SOCKET AUTH] 🔐 Incoming connection auth payload:", {
+      tokenSnippet: token ? token.substring(0, 20) + "..." : "(none)",
+      tabId,
+      sessionTabId,
+      clientEmail,
+      guestId,
+    });
+
+    if (!token || !tabId || !sessionTabId || (!clientEmail && !guestId)) {
+      console.warn("[SOCKET AUTH] ❌ Missing required auth fields");
+      return next(new Error("Missing required auth details"));
+    }
+
+    try {
+      let decodedToken;
+      let branchEmail = (clientEmail || "").toLowerCase();
+      let isFallbackToken = false;
+
+      // 1) Try worker-backed HS256
+      try {
+        decodedToken = await verifyJWT(token, {
+          algorithms: ["HS256"],
+          clockTolerance: CLOCK_TOLERANCE_SEC,
+        });
+
+        if (decodedToken?.fallback === true && decodedToken.email) {
+          branchEmail = decodedToken.email.toLowerCase();
+          isFallbackToken = true;
+          console.log(`[SOCKET AUTH] 🟡 Verified fallback token for ${branchEmail}`);
+        } else {
+          throw new Error("Not a fallback HMAC token");
+        }
+      } catch (fallbackErr) {
+        // 2) Firebase ID token
+        try {
+          const firebaseDecoded = await admin.auth().verifyIdToken(token);
+          decodedToken = firebaseDecoded;
+          branchEmail = (firebaseDecoded.email || clientEmail || "").toLowerCase();
+          console.log(`[SOCKET AUTH] 🟢 Verified Firebase token for ${branchEmail}`);
+        } catch (firebaseErr) {
+          console.error("[SOCKET AUTH] 🔥 Both fallback and Firebase verification failed:", {
+            fallbackError: fallbackErr.message,
+            firebaseError: firebaseErr.message,
+          });
+          return next(new Error("Unauthorized"));
+        }
+      }
+
+      // 3) Guest flow
+      if (decodedToken.role === "user" && decodedToken.guestId) {
+        branchEmail = (decodedToken.email || clientEmail || "").toLowerCase();
+        socket.user = {
+          role: "user",
+          guestId: decodedToken.guestId,
+          branchEmail,
+          tabId,
+          sessionTabId,
+          authSource: isFallbackToken ? "fallback" : "firebase",
+        };
+        console.log(`[SOCKET AUTH] ✅ Guest user authenticated: ${decodedToken.guestId}`);
+        return next();
+      }
+
+      // 4) Admin flow
+      const sessions = sessionTracker.get(branchEmail) || new Set();
+      if (!sessions.has(sessionTabId)) {
+        sessions.add(sessionTabId);
+        sessionTracker.set(branchEmail, sessions);
+      }
+
+      branchEmail = (decodedToken.email || clientEmail || "").toLowerCase();
+
+      socket.user = {
+        ...decodedToken,
+        tabId,
+        sessionTabId,
+        branchEmail,
+        authSource: isFallbackToken ? "fallback" : "firebase",
+      };
+
+      console.log(`[SOCKET AUTH] ✅ Auth success for ${branchEmail} via ${socket.user.authSource}`);
+      return next();
+    } catch (err) {
+      console.error("[SOCKET AUTH] ❌ Token verification failed:", err);
+      return next(new Error("Unauthorized"));
+    }
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // Per-event JWT re-verification (non-heartbeat)
+  // ───────────────────────────────────────────────────────────────────────────
+  io.on("connection", async (socket) => {
+    if (socket._hasInitialized) return;
+    socket._hasInitialized = true;
+
+    socket.use(async (packet, next) => {
+      const eventName = packet[0];
+      if (["heartbeat", "tabAlive", "broadcastAlive", "chatClosed", "markRead"].includes(eventName)) {
+        return next();
+      }
+
+      let token =
+        (socket.auth && socket.auth.token) ||
+        (socket.handshake && socket.handshake.auth && socket.handshake.auth.token) ||
+        null;
+
+      const looksExpired = (t) => {
+        try {
+          const parts = (t || "").split(".");
+          if (parts.length !== 3) return true;
+          const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf8"));
+          if (!payload || typeof payload.exp !== "number") return true;
+          return Date.now() >= payload.exp * 1000;
+        } catch {
+          return true;
+        }
+      };
+
+      if (!token || looksExpired(token)) {
+        try {
+          const raw = socket.request?.headers?.cookie || "";
+          const cookies = cookie.parse(raw || "");
+          if (cookies.guestToken) {
+            token = cookies.guestToken;
+            console.debug("[SOCKET AUTH] 🔄 Using guestToken from cookie for event:", eventName);
+          } else if (cookies.branchAdminToken) {
+            token = cookies.branchAdminToken;
+            console.debug("[SOCKET AUTH] 🔄 Using branchAdminToken from cookie for event:", eventName);
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!token) {
+        console.warn("[SOCKET AUTH] ❌ No JWT available for event:", eventName);
+        return socket.disconnect(true);
+      }
+
+      try {
+        await verifyJWT(token, { algorithms: ["HS256"], clockTolerance: CLOCK_TOLERANCE_SEC });
+        return next();
+      } catch (err) {
+        console.error("[SOCKET AUTH] ❌ JWT re-verification failed:", err.message);
+        return socket.disconnect(true);
+      }
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Presence / rooms / registration logic
+    // ─────────────────────────────────────────────────────────────────────────
+    const { role, guestId, branchEmail, tabId, sessionTabId } = socket.user || {};
+    const isAdmin = role === "admin" || role === "branchadmin";
+    const identifier = isAdmin ? socket.user?.email : guestId;
+    const room = getRoomName(role, identifier);
+
+    if (!socket.rooms.has(room)) {
+      socket.join(room);
+      console.log(`[SOCKET] ✅ Socket ${socket.id} joined room: ${room}`);
+    }
+
+    if (isAdmin && branchEmail) {
+      const branchRoom = getRoomName("admin", branchEmail);
+      if (!socket.rooms.has(branchRoom)) {
+        socket.join(branchRoom);
+        console.log(`[SOCKET] 👑 Admin socket joined branch room: ${branchRoom}`);
+      }
+
+      // ▶️ Replay any buffered undelivered messages from Redis
+      const pending = await drainUndelivered(branchEmail);
+      if (pending?.length) {
+        pending.forEach((msg) => socket.emit("receiveMessage", msg));
+
+        // Recompute unread and broadcast
+        const guests = [...new Set(pending.map((m) => m.guestId))];
+        for (const gId of guests) {
+          const snap = await db
+            .collection("messages")
+            .where("branchEmail", "==", branchEmail)
+            .where("guestId", "==", gId)
+            .where("seenByAdmin", "==", false)
+            .get();
+          io.to(getRoomName("admin", branchEmail)).emit("updateUnread", {
+            guestId: gId,
+            unreadCount: snap.size,
+          });
+        }
+
+        console.log(`[SOCKET] 🔄 Replayed ${pending.length} buffered msgs for ${branchEmail}`);
+      }
+
+      // Send initial presence to this admin
+      const guestSet = branchGuests.get(branchEmail) || new Set();
+      socket.emit("guestPresenceUpdate", Array.from(guestSet));
+      console.log(`[SOCKET] ⏯ Sent initial guestPresenceUpdate to admin ${branchEmail}:`, [...guestSet]);
+    }
+
+    // For branch admins, register them and mark branch online (presence)
+    if (isAdmin && branchEmail && sessionTabId) {
+      if (!onlineAdminsMap[branchEmail]) {
+        onlineAdminsMap[branchEmail] = {};
+      }
+      onlineAdminsMap[branchEmail][sessionTabId] = socket.id;
+      console.log(`[SOCKET] ✅ Registered admin ${branchEmail} tab ${sessionTabId} with socket ID: ${socket.id}`);
+
+      try { await touchBranchOnline(branchEmail); } catch (_) {}
+
+      const guestSet = branchGuests.get(branchEmail);
+      if (guestSet && guestSet.size > 0) {
+        guestSet.forEach((gid) => {
+          const guestRoom = getRoomName("guest", gid);
+          io.to(guestRoom).emit("branchStatus", {
+            branchEmail,
+            online: true,
+            lastSeen: new Date().toISOString(),
+          });
+        });
+        console.log(`[SOCKET] 🔔 Emitted branchStatus ONLINE to guests for ${branchEmail}:`, [...guestSet]);
+      }
+    }
+
+    clients.set(socket.id, {
+      role,
+      identifier,
+      room,
+      branchEmail,
+      tabId,
+      sessionTabId,
+      lastSeen: Date.now(),
+    });
+
+    // For guest users, track presence and send branch status
+    if (!isAdmin && guestId && branchEmail) {
+      const guestSet = branchGuests.get(branchEmail) || new Set();
+      guestSet.add(guestId);
+      branchGuests.set(branchEmail, guestSet);
+
+      io.to(getRoomName("admin", branchEmail)).emit("guestPresenceUpdate", [...guestSet]);
+      console.log(`[GUEST PRESENCE] ✅ ${guestId} marked online for ${branchEmail}`);
+
+      // Check if any admin is online for this branch (guest presence should NOT mark branch as online)
+      const anyAdminOnline = !!(onlineAdminsMap[branchEmail] && Object.keys(onlineAdminsMap[branchEmail]).length > 0);
+      const branchOnline = anyAdminOnline;
+      
+      socket.emit("branchStatus", {
+        branchEmail,
+        online: branchOnline,
+        lastSeen: new Date().toISOString(),
+      });
+      console.log(`[SOCKET] 🔔 Sent initial branchStatus to guest ${guestId}:`, { branchEmail, online: branchOnline });
+    }
+
+    // ───────────────────────────────────────────────────────────────────
+    // joinRoom
+    // ───────────────────────────────────────────────────────────────────
+    socket.on("joinRoom", async (roomName, ack) => {
+      const normalizedRoom = typeof roomName === "string" ? normalizeRoomName(socket.user.role, roomName) : roomName;
+
+      if (!socket.rooms.has(normalizedRoom)) {
+        socket.join(normalizedRoom);
+        console.log(`[SOCKET] ✅ Socket ${socket.id} joined room: ${normalizedRoom}`);
+      }
+
+      const user = socket.user;
+      if (!user || !user.branchEmail) {
+        if (typeof ack === "function") ack();
+        return;
+      }
+      const { role, branchEmail, sessionTabId } = user;
+      const isAdmin = role === "admin" || role === "branchadmin";
+
+      if (isAdmin && branchEmail && sessionTabId) {
+        if (!onlineAdminsMap[branchEmail]) {
+          onlineAdminsMap[branchEmail] = {};
+        }
+        onlineAdminsMap[branchEmail][sessionTabId] = socket.id;
+        console.log(`[SOCKET] ✅ Registered admin ${branchEmail} tab ${sessionTabId} with socket ID: ${socket.id}`);
+
+        const guestSet = branchGuests.get(branchEmail);
+        if (guestSet && guestSet.size > 0) {
+          guestSet.forEach((gId) => {
+            io.to(getRoomName("guest", gId)).emit("branchStatus", {
+              branchEmail,
+              online: true,
+              lastSeen: new Date().toISOString(),
+            });
+          });
+          console.log(`[SOCKET] 🔔 Emitted branchStatus ONLINE to guests for ${branchEmail}:`, [...guestSet]);
+        }
+
+        try { await touchBranchOnline(branchEmail); } catch (_) {}
+      }
+
+      if (typeof ack === "function") ack();
+    });
+
+    socket.on("confirmReady", ({ branchEmail, sessionTabId }) => {
+      if (!readyAdmins[branchEmail]) readyAdmins[branchEmail] = {};
+      readyAdmins[branchEmail][sessionTabId] = true;
+      console.log(`[SOCKET] ✅ Admin tab ${sessionTabId} confirmed ready for ${branchEmail}`);
+    });
+
+    socket.on("tabAlive", ({ sessionTabId, timestamp }) => {
+      const key = `${socket.user.branchEmail}::${sessionTabId}`;
+      heartbeatMap.set(key, timestamp);
+    });
+
+    socket.on("broadcastAlive", async ({ sessionTabId, timestamp }) => {
+      const key = `${socket.user.branchEmail}::${sessionTabId}`;
+      broadcastMap.set(key, timestamp);
+
+      const client = clients.get(socket.id);
+      if (client) client.lastSeen = Date.now();
+
+      if (socket.user && (socket.user.role === "admin" || socket.user.role === "branchadmin")) {
+        try { await touchBranchOnline(socket.user.branchEmail); } catch (_) {}
+      }
+
+      checkForStaleGuests(socket.user.branchEmail);
+    });
+
+    socket.on("debugLog", (log) => console.log(`[DEBUG]`, log));
+    // E2EE Key Exchange handlers
+    socket.on("e2ee:guest_key", async (data) => {
+      console.log("[E2EE] 🔑 Guest key received:", data);
+      try {
+        const { guestId, branchEmail, publicKey, role } = data;
+        if (!guestId || !branchEmail || !publicKey) return;
+        io.to(getRoomName("admin", branchEmail)).emit("e2ee:guest_key", data);
+        console.log("[E2EE] 📡 Routed guest key to admins");
+      } catch (err) { console.error("[E2EE] Error:", err); }
+    });
+
+    socket.on("e2ee:branch_key", async (data) => {
+      console.log("[E2EE] 🔑 Branch key received:", data);
+      try {
+        const { guestId, branchEmail, publicKey, role } = data;
+        if (!guestId || !branchEmail || !publicKey) return;
+        io.to(getRoomName("guest", guestId)).emit("e2ee:branch_key", data);
+        console.log("[E2EE] 📡 Routed branch key to guest");
+      } catch (err) { console.error("[E2EE] Error:", err); }
+    });
+
+    // ───────────────────────────────────────────────────────────────────
+    // sendMessage (ACL + validation + emits + unread count)
+    // ───────────────────────────────────────────────────────────────────
+    socket.on("sendMessage", async (data, callback) => {
+      try {
+        // ─── Redis rate limit for guests (fixed 1-hour window) ─────────────
+        if (socket.user.role === "user") {
+          const gId = socket.user.guestId;
+          try {
+            const client = getRedis();
+            await ensureRedisConnected(client);
+            const key = `${RATE_KEY_PREFIX}${gId}:h`;
+            const count = await client.incr(key);
+            if (count === 1) {
+              await client.expire(key, 60 * 60); // 1 hour
+            }
+            if (count > MAX_PER_WINDOW) {
+              console.warn(`[RATE LIMIT] guest ${gId} ≥ ${MAX_PER_WINDOW}/hr (=${count})`);
+              return typeof callback === "function"
+                ? callback({ success: false, error: `Rate limit exceeded: max ${MAX_PER_WINDOW} messages per hour.` })
+                : null;
+            }
+          } catch (redisErr) {
+            console.warn("[SOCKET] Redis rate limit unavailable, skipping:", redisErr.message);
+            // Continue without rate limiting if Redis is unavailable
+          }
+        }
+        // ─────────────────────────────────────────────────────────────────
+
+        // ACL
+        if (socket.user.role === "user") {
+          if (data.guestId !== socket.user.guestId) {
+            console.warn(`[ACL] guest ${socket.user.guestId} tried to send as ${data.guestId}`);
+            return typeof callback === "function" && callback({ success: false, error: "Forbidden – guestId mismatch" });
+          }
+        }
+        if (socket.user.role === "branchadmin") {
+          const tokenBranch = socket.user.branchEmail.toLowerCase();
+          const payloadBranch = (data.branchEmail || tokenBranch).toLowerCase();
+          if (payloadBranch !== tokenBranch) {
+            console.warn(`[ACL] branch ${tokenBranch} tried to send as ${payloadBranch}`);
+            return typeof callback === "function" && callback({ success: false, error: "Forbidden – branchEmail mismatch" });
+          }
+        }
+
+        // Validate payload
+        const payloadSchema = z.object({
+          room: z.string().min(1),
+          guestId: z.string().min(1),
+          content: z.string().optional(),
+          media: z.any().optional(),
+          sender: z.enum(["guest", "branch"]),
+          id: z.string().optional(),
+          branchEmail: z.string().optional(),
+        });
+        const parsed = payloadSchema.parse(data);
+        let { room, guestId, content, media, sender, id, branchEmail: payloadBranchEmail } = parsed;
+
+        if (!content && !media) {
+          if (typeof callback === "function") {
+            return callback({ success: false, error: "Message must have content or media." });
+          }
+          return;
+        }
+
+        const normalizedRoom = room.replace(/^guest-guest-/, "guest-");
+        const branchEmail = socket.user?.branchEmail || payloadBranchEmail || "unknown";
+
+        // Resend / confirmation path
+        if (id) {
+          const relayedMessage = {
+            id,
+            guestId,
+            content,
+            media: media || null,
+            sender,
+            timestamp: new Date().toISOString(),
+          };
+
+          if (sender === "guest") {
+            if (onlineAdminsMap[branchEmail]) {
+              let delivered = false;
+              Object.entries(onlineAdminsMap[branchEmail]).forEach(([sessionTabId, socketId]) => {
+                const targetSocket = io.sockets.sockets.get(socketId);
+                const isReady = readyAdmins[branchEmail]?.[sessionTabId];
+
+                if (targetSocket && isReady) {
+                  targetSocket.emit("receiveMessage", relayedMessage);
+                  db.collection("messages").doc(id).update({ status: "delivered" }).catch(console.error);
+                  delivered = true;
+                } else {
+                  console.warn(`[SOCKET] ⏳ Skipping admin socket ${socketId} — not confirmed ready`);
+                }
+              });
+
+              if (!delivered) {
+                io.to(getRoomName("admin", branchEmail)).emit("receiveMessage", relayedMessage);
+                console.log(`[SOCKET] 📡 Fallback: delivering guest message to admin-${branchEmail}`);
+                await bufferUndelivered(branchEmail, relayedMessage);
+              }
+            } else {
+              io.to(getRoomName("admin", branchEmail)).emit("receiveMessage", relayedMessage);
+              await bufferUndelivered(branchEmail, relayedMessage);
+            }
+          } else if (sender === "branch") {
+            const guestSnap = await db
+              .collection("messages")
+              .where("guestId", "==", guestId)
+              .where("branchEmail", "==", branchEmail)
+              .where("sender", "==", "guest")
+              .limit(1)
+              .get();
+
+            if (guestSnap.empty) {
+              console.warn(`[SOCKET] Blocked branch relay—guest has not initiated chat.`, { guestId, branchEmail });
+              if (typeof callback === "function") {
+                return callback({ success: false, error: "Guest has not initiated chat." });
+              }
+              return;
+            }
+
+            socket.broadcast.to(normalizedRoom).emit("receiveMessage", relayedMessage);
+          }
+
+          if (typeof callback === "function") return callback({ success: true });
+          return;
+        }
+
+        // New message path
+        const newMessage = {
+          branchEmail,
+          guestId,
+          content: content || null,
+          media: media || null,
+          sender,
+          status: "sent",
+          seenByAdmin: false,
+          timestamp: new Date().toISOString(),
+        };
+
+        const ref = await db.collection("messages").add(newMessage);
+        const savedMessage = { id: ref.id, ...newMessage };
+
+        io.to(normalizedRoom).emit("receiveMessage", savedMessage);
+        io.to(getRoomName("admin", branchEmail)).emit("receiveMessage", savedMessage);
+
+        const unreadSnap = await db
+          .collection("messages")
+          .where("branchEmail", "==", branchEmail)
+          .where("guestId", "==", guestId)
+          .where("seenByAdmin", "==", false)
+          .get();
+        io.to(getRoomName("admin", branchEmail)).emit("updateUnread", {
+          guestId,
+          unreadCount: unreadSnap.size,
+        });
+
+        await db.collection("messages").doc(savedMessage.id).update({ status: "delivered" }).catch(console.error);
+
+        if (typeof callback === "function") {
+          callback({ success: true, message: savedMessage });
+        }
+      } catch (err) {
+        console.error("[SOCKET] sendMessage error:", err.message);
+        const errorMsg = err instanceof z.ZodError ? err.errors.map((e) => e.message).join(", ") : err.message;
+        if (typeof callback === "function") {
+          callback({ success: false, error: errorMsg });
+        } else {
+          socket.emit("messageError", { error: "Invalid message format or internal error" });
+        }
+      }
+    });
+
+    // ───────────────────────────────────────────────────────────────────
+    // markRead (Admin SDK version — no client SDK import needed)
+    // ───────────────────────────────────────────────────────────────────
+    socket.on("markRead", async ({ guestId }) => {
+      console.log("[SOCKET] 📨 markRead event received:", { guestId, branchEmail: socket.user.branchEmail });
+      try {
+        const branchEmail = socket.user.branchEmail;
+        if (!branchEmail || !guestId) {
+          console.log("[SOCKET] ❌ markRead missing branchEmail or guestId");
+          return;
+        }
+
+        // 1️⃣ Fetch unseen messages for this guest/branch
+        const snap = await db
+          .collection("messages")
+          .where("branchEmail", "==", branchEmail)
+          .where("guestId", "==", guestId)
+          .where("seenByAdmin", "==", false)
+          .get();
+
+        // 2️⃣ Batch mark them as seen
+        const batch = db.batch();
+        snap.forEach((doc) => batch.update(doc.ref, { seenByAdmin: true }));
+        await batch.commit();
+
+        // 3️⃣ Tell admins the count is now zero
+        io.to(`admin-${branchEmail}`).emit("updateUnread", { guestId, unreadCount: 0 });
+
+        // 4️⃣ Notify the guest that their messages have been seen
+        const guestRoom = getRoomName("guest", guestId);
+        io.to(guestRoom).emit("markRead", { guestId });
+        console.log(`[SOCKET] 📡 Emitted markRead to guest room: ${guestRoom}`);
+      } catch (err) {
+        console.error("[SOCKET] markRead error:", err.message);
+      }
+    });
+
+    socket.on("markSeen", async ({ room, messageId }) => {
+      if (!messageId) return;
+      try {
+        await db.collection("messages").doc(messageId).update({ status: "seen", seenByAdmin: true });
+        io.to(room).emit("messageSeen", { messageId, seenByAdmin: true });
+      } catch {}
+    });
+
+    // typing
+    socket.lastTyping = 0;
+    socket.on("typing", ({ room, sender, isTyping }) => {
+      const now = Date.now();
+      if (now - socket.lastTyping < 1000) return;
+      socket.lastTyping = now;
+
+      io.to(room).emit("typing", { room, sender, isTyping });
+
+      const branchEmail = socket.user.branchEmail;
+      if (branchEmail) {
+        const adminRoom = normalizeRoomName("admin", branchEmail);
+        io.to(adminRoom).emit("typing", { sender, isTyping, guestRoom: room });
+      }
+    });
+
+    // chatClosed (guest)
+    socket.on("chatClosed", ({ guestId }) => {
+      const canon = (id) =>
+        id?.toLowerCase().startsWith("guest-") ? id.toLowerCase() : `guest-${id?.toLowerCase()}`;
+      const incomingGuestId = canon(guestId);
+      const actualGuestId = canon(socket.user?.guestId);
+      const actualBranchEmail = socket.user?.branchEmail?.toLowerCase();
+
+      console.log("[SERVER] chatClosed event received:", {
+        incomingGuestId,
+        actualGuestId,
+        branchEmail: actualBranchEmail,
+      });
+
+      if (!incomingGuestId || incomingGuestId !== actualGuestId || !actualBranchEmail) {
+        console.warn("[SERVER] Invalid chatClosed payload – skipping:", {
+          incoming: incomingGuestId,
+          expected: actualGuestId,
+          branch: actualBranchEmail,
+        });
+        return;
+      }
+
+      const liveSet = branchGuests.get(actualBranchEmail) || new Set();
+      liveSet.delete(incomingGuestId);
+      if (liveSet.size) branchGuests.set(actualBranchEmail, liveSet);
+      else branchGuests.delete(actualBranchEmail);
+
+      const awaySet = branchAwayGuests.get(actualBranchEmail) || new Set();
+      awaySet.delete(incomingGuestId);
+      if (awaySet.size) branchAwayGuests.set(actualBranchEmail, awaySet);
+      else branchAwayGuests.delete(actualBranchEmail);
+
+      const guestRoom = getRoomName("guest", incomingGuestId);
+      const adminRoom = getRoomName("admin", actualBranchEmail);
+
+      io.to(guestRoom).emit("chatClosed", { message: "Chat has been closed by the guest." });
+      io.to(adminRoom).emit("chatClosed", { guestId: incomingGuestId });
+      console.log(`[BACKEND] Emitted chatClosed to admin room: ${adminRoom} for guestId=${incomingGuestId}`);
+
+      checkForStaleGuests(actualBranchEmail);
+    });
+
+    // ───────────────────────────────────────────────────────────────────
+    // E2EE Key Exchange Handlers
+    // ───────────────────────────────────────────────────────────────────
+    
+    /**
+     * Guest sends their public key - forward to admin/branch
+     */
+    socket.on("e2ee:public_key", async (data) => {
+      const { guestId, branchEmail, publicKey, role } = data;
+      
+      if (!guestId || !branchEmail || !publicKey) {
+        console.warn("[E2EE] Invalid public_key payload");
+        return;
+      }
+      
+      // Validate sender
+      const isGuest = socket.user?.role === "user";
+      const isAdmin = socket.user?.role === "admin" || socket.user?.role === "branchadmin";
+      
+      if (role === "guest" && !isGuest) {
+        console.warn("[E2EE] Guest key from non-guest socket rejected");
+        return;
+      }
+      
+      // Forward to admin room
+      const adminRoom = getRoomName("admin", branchEmail);
+      io.to(adminRoom).emit("e2ee:guest_key", {
+        guestId,
+        branchEmail,
+        publicKey,
+        timestamp: Date.now(),
+      });
+      
+      console.log(`[E2EE] Forwarded guest ${guestId} public key to ${branchEmail}`);
+    });
+    
+    /**
+     * Admin sends their public key - forward to guest
+     */
+    socket.on("e2ee:branch_key", async (data) => {
+      const { guestId, branchEmail, publicKey, role } = data;
+      
+      if (!guestId || !publicKey) {
+        console.warn("[E2EE] Invalid branch_key payload");
+        return;
+      }
+      
+      // Validate sender is admin
+      const isAdmin = socket.user?.role === "admin" || socket.user?.role === "branchadmin";
+      if (!isAdmin) {
+        console.warn("[E2EE] Branch key from non-admin socket rejected");
+        return;
+      }
+      
+      // Forward to guest room
+      const guestRoom = getRoomName("guest", guestId);
+      io.to(guestRoom).emit("e2ee:branch_key", {
+        guestId,
+        publicKey,
+        timestamp: Date.now(),
+      });
+      
+      console.log(`[E2EE] Forwarded branch public key to guest ${guestId}`);
+    });
+
+    // disconnect
+    socket.on("disconnect", () => {
+      if (isAdmin && branchEmail) {
+        if (onlineAdminsMap[branchEmail]) {
+          delete onlineAdminsMap[branchEmail][sessionTabId];
+          if (Object.keys(onlineAdminsMap[branchEmail]).length === 0) {
+            delete onlineAdminsMap[branchEmail];
+          }
+        }
+
+        const guestSet = branchGuests.get(branchEmail) || new Set();
+        guestSet.forEach((gId) => {
+          io.to(getRoomName("guest", gId)).emit("branchStatus", {
+            branchEmail,
+            online: false,
+            lastSeen: new Date().toISOString(),
+          });
+        });
+        console.log(`[SOCKET] 🔕 Emitted branchStatus OFFLINE to guests for ${branchEmail}:`, [...guestSet]);
+      }
+      handleDisconnect(socket);
+    });
+
+    // start heartbeat tracking
+    trackHeartbeat(socket);
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // TTL Cleanup Job: prune stale sockets
+  // ───────────────────────────────────────────────────────────────────────────
+  const STALE_MS = 10 * 60 * 1000;
+  setInterval(() => {
+    const now = Date.now();
+
+    for (const [socketId, client] of clients.entries()) {
+      if (now - client.lastSeen > STALE_MS) {
+        clients.delete(socketId);
+        console.log(`[TTL] Removed stale socket client ${socketId}`);
+
+        const staleSocket = io.sockets.sockets.get(socketId);
+        if (staleSocket) {
+          staleSocket.disconnect(true);
+          console.log(`[TTL] Force-disconnected stale socket ${socketId}`);
+        }
+
+        const { branchEmail, identifier: guestId, role } = client;
+
+        if (role === "user" && branchEmail) {
+          io.to(`admin-${branchEmail}`).emit("chatClosed", { guestId });
+          console.log(`[TTL] Emitted chatClosed for guest ${guestId} to admin ${branchEmail}`);
+
+          const guestSet = branchGuests.get(branchEmail);
+          if (guestSet) {
+            guestSet.delete(guestId);
+            if (guestSet.size) {
+              branchGuests.set(branchEmail, guestSet);
+              console.log(`[TTL] Pruned guest ${guestId} from branchGuests; remaining: ${[...guestSet]}`);
+            } else {
+              branchGuests.delete(branchEmail);
+              console.log(`[TTL] branchGuests empty for ${branchEmail}, deleted key`);
+            }
+          }
+        }
+
+        if (branchEmail) checkForStaleGuests(branchEmail);
+      }
+    }
+  }, STALE_MS);
+
+  return io;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HEARTBEAT TRACKING (per socket)
+// ─────────────────────────────────────────────────────────────────────────────
+const trackHeartbeat = (socket) => {
+  let missed = 0;
+
+  socket.on("heartbeat", async () => {
+    missed = 0;
+    socket.emit("heartbeat-ack");
+
+    if (socket.user && (socket.user.role === "admin" || socket.user.role === "branchadmin")) {
+      try { await touchBranchOnline(socket.user.branchEmail); } catch (_) {}
+    }
+  });
+
+  const interval = setInterval(() => {
+    if (socket.user && (socket.user.role === "admin" || socket.user.role === "branchadmin")) {
+      missed = 0;
+      return;
+    }
+
+    if (socket.__suppressDisconnect === true) {
+      missed = 0;
+      return;
+    }
+
+    missed++;
+
+    const shouldSkipDisconnect =
+      socket.__suppressDisconnect === true ||
+      socket.handshake?.headers?.["x-transcript-mode"] === "true" ||
+      global.__SENDING_TRANSCRIPT === true;
+
+    if (!shouldSkipDisconnect && missed >= MAX_MISSED_PINGS) {
+      console.warn(`[HEARTBEAT] Max missed pings reached (${missed}). Disconnecting socket ${socket.id}`);
+      socket.disconnect();
+    }
+  }, HEARTBEAT_INTERVAL);
+
+  socket.on("disconnect", () => clearInterval(interval));
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+const handleDisconnect = async (socket) => {
+  const client = clients.get(socket.id);
+  if (!client) return;
+
+  const { role, sessionTabId, tabId, room, identifier } = client;
+  const isAdmin = role === "admin" || role === "branchadmin";
+  const verifiedBranchEmail = socket.user?.branchEmail;
+
+  clients.delete(socket.id);
+
+  if (isAdmin && verifiedBranchEmail && sessionTabId) {
+    const sessions = sessionTracker.get(verifiedBranchEmail) || new Set();
+    sessions.delete(sessionTabId);
+    sessionTracker.set(verifiedBranchEmail, sessions);
+
+    const sessionKey = `${verifiedBranchEmail}::${sessionTabId}`;
+    if (heartbeatMap.has(sessionKey)) {
+      heartbeatMap.delete(sessionKey);
+      console.log(`[HEARTBEAT] Deleted heartbeat key ${sessionKey}`);
+    }
+    if (broadcastMap.has(sessionKey)) {
+      broadcastMap.delete(sessionKey);
+      console.log(`[HEARTBEAT] Deleted broadcast key ${sessionKey}`);
+    }
+    console.log(`[SOCKET] Cleaned heartbeat and broadcast entries for ${sessionKey}`);
+    console.log(`[SOCKET] Disconnect from tabId=${tabId}, sessionTabId=${sessionTabId}, branch=${verifiedBranchEmail}`);
+    console.log(`[SOCKET] Scheduling presence check for ${verifiedBranchEmail} in 30 seconds...`);
+
+    setTimeout(async () => {
+      const now = Date.now();
+      const THRESHOLD = 30_000;
+
+      for (const [key, ts] of heartbeatMap.entries()) {
+        if (now - ts >= THRESHOLD) {
+          heartbeatMap.delete(key);
+          console.log(`[HEARTBEAT] Deleted stale heartbeat key ${key}`);
+        }
+      }
+      for (const [key, ts] of broadcastMap.entries()) {
+        if (now - ts >= THRESHOLD) {
+          broadcastMap.delete(key);
+          console.log(`[HEARTBEAT] Deleted stale broadcast key ${key}`);
+        }
+      }
+
+      const onlineAdmins = onlineAdminsMap[verifiedBranchEmail] || {};
+      if (Object.keys(onlineAdmins).length === 0) {
+        sessionTracker.delete(verifiedBranchEmail);
+
+        // Delete Redis presence key to immediately mark branch offline
+        try {
+          const redisClient = getRedis();
+          await ensureRedisConnected(redisClient);
+          await redisClient.del(`${PRESENCE_PREFIX}${verifiedBranchEmail.toLowerCase()}`);
+          console.log(`[SOCKET] Deleted Redis presence key for ${verifiedBranchEmail}`);
+        } catch (e) {
+          console.warn(`[SOCKET] Failed to delete Redis presence key:`, e.message);
+        }
+
+        const branchDoc = db.collection("branchStatus").doc(verifiedBranchEmail.toLowerCase());
+        await branchDoc.set({ online: false, lastSeen: new Date().toISOString() }, { merge: true });
+        io.to(room).emit("branchStatus", {
+          branchEmail: verifiedBranchEmail,
+          online: false,
+          lastSeen: new Date().toISOString(),
+        });
+        console.log(`[SOCKET] ${verifiedBranchEmail} marked OFFLINE via presence check.`);
+      }
+    }, 30_000);
+  }
+
+  if (!isAdmin && verifiedBranchEmail && identifier) {
+    const guestSet = branchGuests.get(verifiedBranchEmail) || new Set();
+    if (guestSet.has(identifier)) {
+      guestSet.delete(identifier);
+
+      if (guestSet.size > 0) {
+        branchGuests.set(verifiedBranchEmail, guestSet);
+        console.log(`[GUEST PRESENCE] Guest ${identifier} disconnected — ${guestSet.size} still online`);
+        io.to(getRoomName("admin", verifiedBranchEmail)).emit("guestPresenceUpdate", [...guestSet]);
+      } else {
+        branchGuests.delete(verifiedBranchEmail);
+        console.log(`[GUEST PRESENCE] Last guest ${identifier} disconnected from ${verifiedBranchEmail}`);
+        io.to(getRoomName("admin", verifiedBranchEmail)).emit("guestPresenceUpdate", []);
+      }
+    } else {
+      console.warn(`[DISCONNECT] Guest ${identifier} not found in branchGuests — no action taken.`);
+    }
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+const getSocketIOInstance = () => {
+  if (!io) throw new Error("[SOCKET] Socket.IO not initialized");
+  return io;
+};
+
+module.exports = {
+  initializeSocket,
+  getSocketIOInstance,
+};
+

@@ -1,0 +1,53 @@
+﻿# -----------------------------------------------------------------------------
+# Caddyfile - STAGING
+# Replace staging.yourdomain.com with your actual staging domain.
+# Caddy auto-provisions a Let's Encrypt cert and enables HTTP/3 on 443/UDP.
+# -----------------------------------------------------------------------------
+
+# 1) Redirect plain HTTP -> HTTPS
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+# 2) HTTPS + HTTP/2 + HTTP/3
+staging.yourdomain.com {
+    tls {$ACME_EMAIL}               # Let's Encrypt via env var
+
+    protocols h1 h2 h3
+
+    encode gzip zstd
+
+    log {
+        output stdout
+        format json
+        level  INFO
+    }
+
+    # Advertise HTTP/3
+    header Alt-Svc `h3=":443"; ma=86400`
+
+    # Security headers
+    header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    header X-Content-Type-Options    "nosniff"
+    header X-Frame-Options           "DENY"
+
+    # -- API & WebSocket -> Node backend ---------------------------------------
+    @backend path /api/* /socket.io/*
+    reverse_proxy @backend http://node:5000 {
+        transport http {
+            versions h2 h1
+        }
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-For   {remote_host}
+        header_up X-Real-IP         {remote_host}
+    }
+
+    # -- Frontend static (served from CDN or separate container on port 3000) -
+    @frontend not path /api/* /socket.io/*
+    reverse_proxy @frontend http://frontend:3000 {
+        header_up X-Forwarded-Proto https
+        transport http {
+            versions h2 h1
+        }
+    }
+}

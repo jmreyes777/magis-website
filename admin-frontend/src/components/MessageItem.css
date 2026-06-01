@@ -1,0 +1,39 @@
+/* src/components/MessageItem.css */
+
+/* Message Container */
+.message-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  font-size: 14px;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+
+/* ✅ Branch (admin's own messages) — RIGHT, BLUE */
+.message-item.branch {
+  justify-content: flex-end;
+}
+.message-item.branch .message-content {
+  background-color: #007bff;
+  color: white;
+  border-bottom-right-radius: 0;
+}
+
+/* ✅ Guest (received by admin) — LEFT, GRAY */
+.message-item.guest {
+  justify-content: flex-start;
+}
+.message-item.guest .message-content {
+  background-color: #f1f1f1;
+  color: #333;
+  border-bottom-left-radius: 0;
+}
+
+/* Common Bubble Style */
+.message-content {
+  padding: 10px;
+  border-radius: 8px;
+  line-height: 1.5;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}

@@ -1,0 +1,968 @@
+[{
+  "_id": {
+    "$oid": "671da3036f823d5152c633d3"
+  },
+  "name": "Dolores",
+  "location": {
+    "lat": 15.029456552005117,
+    "lng": 120.69214098688147
+  },
+  "address": "129 B. Mendoza, San Fernando, 2000 Pampanga, Philippines",
+  "phone": "123456789",
+  "email": "jm.reyes@magisgold.com",
+  "hasJewelryDisplay": true,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3036f823d5152c633d4"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3036f823d5152c633d5"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3036f823d5152c633d6"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3036f823d5152c633d7"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3036f823d5152c633d8"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3036f823d5152c633d9"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3036f823d5152c633da"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:18:43.581Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-23T15:58:39.912Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/2f33911e-b0a4-4905-96b0-904e236444d7"
+},
+{
+  "_id": {
+    "$oid": "671da3426f823d5152c633fa"
+  },
+  "name": "Mabalacat",
+  "location": {
+    "lat": 15.222790206740097,
+    "lng": 120.57404391467571
+  },
+  "address": "6HFF+4J7, Gil Puyat Ave, Mabalacat, Pampanga, Philippines",
+  "phone": "123456789",
+  "email": "mabt@gmail.com",
+  "hasJewelryDisplay": true,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3426f823d5152c633fb"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3426f823d5152c633fc"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3426f823d5152c633fd"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3426f823d5152c633fe"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3426f823d5152c633ff"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3426f823d5152c63400"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da3426f823d5152c63401"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:19:46.523Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:53.995Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671da3426f823d5152c633fa"
+},
+{
+  "_id": {
+    "$oid": "671da38e6f823d5152c6342f"
+  },
+  "name": "Balibago",
+  "location": {
+    "lat": 15.166741419988313,
+    "lng": 120.58403044939041
+  },
+  "address": "23 Fields Ave, Angeles, Pampanga, Philippines",
+  "phone": "1234567890",
+  "email": "balibago@gmail.com",
+  "hasJewelryDisplay": false,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da38e6f823d5152c63430"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da38e6f823d5152c63431"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da38e6f823d5152c63432"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da38e6f823d5152c63433"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da38e6f823d5152c63434"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da38e6f823d5152c63435"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da38e6f823d5152c63436"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:21:02.179Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.036Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671da38e6f823d5152c6342f"
+},
+{
+  "_id": {
+    "$oid": "671da4256f823d5152c634ac"
+  },
+  "name": "Pandacaqui",
+  "location": {
+    "lat": 15.17711680834547,
+    "lng": 120.64627352118399
+  },
+  "address": "District 9 Block 72 Lot 1, Mexico, Pampanga, Philippines",
+  "phone": "1234567890",
+  "email": "pandacaqui@gmail.com",
+  "hasJewelryDisplay": false,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da4256f823d5152c634ad"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da4256f823d5152c634ae"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da4256f823d5152c634af"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da4256f823d5152c634b0"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da4256f823d5152c634b1"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da4256f823d5152c634b2"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da4256f823d5152c634b3"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:23:33.754Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.068Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671da4256f823d5152c634ac"
+},
+{
+  "_id": {
+    "$oid": "671da50b6f823d5152c6358d"
+  },
+  "name": "Madapdap",
+  "location": {
+    "lat": 15.224534576224803,
+    "lng": 120.6118556857109
+  },
+  "address": "San Fernando Ave, Mabalacat, Pampanga, Philippines",
+  "phone": "1234567890",
+  "email": "madapdap@gmail.com",
+  "hasJewelryDisplay": false,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da50b6f823d5152c6358e"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da50b6f823d5152c6358f"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da50b6f823d5152c63590"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da50b6f823d5152c63591"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da50b6f823d5152c63592"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da50b6f823d5152c63593"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da50b6f823d5152c63594"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:27:23.490Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.098Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671da50b6f823d5152c6358d"
+},
+{
+  "_id": {
+    "$oid": "671da5fd6f823d5152c63661"
+  },
+  "name": "Rizal",
+  "location": {
+    "lat": 15.1391974,
+    "lng": 120.5877128
+  },
+  "address": "Rizal St, Angeles, Pampanga, Philippines",
+  "phone": "123456789",
+  "email": "rizal@gmail.com",
+  "hasJewelryDisplay": true,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da5fd6f823d5152c63662"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da5fd6f823d5152c63663"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da5fd6f823d5152c63664"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da5fd6f823d5152c63665"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da5fd6f823d5152c63666"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da5fd6f823d5152c63667"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da5fd6f823d5152c63668"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:31:25.913Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.131Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671da5fd6f823d5152c63661"
+},
+{
+  "_id": {
+    "$oid": "671da6e16f823d5152c6373a"
+  },
+  "name": "Dau",
+  "location": {
+    "lat": 15.17919381383243,
+    "lng": 120.58674707059168
+  },
+  "address": "167b MacArthur Hwy, Mabalacat, 2010 Pampanga, Philippines",
+  "phone": "1234567890",
+  "email": "dau@gmail.com",
+  "hasJewelryDisplay": false,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da6e16f823d5152c6373b"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da6e16f823d5152c6373c"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da6e16f823d5152c6373d"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da6e16f823d5152c6373e"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da6e16f823d5152c6373f"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da6e16f823d5152c63740"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da6e16f823d5152c63741"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:35:13.302Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.162Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671da6e16f823d5152c6373a"
+},
+{
+  "_id": {
+    "$oid": "671da7866f823d5152c63846"
+  },
+  "name": "Don Gueco",
+  "location": {
+    "lat": 15.1679232,
+    "lng": 120.5927665
+  },
+  "address": "Aniceto Gueco St Mountain View, Angeles, 2009 Pampanga, Philippines",
+  "phone": "1234567890",
+  "email": "dongueco@gmail.com",
+  "hasJewelryDisplay": true,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da7866f823d5152c63847"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da7866f823d5152c63848"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da7866f823d5152c63849"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da7866f823d5152c6384a"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da7866f823d5152c6384b"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da7866f823d5152c6384c"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671da7866f823d5152c6384d"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T02:37:58.529Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.192Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671da7866f823d5152c63846"
+},
+{
+  "_id": {
+    "$oid": "671ddcdd6f823d5152c63d63"
+  },
+  "name": "Novaliches 1",
+  "location": {
+    "lat": 14.7216314,
+    "lng": 121.038738
+  },
+  "address": "P2CQ+MF5, Buenamar Dr, Novaliches, Quezon City, Metro Manila, Philippines",
+  "phone": "1234567890",
+  "email": "nova1@gmail.com",
+  "hasJewelryDisplay": true,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddcdd6f823d5152c63d64"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddcdd6f823d5152c63d65"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddcdd6f823d5152c63d66"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddcdd6f823d5152c63d67"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddcdd6f823d5152c63d68"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddcdd6f823d5152c63d69"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddcdd6f823d5152c63d6a"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T06:25:33.081Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.222Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671ddcdd6f823d5152c63d63"
+},
+{
+  "_id": {
+    "$oid": "671ddd1a6f823d5152c63dfa"
+  },
+  "name": "Novaliches 2",
+  "location": {
+    "lat": 14.7242975,
+    "lng": 121.0392547
+  },
+  "address": "P2FQ+PP6, Susano Rd, Novaliches, Quezon City, 1123 Metro Manila, Philippines",
+  "phone": "1234567890",
+  "email": "nova2@gmail.com",
+  "hasJewelryDisplay": false,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddd1a6f823d5152c63dfb"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddd1a6f823d5152c63dfc"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddd1a6f823d5152c63dfd"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddd1a6f823d5152c63dfe"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddd1a6f823d5152c63dff"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddd1a6f823d5152c63e00"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671ddd1a6f823d5152c63e01"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T06:26:34.789Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.253Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671ddd1a6f823d5152c63dfa"
+},
+{
+  "_id": {
+    "$oid": "671de46e6f823d5152c63e9f"
+  },
+  "name": "N.S Amoranto",
+  "location": {
+    "lat": 14.629375562895614,
+    "lng": 120.99514517950959
+  },
+  "address": "260 N.S. Amoranto Sr. St, La Loma, Quezon City, 1114 Metro Manila, Philippines",
+  "phone": "1234567890",
+  "email": "amoranto@gmail.com",
+  "hasJewelryDisplay": true,
+  "schedule": [
+    {
+      "day": "Monday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671de46e6f823d5152c63ea0"
+      }
+    },
+    {
+      "day": "Tuesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671de46e6f823d5152c63ea1"
+      }
+    },
+    {
+      "day": "Wednesday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671de46e6f823d5152c63ea2"
+      }
+    },
+    {
+      "day": "Thursday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671de46e6f823d5152c63ea3"
+      }
+    },
+    {
+      "day": "Friday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671de46e6f823d5152c63ea4"
+      }
+    },
+    {
+      "day": "Saturday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671de46e6f823d5152c63ea5"
+      }
+    },
+    {
+      "day": "Sunday",
+      "open": true,
+      "openTime": "09:00",
+      "closeTime": "17:00",
+      "_id": {
+        "$oid": "671de46e6f823d5152c63ea6"
+      }
+    }
+  ],
+  "picture": null,
+  "createdAt": {
+    "$date": "2024-10-27T06:57:50.883Z"
+  },
+  "updatedAt": {
+    "$date": "2024-11-24T03:18:54.285Z"
+  },
+  "__v": 0,
+  "spaceId": "spaces/671de46e6f823d5152c63e9f"
+}]

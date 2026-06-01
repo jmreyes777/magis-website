@@ -1,0 +1,742 @@
+/* Jewelry-Sales-User-Page.css - Premium Jewelry Informational Design */
+
+/* ── Hero Section - Premium & Trustworthy ───────────────────────────────── */
+.jewelry-hero {
+  min-height: 500px;
+  background: linear-gradient(135deg, rgba(26, 26, 46, 0.92) 0%, rgba(31, 41, 55, 0.88) 100%),
+              linear-gradient(135deg, #1a1a2e 0%, #2d3748 100%);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jewelry-hero-content {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  padding: 60px 20px;
+  max-width: 1000px;
+}
+
+.jewelry-hero-title {
+  font-size: 2.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 16px;
+  line-height: 1.2;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.jewelry-hero-subtitle {
+  font-size: 1.15rem;
+  color: #e5e7eb;
+  margin-bottom: 32px;
+  line-height: 1.7;
+  max-width: 750px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.jewelry-hero-cta-container {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.btn-primary-cta {
+  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
+  color: #1a1a2e;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(212, 168, 83, 0.3), 0 2px 8px rgba(212, 168, 83, 0.2);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary-cta:hover {
+  background: linear-gradient(135deg, #c9a227 0%, #b8941f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(212, 168, 83, 0.4), 0 3px 12px rgba(212, 168, 83, 0.25);
+}
+
+.btn-secondary-cta {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-secondary-cta:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-2px);
+}
+
+/* ── Section Styling - Premium & Balanced ───────────────────────────────── */
+.jewelry-section {
+  padding: 80px 20px;
+}
+
+.jewelry-section-alt {
+  background: linear-gradient(135deg, #faf8f5 0%, #f5f3f0 100%);
+}
+
+.jewelry-calculator-container {
+  margin-top: 40px;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.jewelry-section-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.jewelry-section-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 12px;
+}
+
+.jewelry-section-subtitle {
+  font-size: 1rem;
+  color: #6b7280;
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* ── Jewelry Types Grid - Premium Cards ─────────────────────────────────── */
+.jewelry-types-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.jewelry-type-card {
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 16px;
+  padding: 32px 24px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 200px;
+}
+
+.jewelry-type-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(212, 168, 83, 0.2), 0 3px 8px rgba(212, 168, 83, 0.1);
+  border-color: rgba(212, 168, 83, 0.4);
+}
+
+.jewelry-type-image {
+  max-height: 100px;
+  max-width: 100px;
+  object-fit: contain;
+  margin-bottom: 16px;
+  transition: transform 0.3s ease;
+}
+
+.jewelry-type-card:hover .jewelry-type-image {
+  transform: scale(1.1);
+}
+
+.jewelry-type-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 8px;
+}
+
+.jewelry-type-description {
+  font-size: 0.85rem;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+/* ── FAQ Accordion - Premium & Accessible ───────────────────────────────── */
+.jewelry-faq-container {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.jewelry-accordion {
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 14px;
+  padding: 24px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  margin-bottom: 16px;
+}
+
+.jewelry-accordion[open] {
+  box-shadow: 0 6px 20px rgba(212, 168, 83, 0.2), 0 3px 8px rgba(212, 168, 83, 0.1);
+}
+
+.jewelry-accordion summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  padding-right: 20px;
+}
+
+.jewelry-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.jewelry-accordion summary::after {
+  content: '+';
+  font-size: 1.5rem;
+  color: #d4a853;
+  font-weight: 300;
+  transition: all 0.2s ease;
+}
+
+.jewelry-accordion[open] summary::after {
+  content: '−';
+}
+
+.jewelry-accordion-content {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(212, 168, 83, 0.15);
+}
+
+.jewelry-accordion-text {
+  font-size: 0.95rem;
+  color: #4b5563;
+  line-height: 1.7;
+}
+
+/* ── Layaway Options Grid ──────────────────────────────────────────────── */
+.jewelry-layaway-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.jewelry-layaway-card {
+  background: linear-gradient(135deg, rgba(212, 168, 83, 0.08) 0%, rgba(212, 168, 83, 0.03) 100%);
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+}
+
+.jewelry-layaway-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+}
+
+.jewelry-layaway-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.jewelry-layaway-list li {
+  padding: 8px 0;
+  padding-left: 24px;
+  position: relative;
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.jewelry-layaway-list li::before {
+  content: '•';
+  position: absolute;
+  left: 8px;
+  color: #d4a853;
+  font-weight: bold;
+}
+
+.jewelry-layaway-example {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.jewelry-layaway-example strong {
+  color: #1a1a2e;
+}
+
+/* ── Layaway Calculator - Premium Design ───────────────────────────────── */
+.jewelry-calculator {
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 14px;
+  padding: 28px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.jewelry-calculator-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.jewelry-calculator-input-group {
+  flex: 1;
+}
+
+.jewelry-calculator-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.jewelry-calculator-input {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 168, 83, 0.3);
+  background: #ffffff;
+  font-size: 1rem;
+  color: #1f2937;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.jewelry-calculator-input:focus {
+  outline: none;
+  border-color: rgba(212, 168, 83, 0.5);
+  box-shadow: 0 0 0 4px rgba(212, 168, 83, 0.1);
+}
+
+.jewelry-calculator-options {
+  display: flex;
+  gap: 12px;
+}
+
+.jewelry-calculator-btn {
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  flex: 1;
+}
+
+.jewelry-calculator-btn.active {
+  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
+  color: #1a1a2e;
+  box-shadow: 0 3px 12px rgba(212, 168, 83, 0.3);
+}
+
+.jewelry-calculator-btn.inactive {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+}
+
+.jewelry-calculator-btn:hover {
+  transform: translateY(-1px);
+}
+
+.jewelry-calculator-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.jewelry-calculator-result-card {
+  background: linear-gradient(135deg, rgba(212, 168, 83, 0.08) 0%, rgba(212, 168, 83, 0.03) 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid rgba(212, 168, 83, 0.15);
+}
+
+.jewelry-calculator-result-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #6b7280;
+  margin-bottom: 12px;
+}
+
+.jewelry-calculator-result-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+}
+
+.jewelry-calculator-result-item {
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.jewelry-calculator-result-item strong {
+  color: #1a1a2e;
+}
+
+.jewelry-calculator-disclaimer {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-top: 12px;
+  font-style: italic;
+}
+
+/* ── Terms Cards - Organized & Readable ─────────────────────────────────── */
+.jewelry-terms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+  gap: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.jewelry-terms-card {
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 14px;
+  padding: 28px 24px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.jewelry-terms-item {
+  padding: 12px 0;
+  font-size: 0.95rem;
+  color: #374151;
+  line-height: 1.7;
+}
+
+.jewelry-terms-item strong {
+  color: #1a1a2e;
+}
+
+/* ── CTA Banner - Strong Conversion ─────────────────────────────────────── */
+.jewelry-cta-banner {
+  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.jewelry-cta-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 12px;
+}
+
+.jewelry-cta-subtitle {
+  font-size: 1rem;
+  color: #1a1a2e;
+  margin-bottom: 32px;
+  opacity: 0.9;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.6;
+}
+
+.jewelry-cta-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.jewelry-cta-primary {
+  background: #1a1a2e;
+  color: #d4a853;
+  padding: 14px 32px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.jewelry-cta-primary:hover {
+  background: #2d2d42;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+
+.jewelry-cta-secondary {
+  background: #ffffff;
+  color: #1a1a2e;
+  padding: 14px 32px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  border: none;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.jewelry-cta-secondary:hover {
+  background: rgba(255, 255, 255, 0.9);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Live Selling Section ───────────────────────────────────────────────── */
+.jewelry-live-section {
+  padding: 80px 20px;
+}
+
+.jewelry-live-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.jewelry-live-title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin-bottom: 12px;
+}
+
+.jewelry-live-subtitle {
+  font-size: 1rem;
+  color: #6b7280;
+  max-width: 700px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.jewelry-live-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 16px;
+  padding: 32px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Mobile Responsiveness ─────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .jewelry-hero {
+    min-height: 450px;
+  }
+
+  .jewelry-hero-title {
+    font-size: 2.25rem;
+  }
+
+  .jewelry-hero-subtitle {
+    font-size: 1.05rem;
+  }
+
+  .jewelry-section {
+    padding: 64px 20px;
+  }
+
+  .jewelry-section-title {
+    font-size: 1.75rem;
+  }
+
+  .jewelry-types-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 20px;
+  }
+
+  .jewelry-calculator-header {
+    flex-direction: column;
+  }
+
+  .jewelry-calculator-options {
+    flex-direction: column;
+  }
+
+  .jewelry-terms-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .jewelry-hero {
+    min-height: 400px;
+  }
+
+  .jewelry-hero-content {
+    padding: 40px 16px;
+  }
+
+  .jewelry-hero-title {
+    font-size: 1.75rem;
+  }
+
+  .jewelry-hero-subtitle {
+    font-size: 1rem;
+    margin-bottom: 24px;
+  }
+
+  .jewelry-hero-cta-container {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .btn-primary-cta,
+  .btn-secondary-cta {
+    width: 100%;
+    padding: 12px 24px;
+  }
+
+  .jewelry-section {
+    padding: 48px 16px;
+  }
+
+  .jewelry-section-title {
+    font-size: 1.5rem;
+  }
+
+  .jewelry-section-subtitle {
+    font-size: 0.95rem;
+  }
+
+  .jewelry-section-header {
+    margin-bottom: 32px;
+  }
+
+  .jewelry-types-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .jewelry-type-card {
+    padding: 24px 20px;
+    min-height: 180px;
+  }
+
+  .jewelry-type-image {
+    max-height: 80px;
+    max-width: 80px;
+  }
+
+  .jewelry-type-title {
+    font-size: 1rem;
+  }
+
+  .jewelry-type-description {
+    font-size: 0.8rem;
+  }
+
+  .jewelry-accordion {
+    padding: 20px;
+  }
+
+  .jewelry-layaway-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .jewelry-calculator {
+    padding: 24px 20px;
+  }
+
+  .jewelry-calculator-results {
+    grid-template-columns: 1fr;
+  }
+
+  .jewelry-terms-card {
+    padding: 24px 20px;
+  }
+
+  .jewelry-cta-banner {
+    padding: 56px 16px;
+  }
+
+  .jewelry-cta-title {
+    font-size: 1.5rem;
+  }
+
+  .jewelry-cta-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .jewelry-cta-primary,
+  .jewelry-cta-secondary {
+    width: 100%;
+  }
+
+  .jewelry-live-section {
+    padding: 48px 16px;
+  }
+
+  .jewelry-live-container {
+    padding: 24px 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .jewelry-hero {
+    min-height: 350px;
+  }
+
+  .jewelry-hero-title {
+    font-size: 1.5rem;
+  }
+
+  .jewelry-section-title {
+    font-size: 1.35rem;
+  }
+
+  .jewelry-types-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .jewelry-type-card {
+    min-height: 160px;
+  }
+}

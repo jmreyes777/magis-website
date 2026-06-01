@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Admin Dashboard - Secure Access" />
+
+    <!-- 🔒 Disable native storage and expose safe wrappers -->
+    <script nonce="xyz123" src="/static/js/safe-storage-patch.js"></script>
+
+    <!-- 🔒 Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self' 'nonce-xyz123' https://www.google.com https://www.gstatic.com https://maps.googleapis.com https://maps.gstatic.com https://apis.google.com https://identitytoolkit.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
+      script-src-elem 'self' 'nonce-xyz123' https://www.google.com https://www.gstatic.com https://maps.googleapis.com https://apis.google.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
+      connect-src 'self' http://localhost:5000 https://localhost:5000 ws://localhost:5000 wss://localhost:5000 wss://magis-website.firebaseapp.com https://identitytoolkit.googleapis.com https://firestore.googleapis.com https://maps.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/;
+      frame-src 'self' https://magis-website.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.google.com/recaptcha/;
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com;
+      style-src-attr 'self' 'unsafe-inline';
+      img-src 'self' data: https://maps.googleapis.com https://maps.gstatic.com https://storage.googleapis.com;
+      font-src 'self' https://fonts.gstatic.com;
+      object-src 'none';
+      base-uri 'self';
+      form-action 'self';
+      upgrade-insecure-requests;
+    " />
+
+      <!-- Reposition the reCAPTCHA badge so it doesn’t block the send button -->
+      <style nonce="xyz123">
+        /* Move & scale down the reCAPTCHA badge */
+        .grecaptcha-badge {
+          bottom: 10px !important;
+          top:    auto !important;
+          left:   10px !important;
+          right:  auto !important;
+          transform: scale(0.6) !important;
+          transform-origin: bottom left !important;
+        }
+      </style>
+
+      <!-- ✅ Google Maps API (key injected at build time) -->
+      <script
+        nonce="xyz123"
+        async
+        defer
+        src="https://maps.googleapis.com/maps/api/js?key=%REACT_APP_GOOGLE_MAPS_API_KEY%&v=weekly&loading=async&libraries=places,marker,geometry"
+      ></script>
+
+
+    <!-- ✅ Maps error handler -->
+    <script nonce="xyz123" src="/static/js/maps-error-handler.js"></script>
+
+    <!-- ✅ Load Google reCAPTCHA v3 -->
+    <script
+      nonce="xyz123"
+      async
+      defer
+      src="https://www.google.com/recaptcha/api.js?render=%REACT_APP_RECAPTCHA_SITE_KEY%"
+    ></script>
+
+    <!-- ✅ Expose reCAPTCHA key for handler -->
+    <script nonce="xyz123">
+      window.RECAPTCHA_KEY = "%REACT_APP_RECAPTCHA_SITE_KEY%";
+    </script>
+
+    <!-- ✅ reCAPTCHA execution & refresh logic -->
+    <script nonce="xyz123" src="/static/js/recaptcha-handler.js"></script>
+  </head>
+
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>

@@ -1,0 +1,516 @@
+/* src/index.css */
+
+/* ✅ Tailwind CSS */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+   Admin Brand Color System
+   ============================================================================ */
+
+:root {
+  --brand-primary: #f1c40f;
+  --brand-primary-hover: #eab308;
+  --brand-primary-dark: #d97706;
+  --brand-focus: #f59e0b;
+  --brand-focus-rgba: rgba(245, 158, 11, 0.2);
+  --brand-secondary: #81c784;
+  --brand-accent: #ff6600;
+}
+
+/* ============================================================================
+   Brand Color Overrides for Tailwind Classes
+   ============================================================================ */
+
+/* Override header background - gray-800 to brand primary */
+.bg-gray-800 {
+  background-color: var(--brand-primary) !important;
+}
+
+/* Override sidebar background - gray-100 to light brand tint */
+.bg-gray-100 {
+  background-color: var(--brand-focus-rgba) !important;
+}
+
+/* Override selected state - blue-100 to brand tint */
+.bg-blue-100 {
+  background-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Override hover states - gray-200 to brand tint */
+.hover\:bg-gray-200:hover {
+  background-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+/* Override blue-500/600 to brand primary */
+.bg-blue-500,
+.send-btn:not(:disabled) {
+  background-color: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+}
+
+.bg-blue-600,
+.send-btn:not(:disabled):hover {
+  background-color: var(--brand-primary-hover) !important;
+  border-color: var(--brand-primary-dark) !important;
+}
+
+.hover\:bg-blue-600:hover {
+  background-color: var(--brand-primary-hover) !important;
+}
+
+/* Override text colors for brand consistency */
+.text-blue-500 {
+  color: var(--brand-primary) !important;
+}
+
+/* Override focus states */
+.focus\:ring-blue-500:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  --tw-ring-color: var(--brand-focus) !important;
+  border-color: var(--brand-focus) !important;
+  box-shadow: 0 0 0 3px var(--brand-focus-rgba) !important;
+}
+
+/* Override border colors for selected/active states */
+.border-blue-500 {
+  border-color: var(--brand-primary) !important;
+}
+
+/* Override red-500 for unread badges to brand primary for consistency */
+.bg-red-500 {
+  background-color: var(--brand-primary) !important;
+}
+
+/* Override gray colors for better brand consistency */
+.bg-gray-50 {
+  background-color: #f9fafb !important;
+}
+
+.bg-gray-200 {
+  background-color: #f3f4f6 !important;
+}
+
+/* Override selected conversation background */
+.border-l-4.border-blue-500 {
+  border-left-color: var(--brand-primary) !important;
+}
+
+/* Override border colors */
+.border-gray-200 {
+  border-color: var(--border-color) !important;
+}
+
+/* Override text colors */
+.text-gray-500 {
+  color: var(--text-secondary) !important;
+}
+
+.text-gray-600 {
+  color: var(--text-secondary) !important;
+}
+
+.text-gray-700 {
+  color: var(--text-primary) !important;
+}
+
+/* ============================================================================
+   Enhanced Admin Dashboard Styling
+   ============================================================================ */
+
+/* ✅ General Body Styling */
+body {
+  margin: 0;
+  font-family: 'Nunito Sans', 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f9fafb;
+  color: #111827;
+  overflow-x: hidden;
+}
+
+/* ✅ Prevent Text Selection on UI Elements */
+button, a, input, select {
+  user-select: none;
+  outline: none;
+}
+
+/* ✅ Hide Scrollbars for Better UX */
+body::-webkit-scrollbar,
+.chat-messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+body::-webkit-scrollbar-thumb,
+.chat-messages::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+body::-webkit-scrollbar-thumb:hover,
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* ✅ Ensure Code Formatting */
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
+  background: #f4f4f4;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+/* ✅ Tailwind Custom Components with Brand Colors */
+@layer components {
+  .btn-primary {
+    @apply py-2 px-4 rounded-md transition;
+    background-color: var(--brand-primary) !important;
+    border-color: var(--brand-primary) !important;
+    color: #111827 !important;
+    font-weight: 600;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--brand-primary-hover) !important;
+    border-color: var(--brand-primary-dark) !important;
+  }
+
+  .btn-danger {
+    @apply py-2 px-4 rounded-md transition;
+    background-color: #ef4444;
+    color: white;
+  }
+
+  .btn-danger:hover {
+    background-color: #dc2626;
+  }
+}
+
+/* ============================================================================
+   Chat Dashboard Specific Styling
+   ============================================================================ */
+
+/* Conversation list items */
+.chat-item {
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.chat-item:hover {
+  background-color: var(--brand-focus-rgba);
+  border-color: var(--border-color);
+}
+
+.chat-item.active {
+  background-color: var(--brand-focus-rgba);
+  border-left: 3px solid var(--brand-primary);
+}
+
+/* Message bubbles */
+.message-item {
+  max-width: 70%;
+}
+
+/* Send button enhancement */
+.send-btn {
+  transition: all 0.2s ease;
+  font-weight: 600;
+}
+
+.send-btn:not(:disabled):hover {
+  box-shadow: 0 4px 14px rgba(241, 196, 15, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Input field enhancement */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  transition: all 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--brand-focus) !important;
+  box-shadow: 0 0 0 3px var(--brand-focus-rgba) !important;
+}
+
+/* ============================================================================
+   Table Styling
+   ============================================================================ */
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  background-color: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 2px solid #e5e7eb;
+  color: #111827;
+}
+
+table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  color: #111827;
+}
+
+table tbody tr:hover {
+  background-color: var(--brand-focus-rgba);
+}
+
+table tbody tr.selected {
+  background-color: var(--brand-focus-rgba);
+  border-left: 3px solid var(--brand-primary);
+}
+
+/* ============================================================================
+   Form Styling
+   ============================================================================ */
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-color: white;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--brand-focus);
+  box-shadow: 0 0 0 3px var(--brand-focus-rgba);
+}
+
+/* ============================================================================
+   Card/Panel Styling
+   ============================================================================ */
+
+.admin-card {
+  background-color: white;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.admin-card:hover {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.12);
+}
+
+/* ============================================================================
+   Badge/Status Styling
+   ============================================================================ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background-color: #f3f4f6;
+  color: #111827;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge.online {
+  background-color: rgba(129, 199, 132, 0.2);
+  color: var(--brand-secondary);
+}
+
+.badge.offline {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+}
+
+.badge.unread {
+  background-color: var(--brand-primary);
+  color: #111827;
+}
+
+/* ============================================================================
+   Analytics Components Styling
+   ============================================================================ */
+
+/* Enhanced Metrics Cards */
+.metrics-card-enhanced {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.metrics-card-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background-color: var(--brand-primary);
+}
+
+.metrics-card-enhanced:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Metrics Card */
+.metrics-card {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.metrics-card:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+/* Analytics Table */
+.analytics-table-container {
+  background-color: var(--surface-primary);
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.analytics-table thead th {
+  background-color: var(--surface-tertiary);
+  font-weight: 600;
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 2px solid var(--border-medium);
+  color: var(--text-primary);
+}
+
+.analytics-table tbody tr {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.analytics-table tbody tr:hover {
+  background-color: var(--brand-focus-rgba);
+}
+
+.analytics-table tbody tr.selected {
+  background-color: var(--brand-focus-rgba);
+  border-left: 3px solid var(--brand-primary);
+}
+
+.analytics-table td {
+  padding: 12px 16px;
+  color: var(--text-primary);
+}
+
+.analytics-table th.cursor-pointer {
+  cursor: pointer;
+  user-select: none;
+}
+
+.analytics-table th.cursor-pointer:hover {
+  background-color: var(--brand-focus-rgba);
+}
+
+/* Date Range Picker */
+.date-range-picker {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Admin Navigation */
+.admin-navigation {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.nav-link {
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.nav-link-active {
+  color: #111827;
+  background-color: var(--brand-primary);
+  font-weight: 600;
+}
+
+/* Chart Container */
+.recharts-wrapper {
+  background-color: var(--surface-primary);
+}
+
+.recharts-tooltip {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-medium);
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+}
+
+.recharts-legend-item {
+  font-size: 0.85rem;
+  font-weight: 500;
+}

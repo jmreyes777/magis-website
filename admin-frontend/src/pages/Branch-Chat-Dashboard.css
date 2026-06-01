@@ -1,0 +1,80 @@
+/**
+ * Data Loss Prevention (DLP) CSS
+ * Philippine Data Privacy Act of 2012 (RA 10173) Compliance
+ * Prevents copy/paste/screenshot of sensitive chat content
+ */
+
+/* Prevent text selection in chat messages */
+.chat-messages {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Prevent selection of individual messages */
+.chat-messages .message-item {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  pointer-events: none; /* Prevent most interactions */
+}
+
+/* Allow pointer events for links if any */
+.chat-messages .message-item a {
+  pointer-events: auto;
+}
+
+/* Watermark overlay - subtle background text */
+.chat-messages::before {
+  content: "CONFIDENTIAL • DPA 2012 PROTECTED";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  font-size: 2rem;
+  color: rgba(0, 0, 0, 0.03);
+  font-weight: bold;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 0;
+}
+
+/* Context menu prevention handled in JavaScript */
+/* Drag prevention handled in JavaScript */
+
+/* Print styles - hide chat content when printing */
+@media print {
+  .chat-messages {
+    display: none !important;
+  }
+  
+  .chat-messages::after {
+    content: "Chat content hidden for security";
+    display: block;
+    padding: 20px;
+    text-align: center;
+    color: #999;
+  }
+}
+
+/* Additional security for images in chat */
+.chat-messages img {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* Disable touch callout on mobile */
+.chat-messages {
+  -webkit-touch-callout: none !important;
+}
+
+/* Prevent focus on messages */
+.chat-messages .message-item:focus {
+  outline: none;
+}

@@ -1,0 +1,32 @@
+﻿version: "3.8"
+
+# -----------------------------------------------------------------------------
+# docker-compose.prod.yaml - PRODUCTION OVERRIDE
+# Usage: docker compose -f docker-compose.yaml -f docker-compose.prod.yaml up -d
+# -----------------------------------------------------------------------------
+
+services:
+  node:
+    container_name: magis-node-prod
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+
+  caddy:
+    container_name: magis-caddy-prod
+    image: caddy:2-alpine
+    environment:
+      - ACME_EMAIL=${ACME_EMAIL}    # set in your CI/CD secrets or shell
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - caddy_logs:/var/log/caddy
+
+volumes:
+  caddy_logs:

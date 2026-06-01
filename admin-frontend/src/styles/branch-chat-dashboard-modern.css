@@ -1,0 +1,388 @@
+/* ============================================================================
+   Branch Chat Dashboard Modernization
+   Visual refinement while preserving all functionality
+   ============================================================================ */
+
+:root {
+  /* Brand Colors */
+  --brand-primary: #f1c40f;
+  --brand-primary-hover: #eab308;
+  --brand-primary-dark: #d97706;
+  --brand-focus: #f59e0b;
+  --brand-focus-rgba: rgba(245, 158, 11, 0.15);
+  --brand-focus-strong: rgba(245, 158, 11, 0.25);
+  --brand-secondary: #81c784;
+  
+  /* Modern Surface Colors */
+  --surface-primary: #ffffff;
+  --surface-secondary: #f8f9fa;
+  --surface-tertiary: #f1f3f4;
+  --surface-elevated: #ffffff;
+  
+  /* Text Colors */
+  --text-primary: #1a1a1a;
+  --text-secondary: #5f6368;
+  --text-tertiary: #9aa0a6;
+  --text-inverse: #ffffff;
+  
+  /* Border Colors */
+  --border-subtle: #e8eaed;
+  --border-medium: #dadce0;
+  --border-strong: #bdc1c6;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-brand: 0 2px 12px rgba(241, 196, 15, 0.25);
+}
+
+/* ============================================================================
+   1. Top Bar Refinement
+   ============================================================================ */
+
+/* Modern header with refined styling */
+.flex.flex-col.h-screen > div:first-child {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-focus) 100%);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+/* Header typography refinement */
+.flex.flex-col.h-screen > div:first-child h1 {
+  font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+/* ============================================================================
+   2. Panel Separation and Layout Clarity
+   ============================================================================ */
+
+/* Main layout container */
+.flex.flex-row.flex-grow {
+  background-color: var(--surface-secondary);
+  gap: 0;
+}
+
+/* Left panel - Chat List */
+.flex.flex-row.flex-grow > div:first-child {
+  background-color: var(--surface-primary);
+  border-right: 1px solid var(--border-subtle);
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Right panel - Conversation Area */
+.flex.flex-row.flex-grow > div:last-child {
+  background-color: var(--surface-secondary);
+}
+
+/* ============================================================================
+   3. Left Sidebar / Active Chat List Modernization
+   ============================================================================ */
+
+/* Sidebar header */
+.flex.flex-row.flex-grow > div:first-child h2 {
+  font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+  padding: 20px 16px 12px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--surface-elevated);
+}
+
+/* Chat list items */
+.flex.flex-row.flex-grow > div:first-child > div > div {
+  border-bottom: 1px solid var(--border-subtle);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+/* Chat item hover state */
+.flex.flex-row.flex-grow > div:first-child > div > div:hover {
+  background-color: var(--surface-tertiary);
+  box-shadow: inset 2px 0 0 var(--brand-focus);
+}
+
+/* Chat item selected state */
+.flex.flex-row.flex-grow > div:first-child > div > div.bg-blue-100 {
+  background: linear-gradient(135deg, var(--brand-focus-rgba) 0%, var(--brand-focus-strong) 100%);
+  border-left: 3px solid var(--brand-primary);
+  box-shadow: 0 2px 8px rgba(241, 196, 15, 0.15);
+}
+
+/* Chat item content refinement */
+.flex.flex-row.flex-grow > div:first-child > div > div > div {
+  padding: 16px;
+}
+
+/* Guest name styling */
+.flex.flex-row.flex-grow > div:first-child > div > div .font-medium {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+/* Last message preview */
+.flex.flex-row.flex-grow > div:first-child > div > div .text-sm.text-gray-600 {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Timestamp styling */
+.flex.flex-row.flex-grow > div:first-child > div > div .text-xs.text-gray-500 {
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Unread badge styling */
+.flex.flex-row.flex-grow > div:first-child > div > div span.bg-red-500 {
+  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-focus) 100%);
+  color: var(--text-primary);
+  font-weight: 700;
+  font-size: 0.7rem;
+  box-shadow: 0 2px 4px rgba(241, 196, 15, 0.3);
+}
+
+/* ============================================================================
+   4. Conversation Area Enhancement
+   ============================================================================ */
+
+/* Chat messages container */
+.chat-messages {
+  background-color: var(--surface-secondary);
+  padding: 24px;
+}
+
+/* Message item container */
+.message-item {
+  max-width: 75%;
+  margin-bottom: 16px;
+}
+
+/* Message bubble styling */
+.admin-message-item {
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.admin-message-item.branch {
+  background: linear-gradient(135deg, var(--brand-focus-rgba) 0%, var(--brand-focus-strong) 100%);
+  border: 1px solid var(--brand-focus);
+}
+
+.admin-message-item.guest {
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Message text styling */
+.admin-message-item .message-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+  font-weight: 400;
+}
+
+/* Message timestamp */
+.admin-message-item .message-timestamp {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* ============================================================================
+   5. Empty State Redesign
+   ============================================================================ */
+
+/* Empty state containers */
+.flex.items-center.justify-center.flex-grow {
+  background: linear-gradient(135deg, var(--surface-secondary) 0%, var(--surface-tertiary) 100%);
+}
+
+.flex.items-center.justify-center.flex-grow p {
+  font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: -0.01em;
+  padding: 24px 32px;
+  background-color: var(--surface-primary);
+  border-radius: 12px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-subtle);
+}
+
+/* ============================================================================
+   6. Typography and Spacing System
+   ============================================================================ */
+
+/* Improved spacing for chat list items */
+.flex.flex-row.flex-grow > div:first-child > div > div {
+  padding: 0;
+}
+
+/* Better spacing in conversation area */
+.chat-messages {
+  gap: 8px;
+}
+
+/* ============================================================================
+   7. Input/Reply Area Enhancement
+   ============================================================================ */
+
+/* Reply container */
+.chat-input-container {
+  background-color: var(--surface-primary);
+  border-top: 1px solid var(--border-subtle);
+  padding: 20px 24px;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Reply input field */
+.chat-input-container input {
+  border: 1px solid var(--border-medium);
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.95rem;
+  background-color: var(--surface-secondary);
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.chat-input-container input:focus {
+  outline: none;
+  border-color: var(--brand-focus);
+  box-shadow: 0 0 0 3px var(--brand-focus-rgba);
+  background-color: var(--surface-primary);
+}
+
+/* Send button modernization */
+.send-btn {
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 14px 24px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+}
+
+.send-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-brand);
+}
+
+.send-btn:disabled {
+  background-color: var(--surface-tertiary);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   8. Typing Indicator Enhancement
+   ============================================================================ */
+
+.typing-indicator {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 8px 16px;
+  background-color: var(--brand-focus-rgba);
+  border-radius: 12px;
+  display: inline-block;
+  margin-left: 16px;
+}
+
+/* ============================================================================
+   9. Loading State Enhancement
+   ============================================================================ */
+
+.text-center.text-gray-500 {
+  font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 24px;
+}
+
+/* ============================================================================
+   10. Responsive Enhancements
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .flex.flex-row.flex-grow {
+    flex-direction: column;
+  }
+  
+  .flex.flex-row.flex-grow > div:first-child {
+    width: 100%;
+    max-height: 35vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  
+  .flex.flex-row.flex-grow > div:last-child {
+    flex: 1;
+  }
+  
+  .message-item {
+    max-width: 85%;
+  }
+  
+  .chat-input-container {
+    padding: 16px;
+  }
+  
+  .chat-messages {
+    padding: 16px;
+  }
+}
+
+/* ============================================================================
+   11. Scrollbar Modernization
+   ============================================================================ */
+
+/* Custom scrollbar for chat list and messages */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: var(--surface-secondary);
+  border-radius: 3px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
+
+/* ============================================================================
+   12. Subtle Animations
+   ============================================================================ */
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: ease;
+}
+
+/* Disable transitions for performance on large lists */
+.overflow-y-auto * {
+  transition: none;
+}

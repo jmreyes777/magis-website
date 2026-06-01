@@ -1,0 +1,82 @@
+{
+  "name": "admin-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "main": "electron-main.js",
+  "proxy": "http://127.0.0.1:8787",
+  "dependencies": {
+    "@react-google-maps/api": "^2.20.3",
+    "@react-oauth/google": "^0.12.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "axios": "^1.7.9",
+    "browser-image-compression": "^2.0.2",
+    "cra-template": "1.2.0",
+    "firebase": "^11.1.0",
+    "framer-motion": "^11.15.0",
+    "jwt-decode": "^4.0.0",
+    "mongoose": "^8.9.2",
+    "multer": "^1.4.5-lts.1",
+    "nosleep.js": "^0.12.0",
+    "qrcode.react": "^4.2.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-google-recaptcha": "^3.1.0",
+    "react-google-recaptcha-v3": "^1.10.1",
+    "react-helmet-async": "^2.0.5",
+    "react-icons": "^5.4.0",
+    "react-multi-date-picker": "^4.5.2",
+    "react-multi-select-component": "^4.3.4",
+    "react-router-dom": "^7.0.2",
+    "react-scripts": "^5.0.1",
+    "react-time-picker": "^7.0.0",
+    "react-toastify": "^11.0.2",
+    "react-weekday-picker": "^1.0.8",
+    "recharts": "^3.8.1",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "web-vitals": "^4.2.4"
+  },
+  "scripts": {
+    "start": "concurrently \"cross-env BROWSER=none PORT=3001 react-scripts start\" \"wait-on http://localhost:3001 && cross-env ELECTRON_START_URL=http://localhost:3001 electron .\"",
+    "build": "react-scripts build",
+    "electron": "npm run build && cross-env ELECTRON_START_URL=https://YOUR_PROD_URL electron .",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ],
+    "globals": {
+      "google": "readonly"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "overrides": {
+    "@react-google-maps/api": {
+      "react": "^19.0.0"
+    }
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
+    "babel-plugin-transform-remove-console": "^6.9.4",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^42.2.0",
+    "wait-on": "^8.0.3"
+  }
+}

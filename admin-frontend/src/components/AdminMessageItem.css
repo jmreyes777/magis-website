@@ -1,0 +1,112 @@
+/* AdminMessageItem.css */
+
+/* Container for each admin message */
+.admin-message-item {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+
+/* Styles for messages sent by branch (admin) */
+.admin-message-item.branch {
+  background-color: var(--brand-focus-rgba);
+  border-color: var(--brand-focus);
+  align-self: flex-end;
+}
+
+/* (Optional) For messages that come from guests while on the admin view */
+.admin-message-item.guest {
+  background-color: #f9fafb;
+  border-color: var(--border-color);
+  align-self: flex-start;
+}
+
+/* Message content area */
+.admin-message-item .message-content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Text of the message */
+.admin-message-item .message-text {
+  font-size: 16px;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  color: var(--text-primary);
+}
+
+/* Media container */
+.admin-message-item .media-content {
+  margin-top: 8px;
+}
+
+/* Image attachments */
+.admin-message-item .attachment-image {
+  max-width: 100%;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+/* File attachment links */
+.admin-message-item .attachment-link {
+  color: var(--brand-primary-dark);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.admin-message-item .attachment-link:hover {
+  color: var(--brand-primary-hover);
+  text-decoration: underline;
+}
+
+/* Message status block for failed or pending messages */
+.admin-message-item .message-status-failed {
+  margin-top: 6px;
+  padding: 4px 8px;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Status text styling */
+.admin-message-item .message-status-failed span {
+  font-size: 14px;
+  color: #ef4444;
+  font-weight: 500;
+}
+
+/* Retry button styling */
+.admin-message-item .retry-button {
+  background-color: var(--brand-primary);
+  border: 1px solid var(--brand-primary);
+  color: #111827;
+  padding: 4px 8px;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 600;
+}
+
+.admin-message-item .retry-button:hover {
+  background-color: var(--brand-primary-hover);
+  border-color: var(--brand-primary-dark);
+  box-shadow: var(--shadow-brand);
+}
+
+/* Timestamp style */
+.admin-message-item .message-timestamp {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-align: right;
+  font-weight: 500;
+}

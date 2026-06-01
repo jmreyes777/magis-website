@@ -1,0 +1,209 @@
+/* src/styles/branchesList.css */
+
+/* Container Styling */
+.branches-container {
+  @apply max-w-7xl mx-auto px-6 py-8 bg-white shadow-lg rounded-lg;
+}
+
+/* Header Styling */
+.page-header {
+  @apply text-4xl font-extrabold mb-6 text-center tracking-wide;
+  color: var(--brand-primary-dark);
+}
+
+/* Map Container */
+.map-container {
+  @apply w-full h-96 mb-8 rounded-lg overflow-hidden shadow-md;
+}
+
+/* Table Styling */
+.branches-table {
+  @apply w-full text-sm text-gray-800 rounded-lg border border-gray-200 shadow-md;
+}
+
+.branches-table thead th {
+  background-color: var(--brand-primary) !important;
+  color: #111827 !important;
+  @apply px-5 py-3 text-left font-semibold uppercase;
+}
+
+.branches-table tbody tr {
+  @apply border-t border-gray-200;
+}
+
+.branches-table tbody tr:nth-child(even) {
+  background-color: var(--brand-focus-rgba) !important;
+}
+
+.branches-table tbody tr:hover {
+  background-color: rgba(245, 158, 11, 0.3) !important;
+  transition: all 0.2s ease-in-out;
+}
+
+.branches-table td {
+  @apply px-5 py-4 text-gray-700 whitespace-normal break-words;
+}
+
+.branches-table td.center {
+  @apply text-center;
+}
+
+/* Button Styling */
+.btn {
+  @apply inline-block px-4 py-2 rounded text-sm font-medium text-white shadow-md transition duration-200 ease-in-out;
+}
+
+.btn-edit {
+  background-color: var(--brand-primary) !important;
+  color: #111827 !important;
+  font-weight: 600;
+}
+
+.btn-edit:hover {
+  background-color: var(--brand-primary-hover) !important;
+}
+
+.btn-delete {
+  background-color: #ef4444;
+}
+
+.btn-delete:hover {
+  background-color: #dc2626;
+}
+
+.btn-add {
+  background-color: var(--brand-secondary) !important;
+  color: #111827 !important;
+  font-weight: 600;
+  @apply text-lg px-6 py-3 font-semibold mx-auto block mt-4 text-center;
+}
+
+.btn-add:hover {
+  background-color: #6bcf77 !important;
+}
+
+.btn-disabled {
+  @apply bg-gray-400 text-gray-200 cursor-not-allowed;
+}
+
+/* 🔹 New: Interest Rates Button */
+.btn-view {
+  background-color: var(--brand-focus) !important;
+  color: #111827 !important;
+}
+
+.btn-view:hover {
+  background-color: var(--brand-primary-hover) !important;
+}
+
+/* Error and Loading States */
+.loading-text,
+.error-text {
+  @apply text-lg text-center font-semibold my-6;
+}
+
+.loading-text {
+  color: var(--brand-primary-dark);
+}
+
+.error-text {
+  color: #ef4444;
+}
+
+/* Icon Styling */
+.icon-yellow {
+  color: var(--brand-primary) !important;
+  @apply text-lg inline-block;
+}
+
+/* Responsive Table */
+.table-responsive {
+  @apply overflow-x-auto;
+}
+
+/* Logout Button */
+.logout-button {
+  @apply flex justify-center mt-8;
+}
+
+.logout-button button {
+  background-color: #ef4444;
+  @apply text-white font-semibold py-2 px-6 rounded shadow-md transition-all;
+}
+
+.logout-button button:hover {
+  background-color: #dc2626;
+}
+
+/* 🔹 New: Modal Styling */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+/* 🔹 New: Interest Rate Table Styling */
+.interest-rate-table {
+  @apply w-full border-collapse border my-4;
+}
+
+.interest-rate-table th {
+  background-color: var(--brand-focus-rgba) !important;
+  color: #111827 !important;
+  @apply font-semibold py-2 border;
+}
+
+.interest-rate-table td {
+  @apply py-2 px-4 border text-center;
+}
+
+.interest-rate-table tr:nth-child(even) {
+  background-color: #f3f4f6;
+}
+
+/* 🔹 New: Modal Close Button */
+.modal-close-btn {
+  background-color: #ef4444;
+  @apply text-white px-4 py-2 rounded-md mt-4 transition duration-200;
+}
+
+.modal-close-btn:hover {
+  background-color: #dc2626;
+}
+
+/* General Responsive Alignment */
+@media (max-width: 768px) {
+  .page-header {
+    @apply text-3xl;
+  }
+
+  .branches-table thead th,
+  .branches-table td {
+    @apply px-3 py-2;
+  }
+
+  .btn {
+    @apply text-xs px-3 py-1;
+  }
+
+  .modal-content {
+    width: 90%;
+  }
+}

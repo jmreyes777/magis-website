@@ -1,0 +1,444 @@
+/* 🌟 General Styles - Premium Pawnshop Design */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #faf8f5 0%, #f5f3f0 100%);
+  color: #1f2937;
+}
+
+/* 🏗️ Layout - Balanced and Premium Desktop */
+.map-list-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  gap: 24px;
+  padding: 24px 40px;
+}
+
+/* Desktop two-column wrapper */
+@media (min-width: 1025px) {
+  .map-list-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .map-container {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+
+  .search-filter-container {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .branch-list {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+/* 🌍 Google Map - Premium Presentation */
+.map-container {
+  height: 600px;
+  transition: height 0.3s ease-in-out;
+  border-radius: 16px;
+  border: 2px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.map-container.reduced-height {
+  height: 350px;
+}
+
+.map-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #6b7280;
+  font-size: 1rem;
+  font-weight: 500;
+  background: linear-gradient(135deg, #faf8f5 0%, #f5f3f0 100%);
+}
+
+/* 🔍 Search & Filter - Premium & Organized */
+.search-filter-container {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.03);
+}
+
+.search-box {
+  position: relative;
+  flex: 1;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 40px 12px 44px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 168, 83, 0.3);
+  background: #ffffff;
+  outline: none;
+  font-size: 0.95rem;
+  color: #1f2937;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+}
+
+.search-input:focus {
+  border-color: rgba(212, 168, 83, 0.5);
+  box-shadow: 0 0 0 4px rgba(212, 168, 83, 0.1);
+}
+
+.search-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  color: #d4a853;
+  font-size: 18px;
+}
+
+.clear-btn {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  border: none;
+  background: rgba(212, 168, 83, 0.1);
+  cursor: pointer;
+  font-size: 14px;
+  color: #6b7280;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.clear-btn:hover {
+  background: rgba(212, 168, 83, 0.2);
+  color: #1f2937;
+}
+
+.filter-select {
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 168, 83, 0.3);
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #1f2937;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  min-width: 160px;
+}
+
+.filter-select:focus {
+  border-color: rgba(212, 168, 83, 0.5);
+  box-shadow: 0 0 0 4px rgba(212, 168, 83, 0.1);
+  outline: none;
+}
+
+/* 📌 Branch List - Premium Card Design */
+.branch-list {
+  height: 600px;
+  overflow-y: auto;
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(212, 168, 83, 0.15);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.branch-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.branch-list::-webkit-scrollbar-track {
+  background: rgba(212, 168, 83, 0.05);
+  border-radius: 4px;
+}
+
+.branch-list::-webkit-scrollbar-thumb {
+  background: rgba(212, 168, 83, 0.3);
+  border-radius: 4px;
+}
+
+.branch-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 168, 83, 0.4);
+}
+
+.no-results {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 0.95rem;
+  color: #6b7280;
+  font-weight: 500;
+  background: linear-gradient(135deg, #faf8f5 0%, #f5f3f0 100%);
+  border-radius: 12px;
+  border: 1px dashed rgba(212, 168, 83, 0.3);
+}
+
+/* Branch Card - Premium & Trustworthy */
+.branch-item {
+  padding: 18px;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 14px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.branch-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(212, 168, 83, 0.2), 0 3px 8px rgba(212, 168, 83, 0.1);
+  border-color: rgba(212, 168, 83, 0.4);
+}
+
+.branch-item.active {
+  border: 2px solid rgba(212, 168, 83, 0.6);
+  background: linear-gradient(135deg, #ffffff 0%, #fef9f0 100%);
+  box-shadow: 0 6px 24px rgba(212, 168, 83, 0.25), 0 3px 10px rgba(212, 168, 83, 0.15);
+}
+
+.branch-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.branch-info {
+  display: flex;
+  align-items: flex-start;
+  font-size: 0.9rem;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+.branch-icon {
+  color: #d4a853;
+  margin-right: 10px;
+  margin-top: 2px;
+  font-size: 0.95rem;
+}
+
+/* ✉️ Chat Button - Premium & Obvious */
+.chat-btn {
+  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
+  color: #1a1a2e;
+  padding: 12px 20px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+  font-weight: 600;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 3px 12px rgba(212, 168, 83, 0.25), 0 2px 4px rgba(212, 168, 83, 0.15);
+}
+
+.chat-btn:hover {
+  background: linear-gradient(135deg, #c9a227 0%, #b8941f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(212, 168, 83, 0.35), 0 3px 8px rgba(212, 168, 83, 0.2);
+}
+
+.chat-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(212, 168, 83, 0.2);
+}
+
+/* 🔧 Chat Overlay - Premium Styling */
+.chat-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 380px;
+  height: 520px;
+  background: white;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15), 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  transition: transform 0.3s ease-in-out;
+  overflow: hidden;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-overlay::after {
+  content: none !important;
+}
+
+.chat-overlay-container {
+  display: none;
+}
+
+/* � Mobile Responsiveness */
+@media (max-width: 1024px) {
+  .map-list-container {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .map-container {
+    height: 400px;
+  }
+
+  .map-container.reduced-height {
+    height: 280px;
+  }
+
+  .branch-list {
+    height: 400px;
+  }
+
+  .search-filter-container {
+    margin-bottom: 16px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-select {
+    min-width: 100%;
+  }
+
+  .chat-overlay {
+    width: 340px;
+    height: 480px;
+    right: 16px;
+    bottom: 16px;
+  }
+}
+
+@media (max-width: 768px) {
+  .map-list-container {
+    padding: 12px;
+    gap: 16px;
+  }
+
+  .map-container {
+    height: 300px;
+    border-radius: 12px;
+  }
+
+  .map-container.reduced-height {
+    height: 220px;
+  }
+
+  .branch-list {
+    height: 350px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .search-filter-container {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+
+  .search-input {
+    padding: 10px 36px 10px 40px;
+    font-size: 0.9rem;
+  }
+
+  .filter-select {
+    padding: 10px 14px;
+    font-size: 0.85rem;
+  }
+
+  .branch-item {
+    padding: 14px;
+    margin-bottom: 12px;
+  }
+
+  .branch-name {
+    font-size: 1rem;
+  }
+
+  .branch-info {
+    font-size: 0.85rem;
+  }
+
+  .chat-btn {
+    padding: 10px 16px;
+    font-size: 0.85rem;
+  }
+
+  .chat-overlay {
+    width: 95%;
+    height: 450px;
+    right: 2.5%;
+    bottom: 16px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .map-container {
+    height: 250px;
+  }
+
+  .map-container.reduced-height {
+    height: 180px;
+  }
+
+  .branch-list {
+    height: 300px;
+  }
+
+  .search-input {
+    padding: 10px 32px 10px 36px;
+    font-size: 0.85rem;
+  }
+
+  .branch-name {
+    font-size: 0.95rem;
+  }
+
+  .branch-info {
+    font-size: 0.8rem;
+  }
+
+  .chat-btn {
+    padding: 10px 14px;
+    font-size: 0.8rem;
+  }
+
+  .chat-overlay {
+    height: 400px;
+  }
+}

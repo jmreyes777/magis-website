@@ -1,0 +1,82 @@
+/* src/User/ContactUs-User-Page.css */
+
+/* Full-page layout to center the form */
+.contact-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f5f5f5; /* Light neutral background */
+    padding: 40px; /* Extra padding for better spacing on desktop */
+  }
+  
+  /* Form card styling */
+  .contact-card {
+    background-color: white;
+    padding: 50px; /* Increased padding */
+    border-radius: 16px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1); /* Stronger shadow */
+    max-width: 700px; /* Wider form on desktop */
+    width: 100%; /* Ensure it fits smaller screens */
+    transition: all 0.3s ease-in-out;
+  }
+  
+  /* Header Styling */
+  .contact-header {
+    text-align: center;
+    margin-bottom: 30px; /* Increased margin for better spacing */
+    font-size: 2.5rem; /* Larger font size for desktop */
+    color: #333;
+  }
+  
+  /* Input and textarea fields layout */
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px; /* More space between inputs */
+  }
+  
+  /* Input fields styling */
+  input,
+  textarea {
+    padding: 15px; /* Larger padding */
+    font-size: 1.1rem; /* Bigger font size */
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    margin-top: 5px;
+    resize: none;
+  }
+  
+  /* Adjust textarea height */
+  textarea {
+    min-height: 120px; /* Slightly taller for better readability */
+  }
+  
+  /* Button styling */
+  .submit-button {
+    background-color: #333;
+    color: white;
+    font-size: 1.2rem; /* Larger button text */
+    padding: 15px; /* More padding */
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    width: 100%; /* Full-width button */
+    transition: background-color 0.3s ease;
+  }
+  
+  .submit-button:hover {
+    background-color: #444;
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .contact-card {
+      padding: 30px;
+      max-width: 90%; /* Full width on small screens */
+    }
+  
+    .contact-header {
+      font-size: 2rem; /* Slightly smaller header on mobile */
+    }
+  }  

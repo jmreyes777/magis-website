@@ -1,0 +1,82 @@
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "@googlemaps/js-api-loader": "^1.16.8",
+    "@react-google-maps/api": "^2.20.3",
+    "@react-oauth/google": "^0.12.1",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "axios": "^1.7.7",
+    "browser-image-compression": "^2.0.2",
+    "express": "^4.21.1",
+    "firebase": "^11.10.0",
+    "framer-motion": "^11.11.9",
+    "html-entities": "^2.6.0",
+    "jwt-decode": "^4.0.0",
+    "mongoose": "^8.8.2",
+    "multer": "^1.4.5-lts.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-helmet-async": "^2.0.5",
+    "react-icons": "^5.6.0",
+    "react-multi-date-picker": "^4.5.2",
+    "react-multi-select-component": "^4.3.4",
+    "react-router-dom": "^6.30.3",
+    "react-scripts": "^5.0.1",
+    "react-time-picker": "^7.0.0",
+    "react-toastify": "^10.0.6",
+    "react-weekday-picker": "^1.0.8",
+    "socket.io": "^4.8.1",
+    "socket.io-client": "^4.8.1",
+    "web-vitals": "^2.1.4",
+    "zod": "^3.24.2"
+  },
+  "scripts": {
+    "start": "cross-env craco start",
+    "build": "cross-env REACT_APP_ENABLE_SW=true craco build",
+    "test": "craco test",
+    "analyze": "npm run build && npx source-map-explorer \"build/static/js/*.js\"",
+    "eject": "react-scripts eject"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ],
+    "globals": {
+      "google": "readonly"
+    }
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/plugin-transform-private-property-in-object": "^7.25.8",
+    "@craco/craco": "^7.1.0",
+    "@tailwindcss/postcss": "^4.3.0",
+    "autoprefixer": "^10.4.20",
+    "babel-plugin-transform-remove-console": "^6.9.4",
+    "cross-env": "^7.0.3",
+    "postcss": "^8.4.47",
+    "resolve-url-loader": "^5.0.0",
+    "source-map-explorer": "^2.5.3",
+    "svgo": "^3.3.2",
+    "tailwindcss": "^3.4.14",
+    "webpack-bundle-analyzer": "^4.10.2",
+    "workbox-cli": "^7.3.0",
+    "workbox-webpack-plugin": "^7.3.0"
+  }
+}

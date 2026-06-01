@@ -1,0 +1,38 @@
+# — Caddyfile (dev) —
+
+# 1) Plain HTTP on port 80 → redirect to HTTPS
+:80 {
+    redir https://localhost{uri} permanent
+}
+
+# 2) HTTPS on port 443 (only HTTP/3 on the client side)
+:443 {
+    protocols h3             # ← only QUIC/HTTP-3 is offered to browsers
+    tls internal             # Caddy’s locally-trusted cert for “localhost”
+    encode gzip zstd         # compress assets
+
+    log {
+        output stdout
+        format console
+        level DEBUG
+    }
+
+    # — API & WebSocket → your Express server on 5000 (HTTPS) —
+    @backend path /api/* /socket.io/*
+    reverse_proxy @backend https://localhost:5000 {
+        transport http {
+            versions h2 h1
+            tls_insecure_skip_verify   # trust your self-signed dev cert
+        }
+    }
+
+    # — Everything else → your React dev server on 3000 (HTTPS) —
+    @frontend not path /api/* /socket.io/*
+    reverse_proxy @frontend https://localhost:3000 {
+        header_up Host localhost:3000
+        transport http {
+            versions h2 h1
+            tls_insecure_skip_verify
+        }
+    }
+}

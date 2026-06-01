@@ -1,0 +1,746 @@
+/* ============================================================================
+   Admin Dashboard Brand Color System
+   Applies brand colors to staff dashboard while preserving all functionality
+   ============================================================================ */
+
+:root {
+  /* Brand Colors */
+  --brand-primary: #f1c40f;
+  --brand-primary-hover: #eab308;
+  --brand-primary-dark: #d97706;
+  --brand-focus: #f59e0b;
+  --brand-focus-rgba: rgba(245, 158, 11, 0.2);
+  --brand-secondary: #81c784;
+  --brand-accent: #ff6600;
+  
+  /* Neutral Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --text-primary: #111827;
+  --text-secondary: #6b7280;
+  --text-tertiary: #9ca3af;
+  --border-color: #e5e7eb;
+  --border-color-hover: #d1d5db;
+  
+  /* Status Colors */
+  --status-online: #81c784;
+  --status-offline: #9ca3af;
+  --status-busy: #f59e0b;
+  --status-error: #ef4444;
+  --status-success: #81c784;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.12);
+  --shadow-brand: 0 4px 14px rgba(241, 196, 15, 0.3);
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  
+  /* Border Radius */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+}
+
+/* ============================================================================
+   Global Reset & Typography
+   ============================================================================ */
+
+.admin-dashboard {
+  font-family: 'Nunito Sans', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.admin-dashboard * {
+  box-sizing: border-box;
+}
+
+/* ============================================================================
+   Header & Navigation
+   ============================================================================ */
+
+.admin-header {
+  background-color: var(--bg-primary);
+  border-bottom: 2px solid var(--brand-primary);
+  box-shadow: var(--shadow-sm);
+  padding: var(--spacing-lg) var(--spacing-xl);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.admin-header h1 {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.admin-nav {
+  display: flex;
+  gap: var(--spacing-md);
+}
+
+.admin-nav a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.admin-nav a:hover {
+  color: var(--brand-primary);
+  background-color: var(--bg-tertiary);
+}
+
+.admin-nav a.active {
+  color: var(--brand-primary-dark);
+  background-color: var(--brand-focus-rgba);
+  font-weight: 600;
+}
+
+/* ============================================================================
+   Logout Button
+   ============================================================================ */
+
+.logout-btn {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.logout-btn:hover {
+  background-color: var(--status-error);
+  color: white;
+  border-color: var(--status-error);
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================================================
+   Branch Chat Dashboard Layout
+   ============================================================================ */
+
+.chat-dashboard {
+  display: flex;
+  height: calc(100vh - 80px);
+  background-color: var(--bg-secondary);
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+}
+
+/* ============================================================================
+   Conversation List (Left Panel)
+   ============================================================================ */
+
+.conversation-list {
+  width: 350px;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.conversation-list-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+}
+
+.conversation-list-header h2 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 var(--spacing-md) 0;
+}
+
+.conversation-search {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.conversation-search:focus {
+  outline: none;
+  border-color: var(--brand-focus);
+  box-shadow: 0 0 0 3px var(--brand-focus-rgba);
+}
+
+.conversation-filters {
+  display: flex;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+  margin-top: var(--spacing-md);
+}
+
+.filter-btn {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-full);
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  border-color: var(--brand-primary);
+  color: var(--brand-primary);
+}
+
+.filter-btn.active {
+  background-color: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.conversation-items {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-sm);
+}
+
+.conversation-item {
+  padding: var(--spacing-md);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  margin-bottom: var(--spacing-xs);
+}
+
+.conversation-item:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.conversation-item.active {
+  background-color: var(--brand-focus-rgba);
+  border-color: var(--brand-focus);
+  box-shadow: var(--shadow-brand);
+}
+
+.conversation-item.active .conversation-name {
+  color: var(--brand-primary-dark);
+  font-weight: 600;
+}
+
+.conversation-name {
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.conversation-preview {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-sm);
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+}
+
+.unread-badge {
+  background-color: var(--brand-primary);
+  color: var(--text-primary);
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.online-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--status-online);
+  display: inline-block;
+}
+
+/* ============================================================================
+   Message Thread (Right Panel)
+   ============================================================================ */
+
+.message-thread {
+  flex: 1;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.message-thread-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.message-thread-header h3 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.thread-status {
+  display: flex;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.status-badge {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-badge.online {
+  background-color: rgba(129, 199, 132, 0.2);
+  color: var(--status-online);
+}
+
+.status-badge.offline {
+  background-color: var(--bg-tertiary);
+  color: var(--status-offline);
+}
+
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-lg);
+  background-color: var(--bg-secondary);
+}
+
+.message-bubble {
+  max-width: 70%;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--spacing-md);
+  position: relative;
+}
+
+.message-bubble.guest {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  align-self: flex-start;
+  margin-right: auto;
+}
+
+.message-bubble.admin {
+  background-color: var(--brand-focus-rgba);
+  border: 1px solid var(--brand-focus);
+  align-self: flex-end;
+  margin-left: auto;
+}
+
+.message-sender {
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: var(--spacing-xs);
+  color: var(--text-primary);
+}
+
+.message-content {
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.message-timestamp {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: var(--spacing-sm);
+}
+
+/* ============================================================================
+   Reply Box
+   ============================================================================ */
+
+.reply-box {
+  padding: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+  background-color: var(--bg-primary);
+}
+
+.reply-input {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 80px;
+  transition: all 0.2s ease;
+}
+
+.reply-input:focus {
+  outline: none;
+  border-color: var(--brand-focus);
+  box-shadow: 0 0 0 3px var(--brand-focus-rgba);
+}
+
+.reply-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-md);
+}
+
+.reply-tools {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.tool-btn {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--text-secondary);
+}
+
+.tool-btn:hover {
+  background-color: var(--brand-focus-rgba);
+  border-color: var(--brand-focus);
+  color: var(--brand-primary-dark);
+}
+
+.send-btn {
+  background-color: var(--brand-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--brand-primary);
+  padding: var(--spacing-sm) var(--spacing-xl);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.send-btn:hover {
+  background-color: var(--brand-primary-hover);
+  border-color: var(--brand-primary-dark);
+  box-shadow: var(--shadow-brand);
+}
+
+.send-btn:disabled {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color);
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ============================================================================
+   Tables
+   ============================================================================ */
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.admin-table th {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-weight: 600;
+  padding: var(--spacing-md) var(--spacing-lg);
+  text-align: left;
+  border-bottom: 2px solid var(--border-color);
+}
+
+.admin-table td {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.admin-table tbody tr:hover {
+  background-color: var(--brand-focus-rgba);
+}
+
+.admin-table tbody tr.selected {
+  background-color: var(--brand-focus-rgba);
+  border-left: 3px solid var(--brand-primary);
+}
+
+/* ============================================================================
+   Forms
+   ============================================================================ */
+
+.admin-form {
+  background-color: var(--bg-primary);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+}
+
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+  display: block;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: var(--spacing-sm);
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: var(--spacing-md);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background-color: var(--bg-primary);
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--brand-focus);
+  box-shadow: 0 0 0 3px var(--brand-focus-rgba);
+}
+
+/* ============================================================================
+   Buttons
+   ============================================================================ */
+
+.btn-primary {
+  background-color: var(--brand-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--brand-primary);
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--brand-primary-hover);
+  border-color: var(--brand-primary-dark);
+  box-shadow: var(--shadow-brand);
+}
+
+.btn-secondary {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-tertiary);
+  border-color: var(--border-color-hover);
+}
+
+.btn-danger {
+  background-color: var(--status-error);
+  color: white;
+  border: 1px solid var(--status-error);
+  padding: var(--spacing-md) var(--spacing-xl);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+  box-shadow: var(--shadow-md);
+}
+
+/* ============================================================================
+   Cards & Panels
+   ============================================================================ */
+
+.admin-card {
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-color);
+  box-shadow: var(--shadow-md);
+  padding: var(--spacing-xl);
+}
+
+.admin-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.admin-card-header {
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.admin-card-header h3 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+/* ============================================================================
+   Responsive Design
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+  .chat-dashboard {
+    flex-direction: column;
+    height: auto;
+  }
+  
+  .conversation-list {
+    width: 100%;
+    max-height: 300px;
+  }
+  
+  .message-thread {
+    min-height: 400px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-header {
+    flex-direction: column;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+  }
+  
+  .admin-nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .conversation-filters {
+    justify-content: center;
+  }
+  
+  .message-bubble {
+    max-width: 85%;
+  }
+  
+  .reply-actions {
+    flex-direction: column;
+    gap: var(--spacing-md);
+  }
+  
+  .reply-tools {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .send-btn {
+    width: 100%;
+  }
+}
+
+/* ============================================================================
+   Loading States
+   ============================================================================ */
+
+.loading-spinner {
+  border: 3px solid var(--bg-tertiary);
+  border-top: 3px solid var(--brand-primary);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+  margin: var(--spacing-xl) auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   Scrollbar Styling
+   ============================================================================ */
+
+.conversation-list::-webkit-scrollbar,
+.message-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.conversation-list::-webkit-scrollbar-track,
+.message-list::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+.conversation-list::-webkit-scrollbar-thumb,
+.message-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--radius-full);
+}
+
+.conversation-list::-webkit-scrollbar-thumb:hover,
+.message-list::-webkit-scrollbar-thumb:hover {
+  background: var(--border-color-hover);
+}

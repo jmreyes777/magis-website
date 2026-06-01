@@ -1,0 +1,278 @@
+/* src/components/TranscriptModal.css - Premium Pawnshop Design */
+
+/* ── Modal Backdrop ───────────────────────────────────────────────────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ── Modal Panel - Premium Styling ─────────────────────────────────────── */
+.modal-panel {
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.15);
+  width: 90%;
+  max-width: 480px;
+  padding: 28px;
+  position: relative;
+  animation: slideUp 0.3s ease;
+  border: 1px solid rgba(212, 168, 83, 0.2);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ── Close Button ─────────────────────────────────────────────────────── */
+.modal-close-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(212, 168, 83, 0.1);
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  border-radius: 10px;
+  color: #6b7280;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(212, 168, 83, 0.2);
+  border-color: rgba(212, 168, 83, 0.3);
+  color: #1f2937;
+  transform: rotate(90deg);
+}
+
+.modal-close-btn:active {
+  transform: rotate(90deg) scale(0.95);
+}
+
+/* ── Modal Header ─────────────────────────────────────────────────────── */
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  margin: 0 0 12px 0;
+  padding-right: 40px;
+}
+
+.modal-description {
+  font-size: 0.9rem;
+  color: #6b7280;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
+}
+
+/* ── Form Styling ─────────────────────────────────────────────────────── */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid rgba(212, 168, 83, 0.3);
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 0.95rem;
+  color: #1f2937;
+  transition: all 0.2s ease;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.form-input::placeholder {
+  color: #9ca3af;
+}
+
+.form-input:focus {
+  border-color: rgba(212, 168, 83, 0.5);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(212, 168, 83, 0.1);
+}
+
+.form-input:disabled {
+  background: #f3f4f6;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* ── Status Message ───────────────────────────────────────────────────── */
+.status-message {
+  font-size: 0.875rem;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+
+.status-message.success {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  color: #065f46;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-message.error {
+  background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%);
+  color: #991b1b;
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+/* ── Button Group ─────────────────────────────────────────────────────── */
+.button-group {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(212, 168, 83, 0.15);
+}
+
+/* ── Buttons - Premium Styling ───────────────────────────────────────── */
+.btn {
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-cancel {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  color: #4b5563;
+  border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+.btn-cancel:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-cancel:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
+  color: #1a1a2e;
+  box-shadow: 0 3px 12px rgba(212, 168, 83, 0.25), 0 2px 4px rgba(212, 168, 83, 0.15);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #c9a227 0%, #b8941f 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(212, 168, 83, 0.35), 0 3px 6px rgba(212, 168, 83, 0.2);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(212, 168, 83, 0.2);
+}
+
+.btn-primary:disabled {
+  background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+  box-shadow: none;
+}
+
+/* ── Mobile Responsiveness ───────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .modal-panel {
+    width: 95%;
+    padding: 24px;
+    max-width: none;
+  }
+
+  .modal-title {
+    font-size: 1.35rem;
+  }
+
+  .modal-description {
+    font-size: 0.85rem;
+  }
+
+  .form-input {
+    padding: 10px 14px;
+    font-size: 0.9rem;
+  }
+
+  .button-group {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 12px 16px;
+  }
+}
+
+@media (max-width: 375px) {
+  .modal-panel {
+    width: 98%;
+    padding: 20px;
+    margin: 8px;
+  }
+
+  .modal-title {
+    font-size: 1.25rem;
+  }
+
+  .modal-description {
+    font-size: 0.8rem;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-input {
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+}

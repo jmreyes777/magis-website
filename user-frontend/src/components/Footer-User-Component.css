@@ -1,0 +1,229 @@
+/* ---------- Theme tokens (easy to tweak) ---------- */
+:root {
+  --footer-fg: rgba(255, 255, 255, 0.86);
+  --footer-muted: rgba(255, 255, 255, 0.64);
+  --footer-dim: rgba(255, 255, 255, 0.48);
+  --footer-border: rgba(255, 255, 255, 0.14);
+  --footer-accent: #f1c40f;
+  --footer-accent-weak: #ffdc6b;
+}
+
+/* ---------- Base ---------- */
+footer {
+  background-color: #000 !important;
+  color: var(--footer-fg);
+  width: 100%;
+  padding-top: 20px;
+  padding-bottom: 16px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* Smoothing */
+footer,
+footer * {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ---------- Responsive Grid ---------- */
+/* Auto-fit prevents overlap by adding/removing columns based on space */
+.footer-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  column-gap: 1.5rem;
+  row-gap: 1.25rem;
+  max-width: 72rem;            /* 1152px */
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Medium+ screens: a touch more gutter */
+@media (min-width: 1024px) {
+  .footer-columns {
+    column-gap: 2.25rem;
+    row-gap: 2rem;
+  }
+}
+
+/* ---------- Columns ---------- */
+.footer-column {
+  min-width: 0;                /* allow text to wrap inside grid cell */
+}
+
+/* Headings */
+.footer-column h4 {
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.6rem;
+  color: var(--footer-fg);
+}
+
+/* Lists */
+.footer-column ul { list-style: none; margin: 0; padding: 0; }
+.footer-column li + li { margin-top: 0.4rem; }
+
+/* ---------- Logo ---------- */
+.footer-logo {
+  height: 40px;
+  width: auto;
+  max-width: 100%;             /* never overflow */
+  display: block;
+  margin-bottom: 12px;
+}
+
+/* Desktop larger logo */
+@media (min-width: 1024px) {
+  .footer-logo {
+    height: 44px;
+    margin-bottom: 14px;
+  }
+}
+
+/* ---------- Body copy / small text ---------- */
+.footer-copy {
+  color: var(--footer-muted);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;     /* protect against long words */
+}
+
+/* ---------- Links ---------- */
+.footer-column a,
+.footer-bottom a {
+  color: var(--footer-muted);
+  text-decoration: none;
+  transition: color 180ms ease, opacity 180ms ease;
+  overflow-wrap: anywhere;     /* long URLs/emails won’t collide */
+}
+.footer-column a:hover,
+.footer-bottom a:hover { color: var(--footer-accent); }
+.footer-column a:active,
+.footer-bottom a:active { color: var(--footer-accent-weak); }
+
+/* ---------- Social icons ---------- */
+.social-icons {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;             /* allow wrap on tight widths */
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+.social-icons a {
+  height: 40px; width: 40px;
+  border-radius: 9999px;
+  background: #161616; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 140ms ease, transform 140ms ease;
+}
+.social-icons a:hover { background: #1e1e1e; transform: translateY(-1px); }
+.social-icons a:focus-visible { box-shadow: 0 0 0 3px rgba(241, 196, 15, 0.4); }
+.social-icons .icon {
+  width: 18px; height: 18px; display: block;
+  transform: translateZ(0);
+  shape-rendering: crispEdges;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Contact list ---------- */
+.footer-contact-list { list-style: none; margin: 0; padding: 0; }
+.footer-contact-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  color: var(--footer-muted);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+.footer-contact-label { min-width: 6.25rem; color: var(--footer-dim); }
+.footer-email { overflow-wrap: anywhere; }
+
+/* ---------- Google Maps button ---------- */
+.map-button {
+  display: inline-flex; align-items: center; gap: 0.45rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff; font-size: 0.9rem;
+  transition: background 160ms ease, transform 160ms ease;
+  text-decoration: none; outline: none;
+  max-width: 100%;             /* won’t spill outside column */
+  white-space: nowrap;
+}
+.map-button:hover { background: rgba(255, 255, 255, 0.16); transform: translateY(-1px); }
+.map-button:focus-visible { box-shadow: 0 0 0 3px rgba(241, 196, 15, 0.4); }
+
+/* ---------- Divider & Bottom Section (Refined) ---------- */
+.footer-divider {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08); /* subtle line */
+  margin: 1rem auto;
+  width: 90%; /* narrower line for a lighter, centered feel */
+}
+
+/* Outer bottom area stays centered */
+.footer-bottom {
+  color: var(--footer-muted);
+  font-size: 0.85rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: center;     /* center inner row */
+  align-items: center;
+  text-align: center;
+}
+
+/* True centering row using grid */
+.footer-bottom-row {
+  display: grid;
+  place-items: center;         /* center horizontally & vertically */
+  gap: 0.45rem;
+  width: 100%;
+}
+
+/* Each paragraph spans full width and centers its wrapped lines */
+.footer-bottom-row p {
+  margin: 0;
+  line-height: 1.5;
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  text-wrap: balance;          /* nicer balanced wrapping */
+}
+
+/* Slightly softer hover on links & avoid odd breaks around pipes */
+.footer-bottom a {
+  color: var(--footer-muted);
+  transition: color 0.2s ease;
+  white-space: nowrap;         /* keep | separators tidy */
+}
+.footer-bottom a:hover { color: var(--footer-accent); }
+
+/* ---------- Motion safety ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .social-icons a,
+  .map-button { transition: none; }
+}
+
+/* ---------- Compact / narrow devices ---------- */
+@media (max-width: 768px) {
+  .footer-column, .footer-bottom { text-align: center; }
+  .footer-contact-list li { justify-content: center; }
+  .footer-contact-label { min-width: auto; }
+  .map-button { white-space: normal; } /* allow wrap on very narrow phones */
+}
+
+/* Extra small fold/tall-narrow tweaks */
+@media (max-width: 480px) {
+  .footer-columns { row-gap: 1rem; }
+  .footer-logo { height: 32px; margin-bottom: 10px; }
+  .footer-copy, .footer-contact-list li { font-size: 0.85rem; }
+  footer { padding-top: 16px; padding-bottom: 12px; }
+}
+
+/* Tablet footer logo */
+@media (min-width: 481px) and (max-width: 1023px) {
+  .footer-logo { height: 36px; }
+}

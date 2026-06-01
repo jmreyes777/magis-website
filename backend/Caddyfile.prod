@@ -1,0 +1,63 @@
+﻿# -----------------------------------------------------------------------------
+# Caddyfile - PRODUCTION
+# Replace yourdomain.com with your actual domain.
+# Caddy auto-provisions a Let's Encrypt cert and enables HTTP/3 on 443/UDP.
+# -----------------------------------------------------------------------------
+
+# 1) Redirect plain HTTP -> HTTPS
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+# 2) HTTPS + HTTP/2 + HTTP/3
+yourdomain.com www.yourdomain.com {
+    tls {$ACME_EMAIL}               # Let's Encrypt via env var
+
+    protocols h1 h2 h3
+
+    encode gzip zstd
+
+    log {
+        output file /var/log/caddy/access.log {
+            roll_size     100mb
+            roll_keep     5
+            roll_keep_for 720h
+        }
+        format json
+        level  WARN
+    }
+
+    # Advertise HTTP/3 with long max-age for production
+    header Alt-Svc `h3=":443"; ma=2592000`
+
+    # Security headers
+    header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    header X-Content-Type-Options    "nosniff"
+    header X-Frame-Options           "DENY"
+    header Referrer-Policy           "strict-origin-when-cross-origin"
+    header Permissions-Policy        "geolocation=(), microphone=(), camera=()"
+
+    # -- API & WebSocket -> Node backend ---------------------------------------
+    @backend path /api/* /socket.io/*
+    reverse_proxy @backend http://node:5000 {
+        transport http {
+            versions h2 h1
+        }
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-For   {remote_host}
+        header_up X-Real-IP         {remote_host}
+        lb_policy       round_robin
+        health_uri      /api/status
+        health_interval 15s
+        health_timeout  5s
+    }
+
+    # -- Frontend --------------------------------------------------------------
+    @frontend not path /api/* /socket.io/*
+    reverse_proxy @frontend http://frontend:3000 {
+        header_up X-Forwarded-Proto https
+        transport http {
+            versions h2 h1
+        }
+    }
+}

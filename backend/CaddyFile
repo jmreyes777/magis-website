@@ -1,0 +1,50 @@
+﻿# -----------------------------------------------------------------------------
+# Caddyfile - DEVELOPMENT
+# HTTP/3 (QUIC) is enabled automatically by Caddy on port 443/UDP.
+# Caddy advertises HTTP/3 via the Alt-Svc response header on every reply.
+# -----------------------------------------------------------------------------
+
+# 1) Redirect all plain HTTP -> HTTPS
+:80 {
+    redir https://{host}{uri} permanent
+}
+
+# 2) HTTPS + HTTP/2 + HTTP/3 on port 443 (TCP + UDP)
+:443 {
+    tls internal                    # Caddy self-signed cert for localhost dev
+
+    # HTTP/3 (QUIC) - Caddy enables this automatically on 443/UDP.
+    # "protocols" makes it explicit and ensures all three are negotiated.
+    protocols h1 h2 h3
+
+    encode gzip zstd
+
+    log {
+        output stdout
+        format console
+        level  INFO
+    }
+
+    # Advertise HTTP/3 so browsers upgrade on next request
+    header Alt-Svc `h3=":443"; ma=86400`
+
+    # -- API & WebSocket -> Express (port 5000) --------------------------------
+    @backend path /api/* /socket.io/*
+    reverse_proxy @backend http://localhost:5000 {
+        transport http {
+            versions h2 h1
+        }
+        header_up X-Forwarded-Proto https
+        header_up X-Forwarded-For   {remote_host}
+    }
+
+    # -- Everything else -> React dev server (port 3000) ----------------------
+    @frontend not path /api/* /socket.io/*
+    reverse_proxy @frontend http://localhost:3000 {
+        header_up Host              localhost:3000
+        header_up X-Forwarded-Proto https
+        transport http {
+            versions h2 h1
+        }
+    }
+}
