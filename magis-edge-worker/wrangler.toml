@@ -1,0 +1,29 @@
+# Cloudflare Worker config — Magis edge worker (STAGING)
+# Service-worker format (index.js uses addEventListener("fetch", ...) and
+# reads bindings from globalThis: BACKEND_URL, ADMIN_URL, GUEST_URL,
+# JWT_SECRET, EDGE_SHARED_SECRET, RATE_LIMIT_KV).
+#
+# Secrets are NOT stored here. Set them with:
+#   wrangler secret put JWT_SECRET
+#   wrangler secret put EDGE_SHARED_SECRET
+#
+# Deploy with:
+#   wrangler deploy
+
+name = "magis-edge-worker-staging"
+main = "index.js"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+# Non-secret runtime vars (exposed as globals in service-worker format).
+[vars]
+BACKEND_URL = "https://magis-website.onrender.com"
+# ADMIN_URL / GUEST_URL are only used for non-/api (frontend) routing + CORS.
+# Uncomment and set these once the staging frontends are deployed:
+# ADMIN_URL = "https://<admin-staging-url>"
+# GUEST_URL = "https://<guest-staging-url>"
+
+# Optional KV namespace for edge rate-limiting. Leave unbound to auto-skip.
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT_KV"
+# id = "<kv-namespace-id>"
