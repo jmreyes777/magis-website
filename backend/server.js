@@ -496,6 +496,27 @@ app.post(
   }
 );
 
+// ── TEMP-GEO-DIAG ─────────────────────────────────────────────────────────────
+// Temporary staging diagnostic to verify edge geo trust through the Cloudflare
+// worker. Mounted under the /api/branch-status prefix so the worker forwards it
+// as a public route (carrying X-Edge-Auth / X-Geo-Country / X-Forwarded-For).
+// Returns only non-sensitive, request-derived data. REMOVE AFTER VERIFICATION.
+{
+  const { getClientGeo, GEO_ANOMALY_MODE } = require("./utils/geoSecurity");
+  app.get("/api/branch-status/_geocheck", (req, res) => {
+    const { ip, country, edgeTrusted } = getClientGeo(req);
+    res.json({
+      edgeTrusted,
+      country: country || null,
+      ip: ip || null,
+      mode: GEO_ANOMALY_MODE,
+      sawEdgeAuthHeader: Boolean(req.headers["x-edge-auth"]),
+      sawGeoCountryHeader: req.headers["x-geo-country"] || null,
+    });
+  });
+}
+// ── END TEMP-GEO-DIAG ─────────────────────────────────────────────────────────
+
 // Branch-status public endpoint
 const branchStatusRoutes = require("./routes/branchStatus");
 app.use("/api", branchStatusRoutes);
