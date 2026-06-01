@@ -323,7 +323,11 @@ async function handle(request) {
     (request.method === "GET" &&
       pathname.startsWith("/api/messages/history")) ||
     (request.method === "POST" && pathname === "/api/csrf-token") ||
-    (request.method === "POST" && pathname === "/api/issue-fallback-token");
+    (request.method === "POST" && pathname === "/api/issue-fallback-token") ||
+    // session-verify needs the Firebase RS256 ID token (fresh TOTP proof), which
+    // the edge HS256 check would reject. The backend fully authenticates it
+    // (Firebase verify + fresh-second-factor enforcement), so bypass here.
+    (request.method === "POST" && pathname === "/api/mfa/session-verify");
 
   if (isPublic) {
     const backendReq = new Request(`${BACKEND_URL}${pathname}${url.search}`, {

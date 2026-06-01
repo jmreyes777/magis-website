@@ -302,9 +302,12 @@ const finalizeLogin = async (user, customClaims) => {
   }
 
   // 6️⃣ Mark MFA as verified for this session (complements Firebase MFA).
-  // Uses the fallback HMAC token stored above so the edge worker accepts it.
+  // MUST use the Firebase ID token: the backend's session-verify requires a
+  // RECENT TOTP second factor (firebase.sign_in_second_factor === "totp" +
+  // fresh auth_time), which only the Firebase token carries. The HMAC fallback
+  // token never satisfies this. The edge worker bypasses JWT verification for
+  // this route, so the RS256 Firebase token reaches the backend intact.
   try {
-    const token = sessionStorage.getItem("branchAdminToken") || firebaseToken;
     const res = await fetch(
       `${process.env.REACT_APP_API_URL}/api/mfa/session-verify`,
       {
@@ -312,7 +315,7 @@ const finalizeLogin = async (user, customClaims) => {
         credentials: 'include',
         headers: { 
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
+          "Authorization": `Bearer ${firebaseToken}`,
           "X-Session-Id": mfaSessionId,
         },
       }
