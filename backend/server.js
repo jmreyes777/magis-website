@@ -500,32 +500,6 @@ app.post(
 const branchStatusRoutes = require("./routes/branchStatus");
 app.use("/api", branchStatusRoutes);
 
-// --- TEMP scalability diagnostic (no secrets exposed) ---
-// Reports the live Socket.IO adapter + Redis status to assess E2EE/socket
-// scalability across multiple backend instances. REMOVE after assessment.
-// "RedisAdapter" => multi-instance safe; "Adapter" => in-memory only.
-{
-  const { getRedis } = require("./utils/redis");
-  app.get("/api/branch-status/_diag", (req, res) => {
-    const out = {
-      env: process.env.NODE_ENV || null,
-      redisUrlConfigured: !!process.env.REDIS_URL,
-      redisStatus: null,
-      socketAdapter: null,
-      connectedSockets: null,
-      instanceId: process.env.RENDER_INSTANCE_ID || null,
-    };
-    try { out.redisStatus = getRedis().status; } catch (e) { out.redisStatus = "err:" + e.message; }
-    try {
-      const io = req.app.get("socketio");
-      const nsp = io && io.of("/");
-      out.socketAdapter = nsp?.adapter?.constructor?.name || null;
-      out.connectedSockets = io?.engine?.clientsCount ?? null;
-    } catch (e) { out.socketAdapter = "err:" + e.message; }
-    res.json(out);
-  });
-}
-
 // --- Facebook latest video with cache + rate limiter ---
 const fbLimiter = rateLimit({
   windowMs: 60 * 1000,
