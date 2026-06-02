@@ -51,6 +51,7 @@ root.render(
 // ────────────────────────────────────────────────────────────────────────────
 if (
   process.env.NODE_ENV === 'production' &&
+  process.env.REACT_APP_ENABLE_SW === 'true' &&
   'serviceWorker' in navigator &&
   window.isSecureContext
 ) {
@@ -81,8 +82,16 @@ if (
       window.location.reload();
     });
   });
-} else {
-  console.log(
-    '[SW] Skipping service-worker registration (only in production + secure context).'
-  );
+} else if ('serviceWorker' in navigator) {
+  // Service worker disabled (REACT_APP_ENABLE_SW !== 'true'). Proactively
+  // unregister any previously-installed worker and purge its caches so a stale
+  // or broken SW from an earlier build can't keep hijacking navigation.
+  navigator.serviceWorker
+    .getRegistrations()
+    .then(regs => regs.forEach(reg => reg.unregister()))
+    .catch(() => {});
+  if (window.caches && caches.keys) {
+    caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
+  }
+  console.log('[SW] Service worker disabled — unregistered any existing workers.');
 }
