@@ -15,6 +15,7 @@ const metadata = {
   compatibility_date: "2026-06-01",
   bindings: [
     { name: "ADMIN_URL", text: "https://magis-admin-staging.onrender.com", type: "plain_text" },
+    { name: "GUEST_URL", text: "https://magis-guest-staging.onrender.com", type: "plain_text" },
     { name: "BACKEND_URL", text: "https://magis-website.onrender.com", type: "plain_text" },
     { name: "EDGE_SHARED_SECRET", type: "inherit" },
     { name: "JWT_SECRET", type: "inherit" },
