@@ -630,6 +630,21 @@ const BranchChatDashboard = () => {
   }, [branchEmail, socketInstance?.id]);
 
   // ============================================================================
+  // E2EE KEY REQUEST
+  // When a chat is selected (or the socket reconnects) and we don't yet have an
+  // established secure channel for that guest, ask the guest to (re)send its
+  // public key. Recovers from races where the guest's one-shot key emit was
+  // missed because our socket was mid-reconnect (tab hide/show churn).
+  // ============================================================================
+  useEffect(() => {
+    const guestId = selectedChat?.guestId;
+    if (!guestId || !branchEmail || !socketInstance) return;
+    if (isE2EEEstablished(guestId)) return;
+    socketInstance.emit("e2ee:request_key", { guestId, branchEmail, role: "branch" });
+    console.log(`[E2EE] Requested key from guest ${guestId}`);
+  }, [selectedChat?.guestId, branchEmail, socketInstance?.id]);
+
+  // ============================================================================
   // SECURITY: COPY/PASTE PROTECTION (DLP Controls)
   // ============================================================================
   useEffect(() => {

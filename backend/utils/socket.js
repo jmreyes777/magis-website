@@ -573,6 +573,19 @@ const initializeSocket = (server) => {
       } catch (err) { console.error("[E2EE] Error:", err); }
     });
 
+    // Admin asks the guest to (re)send its public key. Relayed to the guest's
+    // room so the key exchange can recover from timing/reconnect races where
+    // the guest's initial key emit was missed.
+    socket.on("e2ee:request_key", async (data) => {
+      console.log("[E2EE] 🔑 Key request received:", data);
+      try {
+        const { guestId } = data || {};
+        if (!guestId) return;
+        io.to(getRoomName("guest", guestId)).emit("e2ee:request_key", data);
+        console.log("[E2EE] 📡 Routed key request to guest", guestId);
+      } catch (err) { console.error("[E2EE] Error:", err); }
+    });
+
     // ───────────────────────────────────────────────────────────────────
     // sendMessage (ACL + validation + emits + unread count)
     // ───────────────────────────────────────────────────────────────────

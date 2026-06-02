@@ -807,10 +807,30 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
       setE2eeError("Key exchange timeout");
     }, 10000); // 10 seconds timeout
     
+    // Respond to the branch asking us to (re)send our public key. This recovers
+    // the exchange when our initial key emit was missed because the branch
+    // socket was reconnecting at that moment.
+    const handleKeyRequest = async () => {
+      try {
+        let publicKey = await getMyPublicKey(guestId);
+        if (!publicKey) {
+          const res = await initializeE2EE(guestId);
+          publicKey = res.publicKey;
+        }
+        socket.emit("e2ee:guest_key", { guestId, branchEmail, publicKey, role: "guest" });
+        if (!isE2EEEstablished(guestId)) setE2eeStatus("exchanging");
+        console.log("[E2EE] Re-sent guest key on branch request");
+      } catch (error) {
+        console.error("[E2EE] Failed to handle key request:", error);
+      }
+    };
+
     socket.on("e2ee:branch_key", handleBranchKey);
+    socket.on("e2ee:request_key", handleKeyRequest);
     
     return () => {
       socket.off("e2ee:branch_key", handleBranchKey);
+      socket.off("e2ee:request_key", handleKeyRequest);
       if (keyExchangeTimeout) {
         clearTimeout(keyExchangeTimeout);
       }
