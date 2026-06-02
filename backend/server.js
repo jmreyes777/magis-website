@@ -500,6 +500,25 @@ app.post(
 const branchStatusRoutes = require("./routes/branchStatus");
 app.use("/api", branchStatusRoutes);
 
+// --- TEMP geo plumbing diagnostic (no secrets exposed) ---
+// Confirms the Cloudflare edge worker is trusted and forwarding geo correctly.
+// Public-bypassed at the edge via the /api/branch-status/* allowlist.
+// REMOVE after geo-anomaly verification.
+{
+  const { getClientGeo, GEO_ANOMALY_MODE, GEO_ANOMALY_ENABLED } = require("./utils/geoSecurity");
+  app.get("/api/branch-status/_geocheck", (req, res) => {
+    const { ip, country, edgeTrusted } = getClientGeo(req);
+    res.json({
+      edgeTrusted,
+      country: country || null,
+      ipMasked: ip ? ip.replace(/\d+$/, "x") : null,
+      mode: GEO_ANOMALY_MODE,
+      enabled: GEO_ANOMALY_ENABLED,
+      env: process.env.NODE_ENV || null,
+    });
+  });
+}
+
 // --- Facebook latest video with cache + rate limiter ---
 const fbLimiter = rateLimit({
   windowMs: 60 * 1000,
