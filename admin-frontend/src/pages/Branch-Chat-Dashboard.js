@@ -1028,6 +1028,18 @@ const BranchChatDashboard = () => {
           decryptedMessage = decryptedContent;
         }
       }
+
+      // Never render raw ciphertext. If the payload is still an encrypted blob
+      // (e.g. the secure channel isn't established on this tab yet), show a
+      // friendly placeholder instead of the {"ciphertext":...} JSON.
+      if (
+        msg.e2ee &&
+        typeof decryptedContent === "string" &&
+        decryptedContent.includes('"ciphertext"')
+      ) {
+        decryptedContent = "[Encrypted message]";
+        decryptedMessage = "[Encrypted message]";
+      }
       
       // Update message with decrypted content
       const decryptedMsg = {
