@@ -248,6 +248,7 @@ async function handleRequest(req, res) {
     (req.method === "POST" && pathname === "/api/messages/send") ||
     (req.method === "POST" && pathname === "/api/messages/start") ||
     (req.method === "GET" && pathname.startsWith("/api/messages/history")) ||
+    (req.method === "PATCH" && pathname.startsWith("/api/messages/mark-seen-by-guest")) ||
     (req.method === "POST" && pathname === "/api/csrf-token") ||
     (req.method === "POST" && pathname === "/api/issue-fallback-token");
 

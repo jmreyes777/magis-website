@@ -322,6 +322,11 @@ async function handle(request) {
     (request.method === "POST" && pathname === "/api/messages/start") ||
     (request.method === "GET" &&
       pathname.startsWith("/api/messages/history")) ||
+    // Guest read-receipt: guests hold a HS256 guest token (role=user), not a
+    // branchadmin token, so the edge admin-JWT check would 401. The backend
+    // route (authenticateGuest + per-message ACL) fully authenticates it.
+    (request.method === "PATCH" &&
+      pathname.startsWith("/api/messages/mark-seen-by-guest")) ||
     ((request.method === "GET" || request.method === "POST") && pathname === "/api/csrf-token") ||
     (request.method === "POST" && pathname === "/api/issue-fallback-token") ||
     // session-verify needs the Firebase RS256 ID token (fresh TOTP proof), which

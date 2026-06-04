@@ -1960,7 +1960,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
           await fetch(`${process.env.REACT_APP_API_URL}/api/messages/mark-seen-by-guest/${msg.id}`, {
             method: "PATCH",
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           });
           console.log("[GUEST] ✅ Marked admin message as seen:", msg.id);
         } catch (err) {
