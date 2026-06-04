@@ -1887,11 +1887,14 @@ const BranchChatDashboard = () => {
           savedMessage
         );
 
-        // 5. WebSocket emit (send plaintext for real-time delivery, backend already has encrypted copy)
+        // 5. WebSocket emit. When an E2EE channel is established, emit the
+        // ciphertext (JSON {ciphertext, iv}) in `content` so the guest can
+        // decrypt it — never broadcast plaintext over the wire. The guest's
+        // handler JSON-parses `content` and decrypts when `e2ee` is true.
         sendMessage({
           room: `guest-${guestId}`,
           guestId,
-          content: newMessage, // Send plaintext for socket (E2EE already in DB)
+          content: encryptedPayload ? JSON.stringify(encryptedPayload) : newMessage,
           sender: "branch",
           id: savedMessage.id,
           timestamp: savedMessage.timestamp,
