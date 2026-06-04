@@ -604,6 +604,9 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
   // ============================================================================
   const inputFileRef = useRef(null);
   const offlineTimer = useRef(null);
+  // Always points to the latest handleChatClose so the unmount-only effect can
+  // run the full close flow (archive + chatClosed) without a stale closure.
+  const handleChatCloseRef = useRef(null);
 
   // ============================================================================
   // COMPUTED VALUES
@@ -634,6 +637,25 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
 
     connection.addEventListener("change", update);
     return () => connection.removeEventListener("change", update);
+  }, []);
+
+  // ============================================================================
+  // FULL CLOSE ON NAVIGATION AWAY / UNMOUNT
+  // ----------------------------------------------------------------------------
+  // If the guest leaves the page (route change, idle auto-close, etc.) WITHOUT
+  // using the X button, the component unmounts while `chatOpen` is still set, so
+  // the history-effect cleanup skipped teardown and the conversation lingered on
+  // the admin side (no `chatClosed` ever sent). Here we run the same close flow
+  // as the X button on a true unmount, unless an explicit close already handled
+  // it (isClosingRef). Empty deps + a ref keep this from firing on dependency
+  // changes (e.g. localBranchId hydration) — only on actual unmount.
+  // ============================================================================
+  useEffect(() => {
+    return () => {
+      if (isClosingRef.current) return; // explicit X-close already archived + emitted
+      const closeFn = handleChatCloseRef.current;
+      if (typeof closeFn === "function") closeFn();
+    };
   }, []);
 
   // ============================================================================
@@ -1602,6 +1624,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
 
   // Close chat box (kept as-is)
   const handleChatClose = async () => {
+    // Mark closing synchronously (before any await) so the other unmount
+    // cleanups reliably see it and skip their own teardown.
+    isClosingRef.current = true;
+
     try {
       await ensureValidGuestToken();
     } catch (err) {
@@ -1611,7 +1637,6 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
     try {
       console.log("[CLIENT:GUEST] 🚪 Closing chat for guestId:", guestId);
       setIsClosing(true);
-      isClosingRef.current = true;
 
       if (!guestId || !branchEmail) {
         console.error("[CLIENT:GUEST] ❌ Cannot close chat. guestId or branchEmail missing.");
@@ -1716,6 +1741,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
       onClose();
     }
   };
+
+  // Keep the unmount-only effect pointed at the latest close handler so a
+  // navigation/idle unmount runs the full close (archive + chatClosed).
+  handleChatCloseRef.current = handleChatClose;
 
   // Sensitive data confirmation handlers
   const confirmSensitiveSend = () => {
