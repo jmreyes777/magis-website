@@ -624,8 +624,14 @@ router.patch(
         return res.status(404).json({ error: "Message not found." });
       }
       const data = docSnap.data();
-      // Enforce ACL: guest may only update their own messages
-      if (data.guestId !== guestId) {
+      // Enforce ACL: guest may only update their own messages. Compare on the
+      // normalized id (lowercase + strip "guest-" prefix) so a harmless format
+      // difference between the token's guestId and the stored guestId — e.g.
+      // "guest-123" vs "123" across the init/refresh/fallback token paths —
+      // does not produce a false 403 for the guest's own conversation.
+      const normGuestId = (s = "") =>
+        String(s).toLowerCase().replace(/^guest-/, "").trim();
+      if (normGuestId(data.guestId) !== normGuestId(guestId)) {
         return res.status(403).json({ error: "Forbidden – wrong guest." });
       }
       await ref.update({ seenByGuest: true });
