@@ -1247,6 +1247,23 @@ const BranchChatDashboard = () => {
     }
   }, [selectedChat, branchEmail]);
 
+  // ============================================================================
+  // E2EE: RE-DECRYPT ON CHANNEL ESTABLISHMENT
+  // ----------------------------------------------------------------------------
+  // Messages can arrive (or the thread can load) BEFORE the key handshake with
+  // the guest completes — those render as "[Encrypted message]" and would stay
+  // that way forever. When the secure channel becomes established for the open
+  // chat, re-fetch the thread so anything that was a placeholder now decrypts.
+  // ============================================================================
+  useEffect(() => {
+    const gid = selectedChat?.guestId;
+    if (!gid) return;
+    if (e2eeStatus[gid] === "established" || isE2EEEstablished(gid)) {
+      fetchMessages();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [e2eeStatus, selectedChat?.guestId]);
+
   // activeGuestIds is your Set of open chat IDs
   useEffect(() => {
     if (
