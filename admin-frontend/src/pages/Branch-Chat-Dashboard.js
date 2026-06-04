@@ -105,6 +105,47 @@ const normalizeGuestId = (id) => {
 };
 
 // ============================================================================
+// E2EE OUTGOING PLAINTEXT CACHE
+// ----------------------------------------------------------------------------
+// The E2EE shared key is ephemeral and per-tab (see utils/e2eeCrypto.js), while
+// Firestore only stores ciphertext. That means a re-fetch of the thread (e.g.
+// after switching browser tabs, a reconnect, or on a tab that never performed
+// the key handshake) cannot always decrypt the admin's OWN sent messages, and
+// the thread reverts to ciphertext/placeholder.
+//
+// Since the sender always knows the plaintext it typed, we cache outgoing
+// plaintext keyed by the server message id and prefer it in every render path.
+// sessionStorage keeps it per-tab and clears it on tab close to limit at-rest
+// exposure of SPI under DPA 2012.
+// ============================================================================
+const E2EE_PLAINTEXT_CACHE_KEY = "e2eeOutgoingPlaintext";
+
+const readPlaintextCache = () => {
+  try {
+    return JSON.parse(sessionStorage.getItem(E2EE_PLAINTEXT_CACHE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+};
+
+const cacheOutgoingPlaintext = (id, plaintext) => {
+  if (!id || typeof plaintext !== "string") return;
+  try {
+    const cache = readPlaintextCache();
+    cache[id] = plaintext;
+    sessionStorage.setItem(E2EE_PLAINTEXT_CACHE_KEY, JSON.stringify(cache));
+  } catch {
+    /* sessionStorage unavailable/full — non-fatal */
+  }
+};
+
+const getCachedPlaintext = (id) => {
+  if (!id) return null;
+  const cache = readPlaintextCache();
+  return Object.prototype.hasOwnProperty.call(cache, id) ? cache[id] : null;
+};
+
+// ============================================================================
 // MESSAGE SENDING HELPERS
 // ============================================================================
 
@@ -1041,6 +1082,15 @@ const BranchChatDashboard = () => {
         decryptedMessage = "[Encrypted message]";
       }
       
+      // Prefer our own cached plaintext (admin's outgoing messages) so the
+      // thread never reverts to ciphertext/placeholder when the ephemeral key
+      // is unavailable on this tab.
+      const cachedOwn = getCachedPlaintext(msg.id);
+      if (cachedOwn != null) {
+        decryptedContent = cachedOwn;
+        decryptedMessage = cachedOwn;
+      }
+
       // Update message with decrypted content
       const decryptedMsg = {
         ...msg,
@@ -1166,6 +1216,10 @@ const BranchChatDashboard = () => {
       const guestId = canon(selectedChat.guestId);
       const msgs = await Promise.all(
         rawMsgs.map(async (m) => {
+          const cached = getCachedPlaintext(m.id);
+          if (cached != null) {
+            return { ...m, content: cached, message: cached, encrypted: true };
+          }
           if (m.e2ee && m.content && isE2EEEstablished(guestId)) {
             try {
               const payload = JSON.parse(m.content);
@@ -1752,6 +1806,10 @@ const BranchChatDashboard = () => {
                 const gid = canon(selectedChatRef.current.guestId);
                 const msgs = await Promise.all(
                   rawMsgs.map(async (m) => {
+                    const cached = getCachedPlaintext(m.id);
+                    if (cached != null) {
+                      return { ...m, content: cached, message: cached, encrypted: true };
+                    }
                     if (m.e2ee && m.content && isE2EEEstablished(gid)) {
                       try {
                         const payload = JSON.parse(m.content);
@@ -1921,6 +1979,9 @@ const BranchChatDashboard = () => {
           savedMessage.content = newMessage;
           savedMessage.message = newMessage;
           savedMessage.encrypted = true;
+          // Cache our own plaintext by server id so any later re-fetch (tab
+          // switch / reconnect / key not established) still renders plaintext.
+          cacheOutgoingPlaintext(savedMessage.id, newMessage);
         }
         setMessages((prev) =>
           prev.map((msg) => (msg.tempId === optimisticMessage.tempId ? savedMessage : msg))
