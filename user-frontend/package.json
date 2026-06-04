@@ -36,7 +36,7 @@
   },
   "scripts": {
     "start": "cross-env craco start",
-    "build": "cross-env REACT_APP_ENABLE_SW=true craco build",
+    "build": "cross-env craco build",
     "test": "craco test",
     "analyze": "npm run build && npx source-map-explorer \"build/static/js/*.js\"",
     "eject": "react-scripts eject"

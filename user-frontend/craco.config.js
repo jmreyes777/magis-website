@@ -1,6 +1,4 @@
 // craco.config.js
-const { InjectManifest } = require("workbox-webpack-plugin");
-const path = require("path");
 
 module.exports = {
   babel: {
@@ -28,12 +26,5 @@ module.exports = {
 
       return webpackConfig;
     },
-    plugins: [
-      new InjectManifest({
-        swSrc: path.resolve(__dirname, "public/sw.js"),
-        swDest: "sw.js",
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-      }),
-    ],
   },
 };
