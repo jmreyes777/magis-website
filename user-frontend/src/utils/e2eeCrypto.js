@@ -117,7 +117,13 @@ export async function decryptMessage(sharedKey, ciphertext, iv) {
     const decoder = new TextDecoder();
     return decoder.decode(decrypted);
   } catch (error) {
-    console.error("[E2EE] Decryption failed:", error.message);
+    // AES-GCM auth failures surface as an OperationError with an empty message.
+    // These are expected for legacy ciphertext sealed with a pre-migration key,
+    // so log at debug level (not error) to avoid noise. Callers still handle the throw.
+    console.debug(
+      "[E2EE] Decryption failed (likely legacy/wrong key):",
+      error?.name || error?.message || "unknown error"
+    );
     throw new Error("Failed to decrypt message - possible tampering or wrong key");
   }
 }
