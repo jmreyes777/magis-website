@@ -1742,9 +1742,33 @@ const BranchChatDashboard = () => {
                   limit(100)
                 );
                 const snapshot = await getDocs(q);
-                const msgs = snapshot.docs
+                const rawMsgs = snapshot.docs
                   .map((doc) => ({ id: doc.id, ...doc.data() }))
                   .filter((msg) => msg.archived !== true);
+
+                // Decrypt E2EE messages so this sync path never overwrites the
+                // thread with raw ciphertext (e.g. after switching tabs back to
+                // the admin). Mirrors the decryption logic in fetchMessages.
+                const gid = canon(selectedChatRef.current.guestId);
+                const msgs = await Promise.all(
+                  rawMsgs.map(async (m) => {
+                    if (m.e2ee && m.content && isE2EEEstablished(gid)) {
+                      try {
+                        const payload = JSON.parse(m.content);
+                        if (payload.ciphertext && payload.iv) {
+                          const plain = await e2eeDecrypt(gid, payload.ciphertext, payload.iv);
+                          return { ...m, content: plain, message: plain, encrypted: true };
+                        }
+                      } catch (e) {
+                        return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
+                      }
+                    }
+                    if (m.e2ee && typeof m.content === "string" && m.content.includes('"ciphertext"')) {
+                      return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
+                    }
+                    return m;
+                  })
+                );
                 setMessages(msgs);
               } catch (err) {
                 console.warn(
