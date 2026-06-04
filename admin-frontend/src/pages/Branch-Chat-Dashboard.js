@@ -1879,6 +1879,13 @@ const BranchChatDashboard = () => {
       if (response.ok && data.savedReply) {
         // 4. Confirmed message
         const savedMessage = createConfirmedMessage(data.savedReply, guestId, branchEmail, optimisticMessage.tempId);
+        // Keep our own thread showing plaintext when E2EE is on — the server
+        // echoes back the ciphertext in `content`, which must never be rendered raw.
+        if (encryptedPayload) {
+          savedMessage.content = newMessage;
+          savedMessage.message = newMessage;
+          savedMessage.encrypted = true;
+        }
         setMessages((prev) =>
           prev.map((msg) => (msg.tempId === optimisticMessage.tempId ? savedMessage : msg))
         );

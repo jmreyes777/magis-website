@@ -640,9 +640,10 @@ const initializeSocket = (server) => {
           sender: z.enum(["guest", "branch"]),
           id: z.string().optional(),
           branchEmail: z.string().optional(),
+          e2ee: z.boolean().optional(),
         });
         const parsed = payloadSchema.parse(data);
-        let { room, guestId, content, media, sender, id, branchEmail: payloadBranchEmail } = parsed;
+        let { room, guestId, content, media, sender, id, branchEmail: payloadBranchEmail, e2ee } = parsed;
 
         if (!content && !media) {
           if (typeof callback === "function") {
@@ -662,6 +663,9 @@ const initializeSocket = (server) => {
             content,
             media: media || null,
             sender,
+            // Carry the E2EE flag so the recipient knows `content` is ciphertext
+            // ({ciphertext, iv} JSON) and must be decrypted, not shown raw.
+            e2ee: !!e2ee,
             timestamp: new Date().toISOString(),
           };
 
@@ -721,6 +725,7 @@ const initializeSocket = (server) => {
           content: content || null,
           media: media || null,
           sender,
+          e2ee: !!e2ee,
           status: "sent",
           seenByAdmin: false,
           timestamp: new Date().toISOString(),
