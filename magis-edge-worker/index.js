@@ -320,6 +320,9 @@ async function handle(request) {
     (request.method === "POST" && pathname.startsWith("/api/guest")) ||
     (request.method === "POST" && pathname === "/api/messages/send") ||
     (request.method === "POST" && pathname === "/api/messages/start") ||
+    // Guest fetches its own conversation key (guest token, role=user). The admin
+    // GET variant carries a :guestId param and is verified via the admin path.
+    (request.method === "POST" && pathname === "/api/messages/conversation-key") ||
     (request.method === "GET" &&
       pathname.startsWith("/api/messages/history")) ||
     // Guest read-receipt: guests hold a HS256 guest token (role=user), not a

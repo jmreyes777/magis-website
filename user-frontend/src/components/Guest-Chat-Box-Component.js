@@ -21,13 +21,10 @@ import ImagePreview from "../Shared/ImagePreview-Component";
 import "./Guest-Chat-Box-Component.css";
 import TranscriptModal from "../components/TranscriptModal";
 import {
-  initializeE2EE,
-  completeKeyExchange,
   isE2EEEstablished,
-  getMyPublicKey,
   e2eeEncrypt,
   e2eeDecrypt,
-  clearE2EE,
+  establishWithServerKey,
 } from "../utils/e2eeCrypto";
 
 const socket = getSocketInstance();
@@ -746,146 +743,58 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
   }, [guestId, onClose]);
 
   // ============================================================================
-  // SECURITY: E2EE KEY EXCHANGE
+  // SECURITY: E2EE VIA SERVER-MANAGED CONVERSATION KEY
+  // ----------------------------------------------------------------------------
+  // We fetch the per-conversation AES-256 key from the backend (the SAME key the
+  // branch admin fetches) and import it as the AES-GCM shared key. This replaces
+  // the ephemeral ECDH handshake, so the channel is established immediately and
+  // does not depend on the branch being online. The fetched key feeds the
+  // existing e2eeEncrypt/e2eeDecrypt paths unchanged.
   // ============================================================================
   useEffect(() => {
     if (!guestId || !branchEmail) return;
-    
-    const initE2EE = async () => {
-      try {
-        setE2eeStatus("initializing");
-        const { publicKey } = await initializeE2EE(guestId);
-        
-        // Emit our public key to branch
-        const keyData = {
-          guestId,
-          branchEmail,
-          publicKey,
-          role: "guest",
-        };
-        console.log("[E2EE] DEBUG: Emitting guest key with data:", keyData);
-        socket.emit("e2ee:guest_key", keyData);
-        
-        setE2eeStatus("exchanging");
-        console.log("[E2EE] Public key emitted, waiting for branch key");
-      } catch (error) {
-        console.error("[E2EE] Initialization failed:", error);
-        setE2eeStatus("failed");
-        setE2eeError(error.message);
-      }
-    };
-    
-    initE2EE();
-    
-    // Listen for branch's public key
-    const handleBranchKey = async (data) => {
-      if (data.guestId !== guestId) return;
-      
-      try {
-        await completeKeyExchange(guestId, data.publicKey);
-        setE2eeStatus("established");
-        console.log("[E2EE] Secure channel established with branch");
-        if (keyExchangeTimeout) {
-          clearTimeout(keyExchangeTimeout);
-          keyExchangeTimeout = null;
-        }
-      } catch (error) {
-        console.error("[E2EE] Key exchange failed:", error);
-        setE2eeStatus("failed");
-        setE2eeError(error.message);
-        if (keyExchangeTimeout) {
-          clearTimeout(keyExchangeTimeout);
-          keyExchangeTimeout = null;
-        }
-      }
-    };
-    
-    // Add timeout for key exchange
-    let keyExchangeTimeout = setTimeout(() => {
-      console.log("[E2EE] Key exchange timeout - falling back to standard encryption");
-      setE2eeStatus("failed");
-      setE2eeError("Key exchange timeout");
-    }, 10000); // 10 seconds timeout
-    
-    // Respond to the branch asking us to (re)send our public key. This recovers
-    // the exchange when our initial key emit was missed because the branch
-    // socket was reconnecting at that moment.
-    const handleKeyRequest = async () => {
-      try {
-        let publicKey = await getMyPublicKey(guestId);
-        if (!publicKey) {
-          const res = await initializeE2EE(guestId);
-          publicKey = res.publicKey;
-        }
-        socket.emit("e2ee:guest_key", { guestId, branchEmail, publicKey, role: "guest" });
-        if (!isE2EEEstablished(guestId)) setE2eeStatus("exchanging");
-        console.log("[E2EE] Re-sent guest key on branch request");
-      } catch (error) {
-        console.error("[E2EE] Failed to handle key request:", error);
-      }
-    };
-
-    socket.on("e2ee:branch_key", handleBranchKey);
-    socket.on("e2ee:request_key", handleKeyRequest);
-    
-    return () => {
-      socket.off("e2ee:branch_key", handleBranchKey);
-      socket.off("e2ee:request_key", handleKeyRequest);
-      if (keyExchangeTimeout) {
-        clearTimeout(keyExchangeTimeout);
-      }
-      clearE2EE(guestId);
-    };
-  }, [guestId, branchEmail]);
-
-  // ============================================================================
-  // SECURITY: E2EE RETRY WHEN BRANCH COMES ONLINE
-  // Handles the case where the guest opened the chat while the branch was
-  // offline (initial key emit was lost). Re-emits the guest key once the
-  // branch is reachable, so the exchange can complete instead of timing out.
-  // ============================================================================
-  useEffect(() => {
-    if (!guestId || !branchEmail) return;
-    if (!branchStatus.online) return;
-    if (["established", "exchanging", "initializing"].includes(e2eeStatus)) return;
+    if (isE2EEEstablished(guestId)) {
+      setE2eeStatus("established");
+      return;
+    }
 
     let cancelled = false;
-    let retryTimeout = null;
     (async () => {
       try {
-        let publicKey = await getMyPublicKey(guestId);
-        if (!publicKey) {
-          const res = await initializeE2EE(guestId);
-          publicKey = res.publicKey;
-        }
-        if (cancelled) return;
-        setE2eeError(null);
-        setE2eeStatus("exchanging");
-        const keyData = { guestId, branchEmail, publicKey, role: "guest" };
-        console.log("[E2EE] Branch online — re-emitting guest key:", keyData);
-        socket.emit("e2ee:guest_key", keyData);
-
-        // Don't hang on "exchanging" forever — if the branch key doesn't come
-        // back, fall back to the standard-encryption label (handled by handleBranchKey
-        // clearing this on success via established status).
-        retryTimeout = setTimeout(() => {
-          if (cancelled) return;
-          if (!isE2EEEstablished(guestId)) {
-            console.log("[E2EE] Retry key exchange timeout - falling back");
-            setE2eeStatus("failed");
-            setE2eeError("Key exchange timeout");
+        setE2eeStatus("initializing");
+        const token =
+          sessionStorage.getItem("guestToken") || localStorage.getItem("guestToken");
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/messages/conversation-key`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
           }
-        }, 10000);
+        );
+        if (!res.ok) throw new Error(`conversation-key fetch failed (${res.status})`);
+        const { key } = await res.json();
+        if (!key) throw new Error("no conversation key returned");
+        if (cancelled) return;
+        await establishWithServerKey(guestId, key);
+        setE2eeError(null);
+        setE2eeStatus("established");
+        console.log("[E2EE] Conversation key established");
       } catch (error) {
-        console.error("[E2EE] Retry emit failed:", error);
+        if (cancelled) return;
+        console.error("[E2EE] Conversation key fetch failed:", error.message);
+        setE2eeStatus("failed");
+        setE2eeError(error.message);
       }
     })();
 
     return () => {
       cancelled = true;
-      if (retryTimeout) clearTimeout(retryTimeout);
     };
-  }, [branchStatus.online, guestId, branchEmail, e2eeStatus]);
+  }, [guestId, branchEmail]);
 
   // ============================================================================
   // WAKE HANDLING EFFECT

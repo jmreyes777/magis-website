@@ -211,6 +211,31 @@ export async function completeKeyExchange(guestId, peerPublicKeyBase64) {
 }
 
 /**
+ * Establish a session from a server-managed conversation key (base64 raw AES-256).
+ * Replaces the ephemeral ECDH handshake: both guest and branch fetch the SAME
+ * key from the backend and import it as the AES-GCM shared key, so the channel
+ * is "established" immediately and works even when the peer is offline. The
+ * existing e2eeEncrypt/e2eeDecrypt paths use store.sharedKey unchanged.
+ */
+export async function establishWithServerKey(guestId, base64Key) {
+  const raw = base64ToArrayBuffer(base64Key);
+  const sharedKey = await window.crypto.subtle.importKey(
+    "raw",
+    raw,
+    { name: AES_ALGORITHM },
+    false, // not extractable
+    ["encrypt", "decrypt"]
+  );
+  keyStore.set(guestId, {
+    keyPair: null,
+    sharedKey,
+    peerPublicKeyBase64: null,
+    established: true,
+  });
+  return true;
+}
+
+/**
  * Get encryption status for a session
  */
 export function isE2EEEstablished(guestId) {

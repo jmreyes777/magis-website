@@ -2,6 +2,7 @@
 
 const express = require("express");
 const router = express.Router();
+const crypto = require("crypto");
 const { db } = require("../utils/firebase");
 const { getSocketIOInstance } = require("../utils/socket");
 const { v4: uuidv4 } = require("uuid");
@@ -46,6 +47,89 @@ async function uploadMediaToStorage(buffer, fileName) {
 function getRoomName(role, id) {
   const prefix = role === "admin" || role === "branchadmin" ? "admin" : "guest";
   return `${prefix}-${id}`;
+}
+
+// ============================================================================
+// CONVERSATION KEY STORE (E2EE with managed keys)
+// ----------------------------------------------------------------------------
+// A single AES-256 key per (branch, guest) conversation. Both the guest and the
+// branch admin fetch the SAME key (over an authenticated, TLS + edge-protected
+// channel) and use it with the existing AES-256-GCM message format. Unlike the
+// previous ephemeral ECDH handshake, this lets the admin read history even when
+// the guest is offline. The key is stored encrypted-at-rest in Firestore when
+// CONV_KEY_SECRET is configured, and access is gated by per-side auth + ACL.
+// ============================================================================
+const CONV_KEY_SECRET = process.env.CONV_KEY_SECRET || "";
+
+const normGuestKeyId = (s = "") =>
+  String(s).toLowerCase().replace(/^guest-/, "").trim();
+const normEmailKeyId = (s = "") => String(s).toLowerCase().trim();
+
+function deriveMasterKey() {
+  if (!CONV_KEY_SECRET) return null;
+  return crypto.createHash("sha256").update(CONV_KEY_SECRET).digest(); // 32 bytes
+}
+
+// Wrap the raw conversation key for at-rest storage. Falls back to storing raw
+// (with a one-time warning) if no CONV_KEY_SECRET is configured.
+function wrapConversationKey(rawB64) {
+  const master = deriveMasterKey();
+  if (!master) {
+    if (!wrapConversationKey._warned) {
+      console.warn(
+        "[CONV-KEY] ⚠️ CONV_KEY_SECRET not set — conversation keys stored unwrapped. Set CONV_KEY_SECRET for encryption-at-rest."
+      );
+      wrapConversationKey._warned = true;
+    }
+    return rawB64;
+  }
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", master, iv);
+  const enc = Buffer.concat([cipher.update(Buffer.from(rawB64, "utf8")), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return `v1:${iv.toString("base64")}:${tag.toString("base64")}:${enc.toString("base64")}`;
+}
+
+function unwrapConversationKey(stored) {
+  if (!stored || !String(stored).startsWith("v1:")) return stored; // raw
+  const master = deriveMasterKey();
+  if (!master) throw new Error("CONV_KEY_SECRET required to read wrapped conversation key");
+  const [, ivB64, tagB64, encB64] = String(stored).split(":");
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    master,
+    Buffer.from(ivB64, "base64")
+  );
+  decipher.setAuthTag(Buffer.from(tagB64, "base64"));
+  const dec = Buffer.concat([
+    decipher.update(Buffer.from(encB64, "base64")),
+    decipher.final(),
+  ]);
+  return dec.toString("utf8");
+}
+
+// Get the conversation key, creating it atomically on first request so the
+// guest and admin always converge on the same key regardless of who asks first.
+async function getOrCreateConversationKey(branchEmail, guestId) {
+  const branch = normEmailKeyId(branchEmail);
+  const guest = normGuestKeyId(guestId);
+  const docId = `${branch}__${guest}`;
+  const ref = db.collection("conversationKeys").doc(docId);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (snap.exists) {
+      return unwrapConversationKey(snap.data().key);
+    }
+    const rawB64 = crypto.randomBytes(32).toString("base64"); // AES-256
+    tx.set(ref, {
+      key: wrapConversationKey(rawB64),
+      branchEmail: branch,
+      guestId: guest,
+      createdAt: new Date().toISOString(),
+    });
+    return rawB64;
+  });
 }
 
 // ============================================================================
@@ -600,6 +684,53 @@ router.patch(
     } catch (err) {
       console.error("[MESSAGES:mark-seen] ❌", err);
       return res.status(500).json({ error: "Failed to mark as seen." });
+    }
+  }
+);
+
+/**
+ * POST /api/messages/conversation-key
+ * Guest fetches (creating on first call) the AES-256 conversation key for its
+ * own chat. The guest token carries guestId + the branch email (room mapping),
+ * so we scope strictly to req.user — a guest can only ever obtain its own key.
+ */
+router.post("/conversation-key", authenticateGuest, async (req, res) => {
+  try {
+    const guestId = req.user.guestId;
+    const branchEmail = (req.user.email || "").toLowerCase();
+    if (!guestId || !branchEmail) {
+      return res.status(400).json({ error: "guestId and branch are required." });
+    }
+    const key = await getOrCreateConversationKey(branchEmail, guestId);
+    return res.status(200).json({ key });
+  } catch (err) {
+    console.error("[MESSAGES:conversation-key:guest] ❌", err);
+    return res.status(500).json({ error: "Failed to fetch conversation key." });
+  }
+});
+
+/**
+ * GET /api/messages/conversation-key/:guestId
+ * Branch admin fetches (creating on first call) the conversation key for a guest
+ * in its own branch. Scoped to req.branchEmail so an admin can only read keys
+ * for conversations belonging to their branch. Works even when the guest is
+ * offline, enabling history decryption.
+ */
+router.get(
+  "/conversation-key/:guestId",
+  authenticateBranchAdmin,
+  async (req, res) => {
+    try {
+      const { guestId } = req.params;
+      const branchEmail = (req.branchEmail || "").toLowerCase();
+      if (!guestId || !branchEmail) {
+        return res.status(400).json({ error: "guestId and branch are required." });
+      }
+      const key = await getOrCreateConversationKey(branchEmail, guestId);
+      return res.status(200).json({ key });
+    } catch (err) {
+      console.error("[MESSAGES:conversation-key:admin] ❌", err);
+      return res.status(500).json({ error: "Failed to fetch conversation key." });
     }
   }
 );

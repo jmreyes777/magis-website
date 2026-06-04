@@ -46,13 +46,10 @@ import { useWakeLock } from "../utils/useWakeLock";
 import "./Branch-Chat-Dashboard.css";
 import MFASessionModal from "../components/MFASessionModal";
 import {
-  initializeE2EE,
-  completeKeyExchange,
   isE2EEEstablished,
-  getMyPublicKey,
   e2eeEncrypt,
   e2eeDecrypt,
-  clearE2EE,
+  establishWithServerKey,
 } from "../utils/e2eeCrypto";
 
 // ============================================================================
@@ -572,118 +569,59 @@ const BranchChatDashboard = () => {
   }, []);
 
   // ============================================================================
-  // E2EE KEY EXCHANGE
-  // ============================================================================
-  useEffect(() => {
-    if (!selectedChat?.guestId || !branchEmail) return;
-    
-    const guestId = selectedChat.guestId;
-
-    // If a secure session for this guest is already established (or being
-    // exchanged) by the global guest_key handler, do NOT re-initialize — that
-    // would overwrite the keypair and destroy the shared key, leaving the admin
-    // unable to decrypt the guest's messages.
-    if (isE2EEEstablished(guestId) || e2eeStatus[guestId] === "established") {
-      return;
-    }
-    
-    // Initialize E2EE for this guest (only if not already set up)
-    const initE2EE = async () => {
-      try {
-        if (isE2EEEstablished(guestId)) return;
-        setE2eeStatus(prev => ({ ...prev, [guestId]: prev[guestId] || "initializing" }));
-        await initializeE2EE(guestId);
-        console.log(`[E2EE] Initialized for guest ${guestId}, waiting for guest key...`);
-      } catch (error) {
-        console.error(`[E2EE] Initialization failed for ${guestId}:`, error);
-        setE2eeStatus(prev => ({ ...prev, [guestId]: "failed" }));
-        setE2eeErrors(prev => ({ ...prev, [guestId]: error.message }));
-      }
-    };
-    
-    initE2EE();
-
-    // NOTE: do NOT clearE2EE here. Switching chats must not tear down an
-    // established session — keys are session-scoped and cleared on unmount/logout.
-  }, [selectedChat?.guestId, branchEmail]);
-
-  // ============================================================================
-  // GLOBAL E2EE LISTENER (for all guests, not just selected)
-  // ============================================================================
-  useEffect(() => {
-    if (!branchEmail || !socketInstance) return;
-    
-    // Listen for guest's public key (for all guests, not just selected)
-    const handleGuestKey = async (data) => {
-      console.log(`[E2EE] DEBUG: Received guest key event:`, data);
-      const { guestId: incomingGuestId, publicKey } = data;
-      if (!incomingGuestId || !publicKey) {
-        console.log(`[E2EE] DEBUG: Missing guestId or publicKey`);
-        return;
-      }
-      
-      // Only process if it's for our branch
-      if (data.branchEmail && data.branchEmail !== branchEmail) {
-        console.log(`[E2EE] DEBUG: Key not for our branch (${data.branchEmail} != ${branchEmail})`);
-        return;
-      }
-      
-      try {
-        console.log(`[E2EE] Received key from guest ${incomingGuestId}`);
-        
-        // Initialize E2EE for this guest if not already done
-        if (!e2eeStatus[incomingGuestId]) {
-          setE2eeStatus(prev => ({ ...prev, [incomingGuestId]: "initializing" }));
-          await initializeE2EE(incomingGuestId);
-        }
-        
-        setE2eeStatus(prev => ({ ...prev, [incomingGuestId]: "exchanging" }));
-        await completeKeyExchange(incomingGuestId, publicKey);
-        
-        // Send our public key back to the guest
-        const myPublicKey = await getMyPublicKey(incomingGuestId);
-        if (myPublicKey) {
-          socketInstance.emit("e2ee:branch_key", {
-            guestId: incomingGuestId,
-            branchEmail,
-            publicKey: myPublicKey,
-            role: "branch",
-          });
-          console.log(`[E2EE] Sent branch key to guest ${incomingGuestId}`);
-        }
-        
-        setE2eeStatus(prev => ({ ...prev, [incomingGuestId]: "established" }));
-        console.log(`[E2EE] Secure channel established with guest ${incomingGuestId}`);
-      } catch (error) {
-        console.error(`[E2EE] Key exchange failed for ${incomingGuestId}:`, error);
-        setE2eeStatus(prev => ({ ...prev, [incomingGuestId]: "failed" }));
-        setE2eeErrors(prev => ({ ...prev, [incomingGuestId]: error.message }));
-      }
-    };
-    
-    socketInstance.off("e2ee:guest_key", handleGuestKey);
-    socketInstance.on("e2ee:guest_key", handleGuestKey);
-    console.log(`[E2EE] DEBUG: Bound handleGuestKey to socket ${socketInstance.id}`);
-    
-    return () => {
-      socketInstance.off("e2ee:guest_key", handleGuestKey);
-    };
-  }, [branchEmail, socketInstance?.id]);
-
-  // ============================================================================
-  // E2EE KEY REQUEST
-  // When a chat is selected (or the socket reconnects) and we don't yet have an
-  // established secure channel for that guest, ask the guest to (re)send its
-  // public key. Recovers from races where the guest's one-shot key emit was
-  // missed because our socket was mid-reconnect (tab hide/show churn).
+  // E2EE: ESTABLISH VIA SERVER-MANAGED CONVERSATION KEY
+  // ----------------------------------------------------------------------------
+  // Instead of an ephemeral ECDH handshake (which required the guest to be online
+  // and broke history after a tab close/reload), we fetch the per-conversation
+  // AES-256 key from the backend (scoped to this branch). This establishes the
+  // secure channel immediately — even when the guest is offline — so the admin
+  // can always decrypt the conversation, including full history. The fetched key
+  // feeds the existing AES-GCM e2eeEncrypt/e2eeDecrypt paths unchanged.
   // ============================================================================
   useEffect(() => {
     const guestId = selectedChat?.guestId;
-    if (!guestId || !branchEmail || !socketInstance) return;
-    if (isE2EEEstablished(guestId)) return;
-    socketInstance.emit("e2ee:request_key", { guestId, branchEmail, role: "branch" });
-    console.log(`[E2EE] Requested key from guest ${guestId}`);
-  }, [selectedChat?.guestId, branchEmail, socketInstance?.id]);
+    if (!guestId || !branchEmail) return;
+    if (isE2EEEstablished(guestId)) {
+      setE2eeStatus((prev) =>
+        prev[guestId] === "established" ? prev : { ...prev, [guestId]: "established" }
+      );
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        setE2eeStatus((prev) => ({ ...prev, [guestId]: prev[guestId] || "initializing" }));
+        const token =
+          sessionStorage.getItem("branchAdminToken") ||
+          localStorage.getItem("branchAdminToken");
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/messages/conversation-key/${encodeURIComponent(guestId)}`,
+          {
+            method: "GET",
+            credentials: "include",
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (!res.ok) throw new Error(`conversation-key fetch failed (${res.status})`);
+        const { key } = await res.json();
+        if (!key) throw new Error("no conversation key returned");
+        if (cancelled) return;
+        await establishWithServerKey(guestId, key);
+        setE2eeStatus((prev) => ({ ...prev, [guestId]: "established" }));
+        console.log(`[E2EE] Conversation key established for ${guestId}`);
+      } catch (error) {
+        if (cancelled) return;
+        console.error(`[E2EE] Conversation key fetch failed for ${guestId}:`, error.message);
+        setE2eeStatus((prev) => ({ ...prev, [guestId]: "failed" }));
+        setE2eeErrors((prev) => ({ ...prev, [guestId]: error.message }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedChat?.guestId, branchEmail]);
 
   // ============================================================================
   // SECURITY: COPY/PASTE PROTECTION (DLP Controls)
