@@ -552,39 +552,13 @@ const initializeSocket = (server) => {
     });
 
     socket.on("debugLog", (log) => console.log(`[DEBUG]`, log));
-    // E2EE Key Exchange handlers
-    socket.on("e2ee:guest_key", async (data) => {
-      console.log("[E2EE] 🔑 Guest key received:", data);
-      try {
-        const { guestId, branchEmail, publicKey, role } = data;
-        if (!guestId || !branchEmail || !publicKey) return;
-        io.to(getRoomName("admin", branchEmail)).emit("e2ee:guest_key", data);
-        console.log("[E2EE] 📡 Routed guest key to admins");
-      } catch (err) { console.error("[E2EE] Error:", err); }
-    });
 
-    socket.on("e2ee:branch_key", async (data) => {
-      console.log("[E2EE] 🔑 Branch key received:", data);
-      try {
-        const { guestId, branchEmail, publicKey, role } = data;
-        if (!guestId || !branchEmail || !publicKey) return;
-        io.to(getRoomName("guest", guestId)).emit("e2ee:branch_key", data);
-        console.log("[E2EE] 📡 Routed branch key to guest");
-      } catch (err) { console.error("[E2EE] Error:", err); }
-    });
-
-    // Admin asks the guest to (re)send its public key. Relayed to the guest's
-    // room so the key exchange can recover from timing/reconnect races where
-    // the guest's initial key emit was missed.
-    socket.on("e2ee:request_key", async (data) => {
-      console.log("[E2EE] 🔑 Key request received:", data);
-      try {
-        const { guestId } = data || {};
-        if (!guestId) return;
-        io.to(getRoomName("guest", guestId)).emit("e2ee:request_key", data);
-        console.log("[E2EE] 📡 Routed key request to guest", guestId);
-      } catch (err) { console.error("[E2EE] Error:", err); }
-    });
+    // NOTE: The ephemeral ECDH key-exchange relays (e2ee:guest_key /
+    // e2ee:branch_key / e2ee:request_key) were removed. E2EE now uses a
+    // persistent per-conversation AES key fetched from the backend
+    // (/api/messages/conversation-key), so no socket handshake is needed.
+    // The `e2ee` flag on relayed messages (below) is still honored so the
+    // recipient knows `content` is ciphertext.
 
     // ───────────────────────────────────────────────────────────────────
     // sendMessage (ACL + validation + emits + unread count)
@@ -868,70 +842,9 @@ const initializeSocket = (server) => {
       checkForStaleGuests(actualBranchEmail);
     });
 
-    // ───────────────────────────────────────────────────────────────────
-    // E2EE Key Exchange Handlers
-    // ───────────────────────────────────────────────────────────────────
-    
-    /**
-     * Guest sends their public key - forward to admin/branch
-     */
-    socket.on("e2ee:public_key", async (data) => {
-      const { guestId, branchEmail, publicKey, role } = data;
-      
-      if (!guestId || !branchEmail || !publicKey) {
-        console.warn("[E2EE] Invalid public_key payload");
-        return;
-      }
-      
-      // Validate sender
-      const isGuest = socket.user?.role === "user";
-      const isAdmin = socket.user?.role === "admin" || socket.user?.role === "branchadmin";
-      
-      if (role === "guest" && !isGuest) {
-        console.warn("[E2EE] Guest key from non-guest socket rejected");
-        return;
-      }
-      
-      // Forward to admin room
-      const adminRoom = getRoomName("admin", branchEmail);
-      io.to(adminRoom).emit("e2ee:guest_key", {
-        guestId,
-        branchEmail,
-        publicKey,
-        timestamp: Date.now(),
-      });
-      
-      console.log(`[E2EE] Forwarded guest ${guestId} public key to ${branchEmail}`);
-    });
-    
-    /**
-     * Admin sends their public key - forward to guest
-     */
-    socket.on("e2ee:branch_key", async (data) => {
-      const { guestId, branchEmail, publicKey, role } = data;
-      
-      if (!guestId || !publicKey) {
-        console.warn("[E2EE] Invalid branch_key payload");
-        return;
-      }
-      
-      // Validate sender is admin
-      const isAdmin = socket.user?.role === "admin" || socket.user?.role === "branchadmin";
-      if (!isAdmin) {
-        console.warn("[E2EE] Branch key from non-admin socket rejected");
-        return;
-      }
-      
-      // Forward to guest room
-      const guestRoom = getRoomName("guest", guestId);
-      io.to(guestRoom).emit("e2ee:branch_key", {
-        guestId,
-        publicKey,
-        timestamp: Date.now(),
-      });
-      
-      console.log(`[E2EE] Forwarded branch public key to guest ${guestId}`);
-    });
+    // NOTE: ECDH public-key exchange handlers (e2ee:public_key / e2ee:branch_key)
+    // were removed — E2EE now uses a persistent per-conversation AES key fetched
+    // from the backend, so no socket key handshake is required.
 
     // disconnect
     socket.on("disconnect", () => {

@@ -227,10 +227,17 @@ const buildChatEntriesFromMessages = (snapshot) => {
       const isEncrypted =
         msg.e2ee ||
         (typeof msg.content === "string" && msg.content.includes('"ciphertext"'));
+      // Retain the raw ciphertext so the preview can be decrypted asynchronously
+      // once the per-conversation key is available (see preview-decryption effect).
+      const encPreview =
+        isEncrypted && typeof msg.content === "string" && msg.content.includes('"ciphertext"')
+          ? msg.content
+          : null;
       messagesByGuest[msg.guestId] = {
         guestId: msg.guestId,
         guestName: msg.guestName || `Guest ${msg.guestId.slice(-4)}`,
         lastMessage: isEncrypted ? "[Encrypted message]" : (msg.content || "[media]"),
+        encPreview,
         timestamp: msg.timestamp,
         archived: false,
       };
@@ -578,10 +585,39 @@ const BranchChatDashboard = () => {
   // can always decrypt the conversation, including full history. The fetched key
   // feeds the existing AES-GCM e2eeEncrypt/e2eeDecrypt paths unchanged.
   // ============================================================================
+  // Fetch (creating on first call) the per-conversation AES key for a guest and
+  // import it into the local keyStore under the canonical guestId. Returns true
+  // when the secure channel is ready. Shared by the selected-chat effect and the
+  // sidebar preview-decryption effect.
+  const ensureConversationKey = useCallback(
+    async (guestId) => {
+      if (!guestId || !branchEmail) return false;
+      const gidKey = canon(guestId);
+      if (isE2EEEstablished(gidKey)) return true;
+      const token =
+        sessionStorage.getItem("branchAdminToken") ||
+        localStorage.getItem("branchAdminToken");
+      const res = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/messages/conversation-key/${encodeURIComponent(guestId)}`,
+        {
+          method: "GET",
+          credentials: "include",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (!res.ok) throw new Error(`conversation-key fetch failed (${res.status})`);
+      const { key } = await res.json();
+      if (!key) throw new Error("no conversation key returned");
+      await establishWithServerKey(gidKey, key);
+      return true;
+    },
+    [branchEmail]
+  );
+
   useEffect(() => {
     const guestId = selectedChat?.guestId;
     if (!guestId || !branchEmail) return;
-    if (isE2EEEstablished(guestId)) {
+    if (isE2EEEstablished(canon(guestId))) {
       setE2eeStatus((prev) =>
         prev[guestId] === "established" ? prev : { ...prev, [guestId]: "established" }
       );
@@ -592,22 +628,8 @@ const BranchChatDashboard = () => {
     (async () => {
       try {
         setE2eeStatus((prev) => ({ ...prev, [guestId]: prev[guestId] || "initializing" }));
-        const token =
-          sessionStorage.getItem("branchAdminToken") ||
-          localStorage.getItem("branchAdminToken");
-        const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/messages/conversation-key/${encodeURIComponent(guestId)}`,
-          {
-            method: "GET",
-            credentials: "include",
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (!res.ok) throw new Error(`conversation-key fetch failed (${res.status})`);
-        const { key } = await res.json();
-        if (!key) throw new Error("no conversation key returned");
+        await ensureConversationKey(guestId);
         if (cancelled) return;
-        await establishWithServerKey(guestId, key);
         setE2eeStatus((prev) => ({ ...prev, [guestId]: "established" }));
         console.log(`[E2EE] Conversation key established for ${guestId}`);
       } catch (error) {
@@ -621,7 +643,60 @@ const BranchChatDashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedChat?.guestId, branchEmail]);
+  }, [selectedChat?.guestId, branchEmail, ensureConversationKey]);
+
+  // ============================================================================
+  // E2EE: DECRYPT SIDEBAR LAST-MESSAGE PREVIEW
+  // ----------------------------------------------------------------------------
+  // Chat rows for encrypted conversations carry the raw ciphertext (`encPreview`)
+  // and show "[Encrypted message]" until decrypted. Here we fetch the conversation
+  // key on demand and replace the placeholder with plaintext. Rows whose key fetch
+  // fails are remembered so we don't hammer the backend; they still decrypt via the
+  // normal paths once the chat is opened.
+  // ============================================================================
+  const previewInFlightRef = useRef(new Set());
+  const previewFailedRef = useRef(new Set());
+  useEffect(() => {
+    if (!branchEmail) return;
+    const pending = chats.filter(
+      (c) =>
+        c &&
+        c.encPreview &&
+        c.lastMessage === "[Encrypted message]" &&
+        !previewInFlightRef.current.has(c.guestId) &&
+        !previewFailedRef.current.has(c.guestId)
+    );
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const c of pending) {
+        previewInFlightRef.current.add(c.guestId);
+        try {
+          const gidKey = canon(c.guestId);
+          await ensureConversationKey(c.guestId);
+          if (cancelled) return;
+          const payload = JSON.parse(c.encPreview);
+          if (!payload?.ciphertext || !payload?.iv) continue;
+          const plain = await e2eeDecrypt(gidKey, payload.ciphertext, payload.iv);
+          if (cancelled) return;
+          if (typeof plain === "string") {
+            setChats((prev) =>
+              updateChatRow(prev, c.guestId, { lastMessage: plain, encPreview: null })
+            );
+          }
+        } catch (err) {
+          previewFailedRef.current.add(c.guestId);
+        } finally {
+          previewInFlightRef.current.delete(c.guestId);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chats, branchEmail, ensureConversationKey]);
 
   // ============================================================================
   // SECURITY: COPY/PASTE PROTECTION (DLP Controls)
