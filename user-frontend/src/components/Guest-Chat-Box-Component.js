@@ -405,19 +405,34 @@ function isTokenExpired(jwt) {
  */
 async function fetchWithBackoff(url, options, maxRetries = MAX_RETRIES, backoffMs = BACKOFF_MS) {
   let tries = 0;
-  let delay = backoffMs;
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const res = await fetch(url, options);
-    if (res.status !== 429) {
-      return res;
+    try {
+      const res = await fetch(url, options);
+
+      // Return immediately if not rate-limited or retries exhausted
+      if (res.status !== 429 || tries >= maxRetries) {
+        return res;
+      }
+
+      // Respect server's Retry-After header if present
+      const retryAfter = res.headers.get("Retry-After");
+      const waitTime = retryAfter
+        ? parseInt(retryAfter, 10) * 1000
+        : backoffMs * Math.pow(2, tries);
+
+      // Add jitter (0-100ms) to avoid thundering herd
+      const jitter = Math.random() * 100;
+
+      await new Promise((r) => setTimeout(r, waitTime + jitter));
+      tries++;
+    } catch (err) {
+      // Handle network failures (DNS, offline, etc.)
+      if (tries >= maxRetries) throw err;
+      tries++;
+      // Exponential backoff for network errors too
+      await new Promise((r) => setTimeout(r, backoffMs * Math.pow(2, tries)));
     }
-    if (tries >= maxRetries) {
-      throw new Error("Rate limit exceeded");
-    }
-    await new Promise((r) => setTimeout(r, delay));
-    tries++;
-    delay *= 2;
   }
 }
 
