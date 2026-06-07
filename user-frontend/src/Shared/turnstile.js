@@ -52,10 +52,13 @@ export async function getTurnstileToken(timeoutMs = 8000) {
       let settled = false;
       let widgetId;
       const el = document.createElement("div");
+      // Pinned bottom-right and high z-index so that IF Turnstile must show an
+      // interactive challenge it is visible/solvable; with appearance
+      // "interaction-only" it stays hidden for the common (no-challenge) case.
       el.style.position = "fixed";
-      el.style.left = "-9999px";
-      el.style.bottom = "0";
-      el.setAttribute("aria-hidden", "true");
+      el.style.right = "12px";
+      el.style.bottom = "12px";
+      el.style.zIndex = "2147483647";
       document.body.appendChild(el);
 
       const cleanup = () => {
@@ -74,13 +77,14 @@ export async function getTurnstileToken(timeoutMs = 8000) {
       try {
         widgetId = ts.render(el, {
           sitekey: SITE_KEY,
-          size: "invisible",
+          appearance: "interaction-only", // hidden unless a challenge is needed
           callback: (token) => finish(token),
           "error-callback": () => finish(null),
           "timeout-callback": () => finish(null),
           "expired-callback": () => finish(null),
         });
-        try { ts.execute(widgetId); } catch (_) {}
+        // Turnstile auto-executes on render; do NOT call execute() (it would
+        // warn "already executing").
       } catch (_) {
         finish(null);
       }
