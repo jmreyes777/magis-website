@@ -27,9 +27,10 @@ const jwtKeys = require("../utils/jwtKeys");
 // ─────────────────────────────────────────────────────────────────────────────
 const CLOCK_SKEW_SECONDS = Number(process.env.JWT_CLOCK_SKEW_SEC || "60"); // skew tolerance
 const REDIS_PREFIX = process.env.JWT_REDIS_PREFIX || "jwt:revoked:";
-const JWT_SECRET = workerData?.JWT_SECRET || process.env.JWT_SECRET;
-console.log("[secretWorker] Received JWT_SECRET:", JWT_SECRET ? "SET (" + JWT_SECRET.substring(0, 10) + "...)" : "NOT SET");
-console.log("[secretWorker] workerData:", workerData);
+// P2-4: do NOT log secret material. The previous lines logged a JWT_SECRET
+// prefix and dumped the full workerData object — which after P2-3 also carries
+// the RSA PRIVATE key. The active alg/key posture is reported (without any key
+// bytes) by the jwtKeys.describe() log below.
 
 // In-memory fallback store for revoked JTIs
 const revokedInMemory = new Set();

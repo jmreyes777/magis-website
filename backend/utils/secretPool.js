@@ -22,8 +22,11 @@ function getWorker() {
 }
 
 function spawnWorker() {
-  const jwtSecret = process.env.JWT_SECRET || "fallback-jwt-secret-key-for-testing-only-32chars!";
-  console.log("[secretPool] Spawning worker, JWT_SECRET length:", jwtSecret.length);
+  // P2-4: no hardcoded fallback secret. If JWT_SECRET is required (HS256 mode)
+  // but missing, the worker's key policy fails loudly rather than silently
+  // signing with a publicly-known constant. Never log the secret/length.
+  const jwtSecret = process.env.JWT_SECRET;
+  console.log("[secretPool] Spawning secret worker");
   const w = new Worker(path.resolve(__dirname, "../workers/secretWorker.js"), {
     // P2-3: forward the asymmetric key material + alg policy too. Undefined
     // values are skipped by the worker's hydration guard, so this is a no-op

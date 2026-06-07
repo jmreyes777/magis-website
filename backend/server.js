@@ -4,7 +4,7 @@ console.log("[SERVER] Loading env from:", envPath);
 const dotenvResult = require("dotenv").config({ path: envPath });
 console.log("[SERVER] dotenv loaded:", dotenvResult.parsed ? "YES" : "NO");
 console.log("[SERVER] Parsed keys:", dotenvResult.parsed ? Object.keys(dotenvResult.parsed) : "NONE");
-console.log("[SERVER] JWT_SECRET after dotenv:", process.env.JWT_SECRET ? "SET (" + (process.env.JWT_SECRET || "").substring(0, 15) + "...)" : "NOT SET");
+console.log("[SERVER] JWT_SECRET:", process.env.JWT_SECRET ? "set" : "not set"); // P2-4: presence only — never log key material
 
 const express = require("express");
 const cors = require("cors");
@@ -19,12 +19,24 @@ const csurf = require('csurf');
 const jwt = require("jsonwebtoken");
 const { signJWT, revokeJWT, verifyJWT } = require("./utils/secretPool");
 
-console.log("[SERVER] After secretPool import, JWT_SECRET:", process.env.JWT_SECRET ? "SET (" + process.env.JWT_SECRET.substring(0, 10) + "...)" : "NOT SET");
-
 // ⏱️ Align JWT skew + tighten lifetimes (defaults if not set in env)
 process.env.JWT_CLOCK_SKEW_SEC = process.env.JWT_CLOCK_SKEW_SEC || "60";
 process.env.JWT_TTL_MIN = process.env.JWT_TTL_MIN || "30";         // guests / short-lived
 process.env.JWT_ADMIN_TTL_MIN = process.env.JWT_ADMIN_TTL_MIN || "240"; // admins/superadmins
+
+// P2-4: superadmin allowlist is config-driven (SUPERADMIN_EMAILS, comma-separated).
+// A legacy default is retained so an unconfigured deploy does not lock out the
+// existing owner; set SUPERADMIN_EMAILS to manage it via config (and silence the
+// warning). Firebase role:'superadmin' custom claims are still honored as well.
+const SUPERADMIN_EMAILS = (process.env.SUPERADMIN_EMAILS || "jmreyes3167@gmail.com")
+  .split(",")
+  .map((s) => s.trim().toLowerCase())
+  .filter(Boolean);
+if (!process.env.SUPERADMIN_EMAILS) {
+  console.warn(
+    "[SERVER] \u26a0\ufe0f SUPERADMIN_EMAILS not set \u2014 using a legacy default allowlist. Set SUPERADMIN_EMAILS to manage superadmins via config (P2-4)."
+  );
+}
 
 // NEW (cluster-safe rate limiting)
 const { RedisStore } = require("rate-limit-redis");
@@ -418,7 +430,7 @@ app.post("/api/superadmin/login", express.json(), async (req, res) => {
 
     // 2️⃣ Ensure they’re a superadmin (or the special allowed email)
     if (
-      emailLower !== "jmreyes3167@gmail.com" &&
+      !SUPERADMIN_EMAILS.includes(emailLower) &&
       decoded.role !== "superadmin"
     ) {
       return res.status(403).json({ error: "Forbidden – not a Super Admin" });
