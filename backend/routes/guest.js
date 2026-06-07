@@ -8,9 +8,7 @@ const { signJWT, verifyJWT } = require("../utils/secretPool"); // worker-backed
 const jwt = require("jsonwebtoken");          // direct verify of prior guest token (P1-4)
 const { v4: uuidv4 } = require("uuid");       // unguessable guest ids (P1-4)
 const authenticateGuest = require("../middlewares/authenticateGuest");
-const authenticateBranchAdmin = require("../middlewares/authenticateBranchAdmin");
 const { ensureGuestOwns } = require("../middlewares/ensureResourceOwner");
-const { requireMFA } = require("../middlewares/requireMFA");
 
 // P1-4 (Part B): Cloudflare Turnstile verification for the public /init endpoint.
 // Enforced ONLY when TURNSTILE_SECRET is configured (graceful no-op otherwise).
@@ -128,88 +126,6 @@ router.post("/init", async (req, res) => {
 });
 
 /**
- * GET /chat-logs
- * Fetch all transcript logs sent to this branch (staff inbox).
- * Requires a valid branch admin JWT.
- */
-router.get("/chat-logs", authenticateBranchAdmin, requireMFA, async (req, res) => {
-  const branchEmail = req.branchEmail;
-  if (!branchEmail) {
-    return res.status(400).json({ error: "Branch email not found in token." });
-  }
-
-  try {
-    const snap = await db
-      .collection("chatLogs")
-      .where("branchEmail", "==", branchEmail)
-      .orderBy("sentAt", "desc")
-      .limit(100)
-      .get();
-
-    const logs = snap.docs.map((doc) => {
-      const d = doc.data();
-      return {
-        id: doc.id,
-        guestId: d.guestId,
-        name: d.name || "Anonymous",
-        email: d.email || null,
-        log: d.log,
-        sentAt: d.sentAt?.toDate?.()?.toISOString() || null,
-      };
-    });
-
-    return res.status(200).json({ logs });
-  } catch (err) {
-    console.error("[CHAT LOGS] ❌", err);
-    return res.status(500).json({ error: "Failed to fetch chat logs." });
-  }
-});
-
-/**
- * POST /reply-transcript
- * Staff replies to a guest's transcript thread via email.
- * Authenticated by branch admin JWT.
- */
-router.post("/reply-transcript", authenticateBranchAdmin, async (req, res) => {
-  const { guestEmail, guestName, replyText } = req.body;
-  const branchEmail = req.branchEmail;
-
-  if (!guestEmail || !replyText) {
-    return res.status(400).json({ error: "Missing guestEmail or replyText." });
-  }
-
-  try {
-    const adminSnap = await db.collection("branchAdmins").where("email", "==", branchEmail).limit(1).get();
-    const rawName = !adminSnap.empty ? adminSnap.docs[0].data().branchName : null;
-    const branchName = rawName ? `Magis Support - ${rawName}` : "Magis Support";
-
-    const smtpUser = process.env.BRANCH_SMTP_USER || process.env.SUPPORT_EMAIL;
-    const smtpPass = process.env.BRANCH_SMTP_PASS || process.env.SUPPORT_EMAIL_PASSWORD;
-
-    const transporter = nodemailer.createTransport({
-      service: "gmail",
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-    });
-
-    await transporter.sendMail({
-      from: `"${branchName}" <${smtpUser}>`,
-      to: guestEmail,
-      replyTo: `"${branchName}" <${branchEmail}>`,
-      subject: `Re: Your Chat Transcript${guestName ? ` – ${guestName}` : ""}`,
-      text: replyText,
-    });
-
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    console.error("[REPLY TRANSCRIPT] ❌", err);
-    return res.status(500).json({ error: "Failed to send reply." });
-  }
-});
-
-/**
  * POST /contact
  * Guest sends a contact form message (with optional image) directly to branch email.
  */
@@ -272,38 +188,6 @@ router.post("/contact", authenticateGuest, async (req, res) => {
   } catch (err) {
     console.error("[CONTACT] ❌", err);
     return res.status(500).json({ error: "Failed to send message." });
-  }
-});
-
-/**
- * GET /pending-inquiries
- * Fetch all pending inquiries for the authenticated branch admin.
- */
-router.get("/pending-inquiries", authenticateBranchAdmin, requireMFA, async (req, res) => {
-  const branchEmail = req.branchEmail;
-  try {
-    const snap = await db.collection("pendingInquiries")
-      .where("branchEmail", "==", branchEmail)
-      .orderBy("createdAt", "desc")
-      .get();
-    const inquiries = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    return res.status(200).json({ inquiries });
-  } catch (err) {
-    console.error("[PENDING INQUIRIES] ❌", err);
-    return res.status(500).json({ error: "Failed to fetch inquiries." });
-  }
-});
-
-/**
- * PATCH /pending-inquiries/:id/read
- * Mark an inquiry as read.
- */
-router.patch("/pending-inquiries/:id/read", authenticateBranchAdmin, async (req, res) => {
-  try {
-    await db.collection("pendingInquiries").doc(req.params.id).update({ status: "read" });
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    return res.status(500).json({ error: "Failed to update inquiry." });
   }
 });
 
