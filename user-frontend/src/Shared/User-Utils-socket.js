@@ -176,6 +176,8 @@ async function ensureValidGuestToken() {
         headers: {
           "Content-Type": "application/json",
           "X-CSRF-Token": window.__CSRF_TOKEN__,
+          // P1-4: prior token as proof (in case the cross-site cookie is blocked).
+          "Authorization": `Bearer ${sessionStorage.getItem("guestToken") || localStorage.getItem("guestToken") || ""}`,
         },
         body: JSON.stringify({ guestId, branchEmail }),
       }
@@ -468,7 +470,11 @@ export const connectSocket = async (guestIdParam) => {
           {
             method: "POST",
             credentials: "include",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              // P1-4: prior token as proof (in case the cross-site cookie is blocked).
+              "Authorization": `Bearer ${token || ""}`,
+            },
             body: JSON.stringify({ guestId, branchEmail }),
           }
         );

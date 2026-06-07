@@ -64,7 +64,14 @@ export async function apiFetch(input, options = {}) {
     // call refresh endpoint (cookie travels automatically)
     const refreshRes = await fetch(
       `${process.env.REACT_APP_API_URL.replace(/\/+$/,"")}/api/guest/refresh-token`,
-      { method: "POST", credentials: "include" }
+      {
+        method: "POST",
+        credentials: "include",
+        // P1-4: prior token as proof (in case the cross-site cookie is blocked).
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("guestToken") || localStorage.getItem("guestToken") || ""}`,
+        },
+      }
     );
     if (refreshRes.ok) {
       const { token } = await refreshRes.json();

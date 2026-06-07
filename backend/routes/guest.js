@@ -5,6 +5,8 @@ const router = express.Router();
 const { db } = require("../utils/firebase");
 const nodemailer = require("nodemailer");
 const { signJWT, verifyJWT } = require("../utils/secretPool"); // worker-backed
+const jwt = require("jsonwebtoken");          // direct verify of prior guest token (P1-4)
+const { v4: uuidv4 } = require("uuid");       // unguessable guest ids (P1-4)
 const authenticateGuest = require("../middlewares/authenticateGuest");
 const authenticateBranchAdmin = require("../middlewares/authenticateBranchAdmin");
 const { ensureGuestOwns } = require("../middlewares/ensureResourceOwner");
@@ -88,7 +90,8 @@ router.post("/init", async (req, res) => {
       .json({ error: "Name and branchEmail are required." });
   }
 
-  const guestId = `guest-${Date.now()}`;
+  // P1-4: unguessable, non-enumerable guest id (was `guest-${Date.now()}`).
+  const guestId = `guest-${uuidv4()}`;
   const guestEmail = email || `${guestId}@guest.local`;
 
   const payload = {
@@ -315,20 +318,54 @@ router.patch("/pending-inquiries/:id/read", authenticateBranchAdmin, async (req,
  * POST /refresh-token
  * Re-issue JWT in a Secure, HTTP-only cookie for an existing guest.
  */
+// P1-4: a refresh may re-issue a token only for the holder of a token we
+// previously signed. A recently-expired token is still accepted (refresh often
+// fires around expiry); beyond this grace window the guest must start anew.
+const GUEST_REFRESH_GRACE_MS =
+  Number(process.env.GUEST_REFRESH_GRACE_MS) || 30 * 24 * 60 * 60 * 1000; // 30 days
+
 router.post("/refresh-token", async (req, res) => {
-  const { guestId, branchEmail } = req.body;
-   console.log(
-   `[GUEST REFRESH] 🔄 Received refresh-token request for guestId=${guestId} branchEmail=${branchEmail} at ${new Date().toISOString()}`
- );
-  if (!guestId || !branchEmail) {
-    return res
-      .status(400)
-      .json({ error: "guestId and branchEmail are required" });
+  // SECURITY (P1-4): require proof. The caller must present a guest token we
+  // issued — via the HttpOnly `guestToken` cookie, an `Authorization: Bearer`
+  // header, or `body.token`. The new token is minted strictly for the identity
+  // inside that verified token; client-supplied guestId/branchEmail are ignored.
+  const bearer =
+    typeof req.headers.authorization === "string" &&
+    req.headers.authorization.startsWith("Bearer ")
+      ? req.headers.authorization.slice(7).trim()
+      : null;
+  const priorToken =
+    (req.cookies && req.cookies.guestToken) || bearer || (req.body && req.body.token) || null;
+
+  if (!priorToken) {
+    return res.status(401).json({ error: "A prior guest token is required to refresh." });
   }
+
+  let claims;
+  try {
+    claims = jwt.verify(priorToken, process.env.JWT_SECRET, {
+      algorithms: ["HS256"],
+      ignoreExpiration: true, // recently-expired allowed; bounded by grace below
+    });
+  } catch (e) {
+    return res.status(401).json({ error: "Invalid guest token." });
+  }
+
+  if (!claims || claims.role !== "user" || !claims.guestId || !claims.email) {
+    return res.status(401).json({ error: "Not a valid guest token." });
+  }
+  if (claims.exp && Date.now() > claims.exp * 1000 + GUEST_REFRESH_GRACE_MS) {
+    return res.status(401).json({ error: "Guest token too old to refresh; start a new session." });
+  }
+
+  const guestId = claims.guestId;
+  console.log(
+    `[GUEST REFRESH] 🔄 Verified refresh for guestId=${guestId} at ${new Date().toISOString()}`
+  );
 
   const payload = {
     guestId,
-    email: branchEmail.toLowerCase(),
+    email: claims.email, // branch email for room mapping, taken from the verified token
     role: "user",
     fallback: true,
   };
@@ -351,7 +388,7 @@ router.post("/refresh-token", async (req, res) => {
     res
       .setHeader("Set-Cookie", guestCookie)
       .status(200)
-      .json({ token });
+      .json({ token, guestId });
 
   } catch (err) {
     console.error("[GUEST REFRESH] ❌", err);

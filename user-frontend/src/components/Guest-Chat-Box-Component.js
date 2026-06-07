@@ -368,7 +368,11 @@ async function ensureValidGuestToken() {
     const res = await fetch(`${process.env.REACT_APP_API_URL}/api/guest/refresh-token`, {
       method: "POST",
       credentials: "include",
-      headers: { "X-CSRF-Token": window.__CSRF_TOKEN__ },
+      headers: {
+        "X-CSRF-Token": window.__CSRF_TOKEN__,
+        // P1-4: prior token as proof (in case the cross-site cookie is blocked).
+        "Authorization": `Bearer ${sessionStorage.getItem("guestToken") || localStorage.getItem("guestToken") || ""}`,
+      },
     });
     if (!res.ok) throw new Error("Unable to refresh guest token");
 
@@ -1505,7 +1509,11 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
         await fetch(`${process.env.REACT_APP_API_URL}/api/guest/refresh-token`, {
           method: "POST",
           credentials: "include",
-          headers: { "X-CSRF-Token": window.__CSRF_TOKEN__ },
+          headers: {
+            "X-CSRF-Token": window.__CSRF_TOKEN__,
+            // P1-4: prior token as proof (in case the cross-site cookie is blocked).
+            "Authorization": `Bearer ${sessionStorage.getItem("guestToken") || localStorage.getItem("guestToken") || ""}`,
+          },
         });
         const newToken = sessionStorage.getItem("guestToken");
         if (!newToken) throw new Error("Unable to refresh guest token");

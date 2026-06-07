@@ -94,6 +94,9 @@ export async function getToken() {
           headers: {
             'Content-Type': 'application/json',
             'X-CSRF-Token': getCsrfToken(),
+            // P1-4: present the prior token as proof (works even if the
+            // cross-site guestToken cookie is blocked by the browser).
+            'Authorization': `Bearer ${getFallbackToken() || ''}`,
           },
           body: JSON.stringify({ guestId, branchEmail }),
         }
