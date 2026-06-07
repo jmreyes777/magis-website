@@ -25,7 +25,16 @@ function spawnWorker() {
   const jwtSecret = process.env.JWT_SECRET || "fallback-jwt-secret-key-for-testing-only-32chars!";
   console.log("[secretPool] Spawning worker, JWT_SECRET length:", jwtSecret.length);
   const w = new Worker(path.resolve(__dirname, "../workers/secretWorker.js"), {
-    workerData: { JWT_SECRET: jwtSecret },
+    // P2-3: forward the asymmetric key material + alg policy too. Undefined
+    // values are skipped by the worker's hydration guard, so this is a no-op
+    // until the operator provisions RS256 keys.
+    workerData: {
+      JWT_SECRET: jwtSecret,
+      JWT_PRIVATE_KEY: process.env.JWT_PRIVATE_KEY,
+      JWT_PUBLIC_KEY: process.env.JWT_PUBLIC_KEY,
+      JWT_ALG: process.env.JWT_ALG,
+      JWT_ACCEPT_HS256: process.env.JWT_ACCEPT_HS256,
+    },
   });
 
   w.on("message", ({ id, result, error }) => {

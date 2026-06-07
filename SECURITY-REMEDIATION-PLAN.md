@@ -164,6 +164,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Risk:** Compromise of either system forges tokens for all roles.
 - **Remediation:** Move to asymmetric signing (EdDSA/RS256): backend holds the private key; edge verifies with the public key only.
 - **No-regression note:** Tokens remain JWTs; only the signing/verification keys change.
+- **Resolution (code done 2026-06-07; key provisioning + cutover PENDING operator):** Added RS256 support with a **dual-algorithm transition**, gated by `JWT_ALG` defaulting to **`HS256`** so behavior is byte-for-byte identical until keys are provisioned. New `backend/utils/jwtKeys.js` centralizes signing/verify key+alg policy: `getSigningParams()` (RS256 private key when `JWT_ALG=RS256`, else HS256 secret), `getVerifyParamsForToken()` which selects the verify key from the token's declared alg **restricted to accepted algs** (never verifies RS256 with an HMAC secret nor vice-versa — closes the alg-confusion downgrade attack), and `verifyLocal()`. Signing is centralized in `secretWorker.js` (now uses the policy; keys forwarded via `secretPool` workerData) so all worker-backed verifies (`branchadminauth`, `authenticateGuest`, `authenticateSuperAdmin`, `socket.js`) are covered; the one direct verify (`routes/guest.js` refresh-proof) now uses `verifyLocal`. The **edge** `verifyJWT` verifies HS256 (secret) **or** RS256 (SPKI public key) by declared alg, **presence-gated** (drop `JWT_SECRET` from the worker post-cutover → HS256 auto-rejected). Operator tool: `node backend/scripts/generate-jwt-keypair.js`. Boot log shows the active sign alg + accepted verify algs. **RS256 sign→verify round-trip validated** (Node `jsonwebtoken` ↔ Web Crypto `RSASSA-PKCS1-v1_5`), HS256 path unchanged. **Still required (operator):** (1) generate keypair; (2) set `JWT_PRIVATE_KEY`+`JWT_PUBLIC_KEY` on backend, `JWT_PUBLIC_KEY` on the worker (redeploy); (3) set `JWT_ALG=RS256` (old HS256 tokens keep verifying via `JWT_ACCEPT_HS256=true`); (4) after ≥ admin TTL (~4h), set `JWT_ACCEPT_HS256=false` + remove `JWT_SECRET` from the edge. (Note: Firebase RS256 ID-token path is separate and untouched.)
 - **Effort:** M
 
 #### [ ] P2-4 — Secret hygiene
@@ -238,7 +239,7 @@ None of the recommended fixes require removing features or degrading the custome
 **Phase 2 — Weeks 2-4 (P2)**
 - [ ] P2-1 Provision Redis + edge KV — code hardening shipped 2026-06-07 (observability + `REQUIRE_REDIS`/`JWT_REVOCATION_FAIL_CLOSED`/`RATE_LIMIT_FAIL_CLOSED` toggles); **infra still pending operator** (set `REDIS_URL`, create+bind `RATE_LIMIT_KV`)
 - [ ] P2-2 Lock origin to the edge — backend `requireEdgeAuth` shipped 2026-06-07 (mounted on `/api`, `EDGE_AUTH_MODE` default monitor); **infra pending operator** (`wrangler secret put EDGE_SHARED_SECRET` + set same on backend → confirm in monitor → `EDGE_AUTH_MODE=enforce`)
-- [ ] P2-3 Asymmetric JWT signing
+- [ ] P2-3 Asymmetric JWT signing — RS256 dual-alg support shipped 2026-06-07 (`JWT_ALG` default HS256 = zero change; alg-confusion-safe; `backend/scripts/generate-jwt-keypair.js`); **key provisioning + cutover pending operator** (provision keys → `JWT_ALG=RS256` → after ~4h `JWT_ACCEPT_HS256=false` + drop edge `JWT_SECRET`)
 - [ ] P2-4 Secret hygiene + token rotation
 - [ ] P2-5 Authenticate `/start` and `/update-status`
 

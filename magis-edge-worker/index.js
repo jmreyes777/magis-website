@@ -7,8 +7,13 @@ const decoder = new TextDecoder();
 const CLOCK_TOLERANCE_SECONDS = 60;         // keep in sync with backend
 const MAX_REQUESTS_PER_MINUTE = 60;         // soft default; auto-skips if RATE_LIMIT_KV missing
 
-// JWT Verification using Web Crypto API
-async function verifyJWT(token, secret, options = {}) {
+// JWT verification using Web Crypto API. P2-3: supports BOTH HS256 (verified
+// with the shared secret) and RS256 (verified with the RSA PUBLIC key), chosen
+// by the token's declared algorithm. Acceptance is presence-gated: HS256 is
+// rejected when no JWT_SECRET is bound, RS256 is rejected when no JWT_PUBLIC_KEY
+// is bound. After migration, remove JWT_SECRET from the worker so only RS256 is
+// accepted and a compromised edge can no longer forge tokens.
+async function verifyJWT(token, options = {}) {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) {
@@ -21,12 +26,45 @@ async function verifyJWT(token, secret, options = {}) {
     const header = JSON.parse(decoder.decode(base64UrlDecode(headerB64)));
     const payload = JSON.parse(decoder.decode(base64UrlDecode(payloadB64)));
 
-    // Verify algorithm
-    if (header.alg !== 'HS256') {
+    const data = `${headerB64}.${payloadB64}`;
+    const signature = base64UrlDecode(signatureB64);
+
+    // Verify the signature with the key that matches the declared algorithm. We
+    // never verify an RS256 token with the HMAC secret, nor an HS256 token with
+    // the public key (closes the alg-confusion downgrade-forgery attack).
+    let valid = false;
+    if (header.alg === 'RS256') {
+      if (typeof JWT_PUBLIC_KEY !== 'string' || !JWT_PUBLIC_KEY) {
+        throw new Error('RS256 not accepted (no public key bound)');
+      }
+      const key = await getRsaVerifyKey();
+      valid = await crypto.subtle.verify(
+        'RSASSA-PKCS1-v1_5',
+        key,
+        signature,
+        encoder.encode(data)
+      );
+    } else if (header.alg === 'HS256') {
+      if (typeof JWT_SECRET !== 'string' || !JWT_SECRET) {
+        throw new Error('HS256 not accepted (no secret bound)');
+      }
+      const key = await crypto.subtle.importKey(
+        'raw',
+        encoder.encode(JWT_SECRET),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['verify']
+      );
+      valid = await crypto.subtle.verify('HMAC', key, signature, encoder.encode(data));
+    } else {
       throw new Error('Invalid algorithm');
     }
 
-    // Verify expiration
+    if (!valid) {
+      throw new Error('Invalid signature');
+    }
+
+    // Verify expiration only AFTER the signature is proven valid.
     if (payload.exp) {
       const now = Math.floor(Date.now() / 1000);
       const clockTolerance = options.clockTolerance || 0;
@@ -35,32 +73,34 @@ async function verifyJWT(token, secret, options = {}) {
       }
     }
 
-    // Verify signature
-    const data = `${headerB64}.${payloadB64}`;
-    const key = await crypto.subtle.importKey(
-      'raw',
-      encoder.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
-    );
-
-    const signature = base64UrlDecode(signatureB64);
-    const valid = await crypto.subtle.verify(
-      'HMAC',
-      key,
-      signature,
-      encoder.encode(data)
-    );
-
-    if (!valid) {
-      throw new Error('Invalid signature');
-    }
-
     return { payload };
   } catch (error) {
     throw new Error(`JWT verification failed: ${error.message}`);
   }
+}
+
+// P2-3: import the RSA public key (SPKI PEM) once and cache the CryptoKey for
+// RS256 verification. Tolerates PEM stored with literal "\n" (env-escaped).
+let __rsaVerifyKeyPromise = null;
+function pemToDer(pem) {
+  const b64 = pem
+    .replace(/-----BEGIN [^-]+-----/g, '')
+    .replace(/-----END [^-]+-----/g, '')
+    .replace(/\s+/g, '');
+  return Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+}
+function getRsaVerifyKey() {
+  if (!__rsaVerifyKeyPromise) {
+    const pem = (typeof JWT_PUBLIC_KEY === 'string' ? JWT_PUBLIC_KEY : '').replace(/\\n/g, '\n');
+    __rsaVerifyKeyPromise = crypto.subtle.importKey(
+      'spki',
+      pemToDer(pem),
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+  }
+  return __rsaVerifyKeyPromise;
 }
 
 function base64UrlDecode(base64Url) {
@@ -98,7 +138,7 @@ function withForwardedGeo(request) {
 }
 
 // ----- Allowlist derived from your existing globals + localhost -----
-const { ADMIN_URL, GUEST_URL, BACKEND_URL, JWT_SECRET, RATE_LIMIT_KV, EDGE_SHARED_SECRET } = globalThis;
+const { ADMIN_URL, GUEST_URL, BACKEND_URL, JWT_SECRET, RATE_LIMIT_KV, EDGE_SHARED_SECRET, JWT_PUBLIC_KEY } = globalThis;
 const ALLOWED_ORIGINS = [
   ADMIN_URL,
   GUEST_URL,
@@ -386,7 +426,7 @@ async function handle(request) {
   }
 
   try {
-    const { payload } = await verifyJWT(token, JWT_SECRET, {
+    const { payload } = await verifyJWT(token, {
       clockTolerance: CLOCK_TOLERANCE_SECONDS,
     });
     if (payload.role !== "branchadmin") {

@@ -5,7 +5,7 @@ const router = express.Router();
 const { db } = require("../utils/firebase");
 const nodemailer = require("nodemailer");
 const { signJWT, verifyJWT } = require("../utils/secretPool"); // worker-backed
-const jwt = require("jsonwebtoken");          // direct verify of prior guest token (P1-4)
+const { verifyLocal } = require("../utils/jwtKeys"); // alg-aware direct verify of prior guest token (P1-4, P2-3)
 const { v4: uuidv4 } = require("uuid");       // unguessable guest ids (P1-4)
 const authenticateGuest = require("../middlewares/authenticateGuest");
 const { ensureGuestOwns } = require("../middlewares/ensureResourceOwner");
@@ -220,8 +220,9 @@ router.post("/refresh-token", async (req, res) => {
 
   let claims;
   try {
-    claims = jwt.verify(priorToken, process.env.JWT_SECRET, {
-      algorithms: ["HS256"],
+    // P2-3: verify with whatever algorithm the token actually uses (RS256 via
+    // public key or HS256 via secret) instead of assuming HS256 + symmetric key.
+    claims = verifyLocal(priorToken, {
       ignoreExpiration: true, // recently-expired allowed; bounded by grace below
     });
   } catch (e) {

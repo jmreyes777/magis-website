@@ -1,7 +1,7 @@
 # Cloudflare Worker config — Magis edge worker (STAGING)
 # Service-worker format (index.js uses addEventListener("fetch", ...) and
 # reads bindings from globalThis: BACKEND_URL, ADMIN_URL, GUEST_URL,
-# JWT_SECRET, EDGE_SHARED_SECRET, RATE_LIMIT_KV).
+# JWT_SECRET, JWT_PUBLIC_KEY, EDGE_SHARED_SECRET, RATE_LIMIT_KV).
 #
 # Secrets are NOT stored here. Set them with:
 #   wrangler secret put JWT_SECRET
@@ -22,6 +22,17 @@ BACKEND_URL = "https://magis-website.onrender.com"
 # Uncomment and set these once the staging frontends are deployed:
 # ADMIN_URL = "https://<admin-staging-url>"
 # GUEST_URL = "https://<guest-staging-url>"
+# P2-3: RSA public key for asymmetric (RS256) JWT verification. The backend
+# signs with the matching PRIVATE key; the edge only ever needs this PUBLIC key.
+# It is NOT a secret, so a [vars] entry is fine (or use `wrangler secret put
+# JWT_PUBLIC_KEY`). Generate with: node backend/scripts/generate-jwt-keypair.js
+# Keep JWT_SECRET bound until the HS256→RS256 cutover completes, then REMOVE it
+# so the edge accepts RS256 only (a compromised edge can't forge tokens).
+# JWT_PUBLIC_KEY = """
+# -----BEGIN PUBLIC KEY-----
+# <spki-base64-lines>
+# -----END PUBLIC KEY-----
+# """
 # P2-1: edge rate-limit fail-mode when RATE_LIMIT_KV is bound but ERRORS.
 # Leave unset/"false" to fail-OPEN (don't take the site down for a KV blip);
 # set "true" to fail-CLOSED (block on KV error — stronger, but a KV outage can

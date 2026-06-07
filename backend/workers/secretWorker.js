@@ -4,6 +4,24 @@ const { parentPort, workerData } = require("worker_threads");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4 } = require("uuid");
 
+// P2-3: hydrate the JWT key/alg vars from workerData (so they're available even
+// if process.env isn't inherited) BEFORE loading the key-policy module, which
+// reads them from process.env at require time.
+if (workerData && typeof workerData === "object") {
+  for (const k of [
+    "JWT_SECRET",
+    "JWT_PRIVATE_KEY",
+    "JWT_PUBLIC_KEY",
+    "JWT_ALG",
+    "JWT_ACCEPT_HS256",
+  ]) {
+    if (workerData[k] != null && process.env[k] == null) {
+      process.env[k] = workerData[k];
+    }
+  }
+}
+const jwtKeys = require("../utils/jwtKeys");
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Config (keep in sync with server.js / edge)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -29,9 +47,24 @@ let useRedis = !!process.env.REDIS_URL;
 const REVOCATION_FAIL_CLOSED =
   String(process.env.JWT_REVOCATION_FAIL_CLOSED || "").toLowerCase() === "true";
 
-// Eager log (not a hard failure if missing)
-if (!JWT_SECRET) {
-  console.warn("[secretWorker] ⚠️ JWT_SECRET is not set. Token ops will fail.");
+// Eager posture log (P2-3): reflect the active signing algorithm + the set of
+// accepted verification algorithms so the JWT key model is obvious in logs.
+{
+  const d = jwtKeys.describe();
+  console.log(
+    `[secretWorker] JWT sign=${d.signAlg}; verify accepts=[${d.accepted.join(", ") || "none"}]` +
+      `; privateKey=${d.hasPrivateKey ? "yes" : "no"}, publicKey=${d.hasPublicKey ? "yes" : "no"}`
+  );
+  if (d.signAlg === "RS256" && !d.hasPrivateKey) {
+    console.error(
+      "[secretWorker] ❌ JWT_ALG=RS256 but JWT_PRIVATE_KEY missing — signing will fail."
+    );
+  }
+  if (d.accepted.length === 0) {
+    console.warn(
+      "[secretWorker] ⚠️ No verification keys configured — token verify will fail."
+    );
+  }
 }
 
 if (useRedis) {
@@ -109,13 +142,15 @@ parentPort.on("message", async (task) => {
       // SIGN
       // ─────────────────────────────────────────────────────────────────────
       case "sign": {
-        if (!JWT_SECRET) throw new Error("MissingJWTSecret");
-
         if (!task.data.jti) task.data.jti = uuidv4();
+
+        // P2-3: signing key + algorithm come from the central key policy
+        // (RS256 private key when JWT_ALG=RS256, else the HS256 secret).
+        const { key: signingKey, algorithm: signingAlg } = jwtKeys.getSigningParams();
 
         // sanitize caller options
         const raw = task.options && typeof task.options === "object" ? task.options : {};
-        const signOpts = { algorithm: "HS256" };
+        const signOpts = { algorithm: signingAlg };
 
         // allow-list and validate each option type
         if (raw.expiresIn != null) signOpts.expiresIn = raw.expiresIn;
@@ -142,7 +177,7 @@ parentPort.on("message", async (task) => {
           signOpts.expiresIn = `${ttlMin}m`;
         }
 
-        result = jwt.sign(task.data, JWT_SECRET, signOpts);
+        result = jwt.sign(task.data, signingKey, signOpts);
         parentPort.postMessage({ id: task.id, result });
         break;
       }
@@ -151,11 +186,15 @@ parentPort.on("message", async (task) => {
       // VERIFY
       // ─────────────────────────────────────────────────────────────────────
       case "verify": {
-        if (!JWT_SECRET) throw new Error("MissingJWTSecret");
+        // P2-3: pick the verification key from the token's declared algorithm,
+        // restricted to algorithms we accept (RS256 via public key, HS256 via
+        // secret). Never verifies an RS256 token with an HMAC secret or vice
+        // versa (alg-confusion safe).
+        const vparams = jwtKeys.getVerifyParamsForToken(task.token);
+        if (!vparams) throw new Error("UnsupportedAlgorithm");
 
         const raw = task.options && typeof task.options === "object" ? task.options : {};
         const verifyOpts = {
-          algorithms: ["HS256"],
           clockTolerance: CLOCK_SKEW_SECONDS,
         };
 
@@ -171,7 +210,10 @@ parentPort.on("message", async (task) => {
         if (typeof raw.maxAge === "string") verifyOpts.maxAge = raw.maxAge;
         if (Number.isFinite(raw.clockTimestamp)) verifyOpts.clockTimestamp = raw.clockTimestamp;
 
-        result = jwt.verify(task.token, JWT_SECRET, verifyOpts);
+        result = jwt.verify(task.token, vparams.key, {
+          ...verifyOpts,
+          algorithms: vparams.algorithms,
+        });
 
         if (!result.jti) throw new Error("MissingJTI");
 
