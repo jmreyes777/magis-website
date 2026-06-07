@@ -28,7 +28,7 @@ process.env.JWT_ADMIN_TTL_MIN = process.env.JWT_ADMIN_TTL_MIN || "240"; // admin
 
 // NEW (cluster-safe rate limiting)
 const { RedisStore } = require("rate-limit-redis");
-const { getRedis } = require("./utils/redis");
+const { getRedis, isRedisConfigured } = require("./utils/redis");
 
 // Use node-fetch if global fetch isn’t available (Node <18)
 let fetchFn = global.fetch;
@@ -41,18 +41,74 @@ const fetch = fetchFn;
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
 });
+// Redis-related rejections must NOT crash the process, but they must also NOT
+// be silently hidden (P2-1): a swallowed error is precisely how rate-limiting
+// and JWT revocation end up "inert in production" with nobody noticing. We keep
+// the process alive but emit a throttled, explicit warning describing the
+// security impact so the degradation is visible in logs.
+let __lastRedisRejectionLogAt = 0;
 process.on("unhandledRejection", (reason, p) => {
-  // Suppress Redis connection errors since Redis is not configured
-  if (reason && reason.message && (
-    reason.message.includes("Connection is closed") ||
-    reason.message.includes("ECONNREFUSED") ||
-    reason.message.includes("MaxRetriesPerRequestError") ||
-    reason.message.includes("ioredis")
-  )) {
-    return; // Silently ignore Redis errors
+  const msg = reason && reason.message ? String(reason.message) : String(reason || "");
+  const isRedisError =
+    msg.includes("Connection is closed") ||
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("MaxRetriesPerRequestError") ||
+    msg.includes("ETIMEDOUT") ||
+    msg.includes("ioredis");
+  if (isRedisError) {
+    const now = Date.now();
+    if (now - __lastRedisRejectionLogAt > 60_000) {
+      __lastRedisRejectionLogAt = now;
+      console.error(
+        "[redis] \u26a0\ufe0f Redis unreachable \u2014 rate-limiting & JWT revocation are DEGRADED " +
+          "(failing open; per-instance/in-memory only). Provision REDIS_URL to restore. Last error:",
+        msg
+      );
+    }
+    return; // do not crash; degradation is logged (throttled) above
   }
   console.error("Unhandled Rejection:", reason);
 });
+
+// ── P2-1: Infra readiness self-check ────────────────────────────────────────
+// In production/staging, Redis backs cluster-safe rate-limiting AND JWT
+// revocation. If REDIS_URL is missing those controls silently degrade to
+// per-instance/in-memory behavior. Make that loud, and optionally hard-fail
+// when the operator opts in via REQUIRE_REDIS=true.
+(function assertInfraReadiness() {
+  const env = process.env.NODE_ENV;
+  const isProdLike = env === "production" || env === "staging";
+  const requireRedis = String(process.env.REQUIRE_REDIS || "").toLowerCase() === "true";
+
+  if (isRedisConfigured()) {
+    console.log(
+      "[SERVER] \u2705 REDIS_URL configured \u2014 rate-limiting & JWT revocation are cluster-safe."
+    );
+    return;
+  }
+
+  if (isProdLike) {
+    const banner = [
+      "============================================================",
+      "[SERVER] \u26a0\ufe0f  REDIS_URL is NOT set in a production/staging env.",
+      "          Rate-limiting (login brute-force, guest abuse) and",
+      "          JWT revocation (force-logout) will NOT work across",
+      "          instances or survive restarts \u2014 the control is INERT.",
+      "          \u2192 Provision managed Redis and set REDIS_URL.",
+      "============================================================",
+    ].join("\n");
+    if (requireRedis) {
+      console.error(banner);
+      console.error("[SERVER] \u274c REQUIRE_REDIS=true \u2192 refusing to start without Redis.");
+      process.exit(1);
+    }
+    console.error(banner);
+  } else {
+    console.log(
+      "[SERVER] \u2139\ufe0f  No REDIS_URL (dev) \u2014 using localhost Redis if present, else in-memory fallbacks."
+    );
+  }
+})();
 
 const { db,admin } = require("./utils/firebase");
 const { initializeSocket } = require("./utils/socket");

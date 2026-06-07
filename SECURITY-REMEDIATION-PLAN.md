@@ -147,6 +147,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Risk:** Login brute-force protection and logout/force-close **revocation** may not function across instances/restarts.
 - **PH legal driver:** BSP IT-risk; DPA 2012 (session management).
 - **Remediation:** Provision managed Redis (`REDIS_URL`) and bind the edge KV namespace.
+- **Resolution (code hardening done 2026-06-07; infra PENDING operator):** The original risk was that this control is *silently* inert. Code now makes it impossible to be silent and adds opt-in strict modes: **(1) Observability** — `backend/server.js` no longer swallows Redis errors (throttled explicit "DEGRADED" warning) and runs a startup self-check that logs a loud banner in prod/staging when `REDIS_URL` is missing; `redis.js` exports `isRedisConfigured()`. **(2) Hard-fail (opt-in)** — `REQUIRE_REDIS=true` makes the server refuse to start in prod without Redis (default off). **(3) Fail-closed revocation (opt-in)** — `backend/workers/secretWorker.js` adds `JWT_REVOCATION_FAIL_CLOSED=true` to reject a token when the Redis revocation check is unknown (default off = legacy fail-open; logs the active mode at boot). **(4) Edge** — `maybeRateLimit` now `typeof`-guards the KV binding and supports `RATE_LIMIT_FAIL_CLOSED="true"` to block on KV errors (default fail-open). Env/config documented in `backend.env.example` + `wrangler.toml`. **Still required (infra, only the operator can do):** provision managed/HA Redis and set `REDIS_URL` (then optionally `REQUIRE_REDIS=true`, `JWT_REVOCATION_FAIL_CLOSED=true`); create + bind `RATE_LIMIT_KV` (`wrangler kv namespace create RATE_LIMIT_KV` → uncomment binding → `wrangler deploy`).
 - **Effort:** S (infra)
 
 #### [ ] P2-2 — Origin is not locked to the edge
@@ -234,7 +235,7 @@ None of the recommended fixes require removing features or degrading the custome
 - [x] P1-5 Lock down `/contact` — auth (guest token) + server-resolved branch-only recipient + HTML-escape + rate-limit — ✅ 2026-06-07
 
 **Phase 2 — Weeks 2-4 (P2)**
-- [ ] P2-1 Provision Redis + edge KV
+- [ ] P2-1 Provision Redis + edge KV — code hardening shipped 2026-06-07 (observability + `REQUIRE_REDIS`/`JWT_REVOCATION_FAIL_CLOSED`/`RATE_LIMIT_FAIL_CLOSED` toggles); **infra still pending operator** (set `REDIS_URL`, create+bind `RATE_LIMIT_KV`)
 - [ ] P2-2 Lock origin to the edge
 - [ ] P2-3 Asymmetric JWT signing
 - [ ] P2-4 Secret hygiene + token rotation

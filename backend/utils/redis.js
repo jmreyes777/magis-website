@@ -26,6 +26,17 @@ function resolveRedisUrl() {
   return "redis://[::1]:6379";
 }
 
+/**
+ * Whether a Redis backend has been EXPLICITLY configured via REDIS_URL.
+ * The localhost default above keeps dev working, but in production an unset
+ * REDIS_URL silently points at a non-existent localhost instance — which is how
+ * rate-limiting and JWT revocation end up inert (P2-1). server.js uses this to
+ * surface the degradation loudly (and optionally hard-fail) at startup.
+ */
+function isRedisConfigured() {
+  return !!process.env.REDIS_URL;
+}
+
 // Track a single in-flight connect() per client to avoid races
 const connectPromises = new WeakMap();
 
@@ -152,4 +163,5 @@ module.exports = {
   getRedisSub,
   ensureRedisConnected,
   closeRedis,
+  isRedisConfigured,
 };

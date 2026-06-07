@@ -182,8 +182,10 @@ function minimalResponse(
 }
 
 async function maybeRateLimit(ip) {
-  // No config changes needed: if RATE_LIMIT_KV is not bound, skip.
-  if (!RATE_LIMIT_KV) return true;
+  // If RATE_LIMIT_KV is not bound we have no store, so we cannot rate-limit —
+  // skip. Bind the namespace (see wrangler.toml) to activate this control.
+  // typeof guard avoids a ReferenceError when the binding is absent.
+  if (typeof RATE_LIMIT_KV === "undefined" || !RATE_LIMIT_KV) return true;
   try {
     const key = `rl::${ip}`;
     const raw = await RATE_LIMIT_KV.get(key);
@@ -191,9 +193,15 @@ async function maybeRateLimit(ip) {
     if (count >= MAX_REQUESTS_PER_MINUTE) return false;
     await RATE_LIMIT_KV.put(key, String(count + 1), { expirationTtl: 60 });
     return true;
-  } catch {
-    // Fail-open on KV errors (minimal tweak philosophy)
-    return true;
+  } catch (e) {
+    // KV is bound but erroring (P2-1). Default: fail-open so a transient KV blip
+    // does not take the whole site down. Set RATE_LIMIT_FAIL_CLOSED="true" (a
+    // [vars] entry in wrangler.toml) to block instead — stronger brute-force
+    // protection, but a KV outage can then reject legitimate traffic.
+    const failClosed =
+      typeof RATE_LIMIT_FAIL_CLOSED !== "undefined" &&
+      String(RATE_LIMIT_FAIL_CLOSED).toLowerCase() === "true";
+    return failClosed ? false : true;
   }
 }
 

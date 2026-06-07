@@ -22,8 +22,18 @@ BACKEND_URL = "https://magis-website.onrender.com"
 # Uncomment and set these once the staging frontends are deployed:
 # ADMIN_URL = "https://<admin-staging-url>"
 # GUEST_URL = "https://<guest-staging-url>"
+# P2-1: edge rate-limit fail-mode when RATE_LIMIT_KV is bound but ERRORS.
+# Leave unset/"false" to fail-OPEN (don't take the site down for a KV blip);
+# set "true" to fail-CLOSED (block on KV error — stronger, but a KV outage can
+# reject legitimate traffic). No effect when RATE_LIMIT_KV is simply unbound.
+# RATE_LIMIT_FAIL_CLOSED = "false"
 
-# Optional KV namespace for edge rate-limiting. Leave unbound to auto-skip.
+# P2-1: KV namespace for edge rate-limiting. While UNBOUND, edge rate-limiting
+# auto-skips (the origin still applies its own Redis-backed limits). To ACTIVATE
+# edge limiting:
+#   1) wrangler kv namespace create RATE_LIMIT_KV
+#   2) copy the printed id into the binding below and uncomment the block
+#   3) wrangler deploy
 # [[kv_namespaces]]
 # binding = "RATE_LIMIT_KV"
 # id = "<kv-namespace-id>"

@@ -20,6 +20,15 @@ const revokedInMemory = new Set();
 const { getRedis, ensureRedisConnected } = require("../utils/redis");
 let useRedis = !!process.env.REDIS_URL;
 
+// P2-1: when Redis is the configured revocation backend but a check is UNKNOWN
+// (store unreachable), the in-memory fallback can MISS revocations made on
+// other instances or before a restart — a force-logged-out token would then be
+// accepted. Operators can opt into fail-closed (reject the token) for the
+// strongest session security, at the cost of availability during a Redis
+// outage. Default: fail-open (legacy behavior, no lockout risk).
+const REVOCATION_FAIL_CLOSED =
+  String(process.env.JWT_REVOCATION_FAIL_CLOSED || "").toLowerCase() === "true";
+
 // Eager log (not a hard failure if missing)
 if (!JWT_SECRET) {
   console.warn("[secretWorker] ⚠️ JWT_SECRET is not set. Token ops will fail.");
@@ -42,6 +51,11 @@ if (useRedis) {
 } else {
   console.log("[secretWorker] ⚠️ No REDIS_URL configured, using in-memory store");
 }
+console.log(
+  `[secretWorker] Revocation mode: ${useRedis ? "redis" : "in-memory"}, fail-${
+    REVOCATION_FAIL_CLOSED ? "closed" : "open"
+  }`
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers: Redis-backed revoke / check
@@ -165,8 +179,16 @@ parentPort.on("message", async (task) => {
         if (useRedis) {
           const redisRevoked = await isJtiRevokedRedis(result.jti);
           if (redisRevoked === true) throw new Error("TokenRevoked");
-          if (redisRevoked === null && revokedInMemory.has(result.jti)) {
-            throw new Error("TokenRevoked");
+          if (redisRevoked === null) {
+            // Revocation store unreachable: in-memory may be incomplete across
+            // instances/restarts (P2-1). Fail-closed rejects to be safe.
+            if (REVOCATION_FAIL_CLOSED) {
+              console.warn(
+                `[secretWorker] \ud83d\udd12 FAIL-CLOSED: revocation store unavailable \u2014 rejecting jti=${result.jti}`
+              );
+              throw new Error("TokenRevoked");
+            }
+            if (revokedInMemory.has(result.jti)) throw new Error("TokenRevoked");
           }
         } else {
           if (revokedInMemory.has(result.jti)) throw new Error("TokenRevoked");
