@@ -310,7 +310,17 @@ export const AuthProvider = ({ children }) => {
           online: false,
           lastSeen: new Date().toISOString(),
         };
-        const url = `${process.env.REACT_APP_API_URL}/api/update-status`;
+        // P2-5: authenticate the offline beacon via a query-param token —
+        // sendBeacon can't set an Authorization header and the fetch fallback
+        // below doesn't send the cookie. The backend verifies it and resolves
+        // the branch from the token (the body email is ignored server-side).
+        const adminToken =
+          sessionStorage.getItem("branchAdminToken") ||
+          localStorage.getItem("branchAdminToken") ||
+          "";
+        const url = `${process.env.REACT_APP_API_URL}/api/update-status${
+          adminToken ? `?token=${encodeURIComponent(adminToken)}` : ""
+        }`;
   
         if (isTabClosing && navigator.sendBeacon) {
           const blob = new Blob([JSON.stringify(payload)], {

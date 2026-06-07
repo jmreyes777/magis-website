@@ -363,27 +363,25 @@ async function saveIdempotentMessage(docId, data) {
  * POST /api/messages/start
  * Guest initiates a new chat session.
  */
-router.post("/start", async (req, res) => {
-  const {
-    branchId,
-    branchEmail,
-    guestId,
-    guestName,
-    guestPhone,
-    guestEmail,
-  } = req.body;
+router.post("/start", authenticateGuest, async (req, res) => {
+  // P2-5: require a valid guest token. The guest IDENTITY (guestId + branch)
+  // comes from the verified token — never trusted from the body — so a caller
+  // can only create/overwrite their OWN guest record for their OWN branch,
+  // closing the previous unauthenticated arbitrary-PII write.
+  const guestId = req.user.guestId;
+  const branchEmail = (req.user.email || "").toLowerCase();
+  const { branchId, guestName, guestPhone, guestEmail } = req.body;
 
-  if (!branchId || !branchEmail || !guestId || !guestName || !guestEmail) {
+  if (!branchId || !branchEmail || !guestName || !guestEmail) {
     return res.status(400).json({
-      error:
-        "Required fields: branchId, branchEmail, guestId, guestName, guestEmail",
+      error: "Required fields: branchId, guestName, guestEmail",
     });
   }
 
   try {
     const guestData = {
       branchId,
-      branchEmail: branchEmail.toLowerCase(),
+      branchEmail,
       guestId,
       guestName,
       guestPhone: guestPhone || null,

@@ -125,6 +125,7 @@ process.on("unhandledRejection", (reason, p) => {
 const { db,admin } = require("./utils/firebase");
 const { initializeSocket } = require("./utils/socket");
 const { requireEdgeAuth } = require("./utils/geoSecurity");
+const authenticateBranchAdmin = require("./middlewares/authenticateBranchAdmin");
 
 const app = express();
 // Behind the Cloudflare edge worker / reverse proxy: trust forwarded headers so
@@ -674,19 +675,20 @@ app.post("/api/issue-fallback-token", async (req, res) => {
 app.post(
   "/api/update-status",
   express.json(),
+  authenticateBranchAdmin,
   async (req, res) => {
     try {
-      console.log("[API] Received update-status request:", req.body);
-      const email = req.body.email || req.body.branchEmail;
+      // P2-5: only a verified branch admin may flip presence, and ONLY for
+      // their OWN branch — the email comes from the token (req.branchEmail),
+      // never the body, so nobody can mark an arbitrary branch offline.
+      const email = (req.branchEmail || "").toLowerCase();
       if (!email) {
-        return res.status(400).json({ error: "Email is required" });
+        return res.status(400).json({ error: "Authenticated branch email missing" });
       }
-      console.log(
-        `[API] Updating Firestore: Marking ${email} as OFFLINE (tab closed)`
-      );
+      console.log(`[API] Marking ${email} as OFFLINE (tab closed)`);
       const branchStatusRef = db
         .collection("branchStatus")
-        .doc(email.toLowerCase());
+        .doc(email);
       await branchStatusRef.set(
         { online: false, lastSeen: new Date().toISOString() },
         { merge: true }

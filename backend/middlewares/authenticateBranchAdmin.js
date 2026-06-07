@@ -31,7 +31,13 @@ const authenticateBranchAdmin = async (req, res, next) => {
       token = req.cookies.branchAdminToken;
       console.debug("[AUTH] Retrieved token from HTTP-only cookie.");
     }
-    // 3) No token available
+    // 3) Fallback to query-param token (P2-5): for header-less calls such as
+    //    navigator.sendBeacon (tab-close offline beacon), which cannot set an
+    //    Authorization header and may not send the cookie cross-origin.
+    else if (req.query && typeof req.query.token === "string" && req.query.token) {
+      token = req.query.token.trim();
+    }
+    // 4) No token available
     else {
       console.warn("[AUTH] No Authorization header or auth cookie present.");
       return res.status(401).json({ error: "Not authenticated. Please log in." });
