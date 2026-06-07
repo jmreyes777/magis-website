@@ -552,25 +552,7 @@ const markMessageAsFailed = (messages, tempId, failureReason, guestId, branchId,
 // ============================================================================
 // COMPONENT
 // ============================================================================
-/**
- * Check if current local time falls within the branch schedule
- */
-function isWithinSchedule(schedule) {
-  if (!schedule || schedule.length === 0) return true; // no schedule = always open
-  const now = new Date();
-  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-  const todayName = days[now.getDay()];
-  const todayEntry = schedule.find(s => s.day === todayName);
-  if (!todayEntry || !todayEntry.open) return false;
-  const [openH, openM] = todayEntry.openTime.split(":").map(Number);
-  const [closeH, closeM] = todayEntry.closeTime.split(":").map(Number);
-  const nowMins = now.getHours() * 60 + now.getMinutes();
-  const openMins = openH * 60 + openM;
-  const closeMins = closeH * 60 + closeM;
-  return nowMins >= openMins && nowMins < closeMins;
-}
-
-const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestId, onClose }) => {
+const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) => {
   // ============================================================================
   // STATE
   // ============================================================================
@@ -598,13 +580,6 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
     navigator.connection?.effectiveType || "unknown"
   );
   const [isInputExpanded, setIsInputExpanded] = useState(false);
-
-  // Async / offline-hours mode
-  const [isOfficeHours] = useState(() => isWithinSchedule(schedule));
-  const [inquiryName, setInquiryName] = useState("");
-  const [inquiryEmail, setInquiryEmail] = useState("");
-  const [inquiryMessage, setInquiryMessage] = useState("");
-  const [inquiryStatus, setInquiryStatus] = useState(null); // null | "sending" | "sent" | "error"
 
   // Sensitive data detection state
   const [sensitiveWarning, setSensitiveWarning] = useState(null);
@@ -1980,32 +1955,6 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
     };
   }, []);
 
-  // ============================================================================
-  // PENDING INQUIRY SUBMIT
-  // ============================================================================
-  const handleSubmitInquiry = async () => {
-    if (!inquiryName.trim() || !inquiryEmail.trim() || !inquiryMessage.trim()) return;
-    setInquiryStatus("sending");
-    try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/guest/pending-inquiry`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          branchEmail,
-          branchName,
-          guestName: inquiryName,
-          guestEmail: inquiryEmail,
-          message: inquiryMessage,
-        }),
-      });
-      if (!res.ok) throw new Error("Failed to submit");
-      setInquiryStatus("sent");
-    } catch {
-      setInquiryStatus("error");
-    }
-  };
-
   // Disable send (offline, busy, or empty text & no image)
   const isSendDisabled =
     showOffline || !branchStatus.online || isLoading || (message.trim().length === 0 && !previewFile);
@@ -2144,59 +2093,8 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
             </div>
           )}
 
-          {/* Out-of-hours: Leave a message */}
-          {!isOfficeHours && (
-            <div className="guest-chat-box-content flex flex-col justify-center px-5 py-6 space-y-3">
-              {inquiryStatus === "sent" ? (
-                <div className="text-center space-y-2">
-                  <div className="text-green-500 text-4xl">✓</div>
-                  <p className="font-semibold text-gray-800">Message sent!</p>
-                  <p className="text-sm text-gray-500">The branch will reply to your email during office hours.</p>
-                </div>
-              ) : (
-                <>
-                  <div className="text-center mb-1">
-                    <p className="font-semibold text-gray-800 text-sm">We're currently outside office hours</p>
-                    <p className="text-xs text-gray-500 mt-1">Leave a message and we'll get back to you.</p>
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Your name"
-                    value={inquiryName}
-                    onChange={e => setInquiryName(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                  />
-                  <input
-                    type="email"
-                    placeholder="Your email address"
-                    value={inquiryEmail}
-                    onChange={e => setInquiryEmail(e.target.value)}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400"
-                  />
-                  <textarea
-                    placeholder="Your message"
-                    value={inquiryMessage}
-                    onChange={e => setInquiryMessage(e.target.value)}
-                    rows={4}
-                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-yellow-400 resize-none"
-                  />
-                  {inquiryStatus === "error" && (
-                    <p className="text-red-500 text-xs">Failed to send. Please try again.</p>
-                  )}
-                  <button
-                    onClick={handleSubmitInquiry}
-                    disabled={inquiryStatus === "sending" || !inquiryName.trim() || !inquiryEmail.trim() || !inquiryMessage.trim()}
-                    className="w-full py-2 rounded-lg text-white text-sm font-medium bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {inquiryStatus === "sending" ? "Sending..." : "Send Message"}
-                  </button>
-                </>
-              )}
-            </div>
-          )}
-
           {/* Chat Content */}
-          {isOfficeHours && <div className="guest-chat-box-content">
+          <div className="guest-chat-box-content">
             {error && (
               <p className="error-message text-red-500 font-semibold text-sm mb-2">{error}</p>
             )}
@@ -2341,10 +2239,9 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
                 </div>
               </div>
             )}
-          </div>}
+          </div>
 
           {/* Footer: Image preview + toolbar */}
-          {isOfficeHours &&
           <div className="guest-chat-box-footer bg-white border-t px-4 py-3">
             {/* Preview Thumbnail */}
             {previewFile && (
@@ -2506,7 +2403,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
                 </button>
               </div>
             </div>
-          </div>}
+          </div>
         </div>
       )}
 
