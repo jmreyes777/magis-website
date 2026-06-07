@@ -2118,7 +2118,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, schedule = [], guestI
               <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
                 <path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3z"/>
               </svg>
-              <span>Encrypted (AES-256-GCM)</span>
+              <span title="AES-256-GCM · encrypted in transit &amp; at rest">Your messages are encrypted</span>
             </div>
           ) : e2eeStatus === "failed" ? (
             <div className="bg-green-50 text-green-700 text-[10px] px-3 py-1 border-b border-green-200 flex items-center justify-center gap-1">
