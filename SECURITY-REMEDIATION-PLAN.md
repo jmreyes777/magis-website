@@ -77,11 +77,12 @@ None of the recommended fixes require removing features or degrading the custome
 - **PH legal driver:** DPA 2012 (security of processing; reportable personal-data breach if exploited); BSP IT-risk; RA 11765.
 - **Remediation:** (1) PURGE from git history + force-push; (2) ROTATE every exposed secret — `JWT_SECRET` first (invalidates sessions), then Firebase key, `MONGO_URI`, OAuth client secret + refresh token, SMTP/email passwords, `GOOGLE_API_KEY`, `FB_PAGE_ACCESS_TOKEN`, and `REDIS_URL` if it embeds a password.
 - **Status:** Untracked + ignored 2026-06-07. **History PURGED 2026-06-07** (git filter-branch over all 35 commits + `--force-with-lease` push + backup/refs-original removal + reflog expire + `gc --prune=now`; verified no ref or object references the paths). ⚠️ **SECRET ROTATION still required (owner action)** — and GitHub can cache old commits by SHA until its own GC, so rotation is the only definitive fix.
+- **Follow-up TODO (maps key):** `REACT_APP_GOOGLE_MAPS_API_KEY` (…5fQucE) is public-by-design (baked into the built frontend bundle), distinct from the now-deleted backend `GOOGLE_API_KEY` (…SSsaYo). Lock it down via **API restrictions** (Maps JavaScript API + Maps Static API) + a billing/quota cap now; **⬜ add Application restrictions → HTTP referrers (websites) once the production domain exists.**
 - **Effort:** S (rotation per secret) + M (history rewrite — done)
 
 ### HIGH
 
-#### [ ] P1-1 — "End-to-end encrypted" is server-escrowed encryption
+#### [x] P1-1 — "End-to-end encrypted" is server-escrowed encryption — ✅ ADDRESSED 2026-06-07
 - **Severity:** High
 - **Where:** Key generated/stored/served by backend: `backend/routes/messages.js:113-133`, `:697-736`; client imports server key in `user-frontend/src/utils/e2eeCrypto.js:226-242`. At-rest wrapping is **disabled unless `CONV_KEY_SECRET` is set** (`backend/routes/messages.js:75-84`), and that variable is **absent from `backend/backend.env.example`**. UI claims true E2EE.
 - **Risk:** A database/admin compromise can decrypt all messages. Marketing/labeling the channel as E2EE while the server holds keys is a **transparency/representation** issue.
@@ -89,6 +90,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Remediation (choose):** (a) Re-label to "encrypted in transit and at rest" and move key custody to a managed KMS/HSM; or (b) restore genuinely client-held keys. **Immediately:** set `CONV_KEY_SECRET` so stored keys are wrapped.
 - **No-regression note:** Messaging behaviour is unchanged under either option.
 - **Effort:** S (set secret) / M-L (KMS or true E2EE)
+- **Resolution:** Decision = keep the server-managed-key model and correct the claim (option a, label). (1) **Label fixed** — both UI badges changed from "End-to-end encrypted" to "Encrypted (AES-256-GCM)" (`admin-frontend/src/pages/Branch-Chat-Dashboard.js:2776`, `user-frontend/src/components/Guest-Chat-Box-Component.js:2121`); "failed/connecting" states unchanged. (2) **At-rest key wrapping** — `CONV_KEY_SECRET` documented in `backend/backend.env.example` (was absent); value generated, **must be set in Render** (owner action). Backward-compatible: `unwrapConversationKey` returns non-`v1:` values as-is, so existing raw keys keep working and new keys are written wrapped (`v1:`) — no migration/outage. **Scope:** this is encryption-at-rest for the key material (defends a Firestore/backup-only leak), NOT true E2EE; full client-held E2EE / KMS custody deferred (roadmap). **Pending owner action:** set `CONV_KEY_SECRET` in Render + rebuild/redeploy both frontends to ship the label.
 
 #### [ ] P1-2 — Cross-branch live message leak via socket `joinRoom`
 - **Severity:** High
@@ -220,7 +222,7 @@ None of the recommended fixes require removing features or degrading the custome
 - [ ] P0-3 Rotate leaked SA key + purge git history (owner) — untracked/ignored 2026-06-07
 
 **Phase 1 — Week 1 (P1)**
-- [ ] P1-1 Set `CONV_KEY_SECRET`; decide E2EE labeling vs KMS custody
+- [x] P1-1 Label corrected + `CONV_KEY_SECRET` wired (set value in Render); managed-key model retained, KMS/true-E2EE deferred — 2026-06-07
 - [ ] P1-2 Bind socket `joinRoom` to the admin's own branch
 - [ ] P1-3 Private media + signed URLs
 - [ ] P1-4 UUID guest IDs + server-side Turnstile + refresh requires prior token
