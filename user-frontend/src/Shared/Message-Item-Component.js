@@ -5,6 +5,25 @@ import PropTypes from "prop-types";
 import "./MessageItem.css";
 import { resolveGuestMedia } from "./mediaResolver";
 
+// Defense-in-depth: never render a raw encrypted payload. If decryption failed
+// upstream, the content may still be a {"ciphertext":...,"iv":...} blob — show
+// a friendly placeholder instead of leaking ciphertext to the screen. We parse
+// + verify the shape so a plaintext message that merely mentions "ciphertext"
+// is left untouched.
+const looksLikeCiphertext = (t) => {
+  if (typeof t !== "string") return false;
+  const s = t.trim();
+  if (s[0] !== "{" || s[s.length - 1] !== "}") return false;
+  if (!s.includes('"ciphertext"') || !s.includes('"iv"')) return false;
+  try {
+    const o = JSON.parse(s);
+    return !!o && typeof o.ciphertext === "string" && typeof o.iv === "string";
+  } catch {
+    return false;
+  }
+};
+const toDisplayText = (t) => (looksLikeCiphertext(t) ? "[Encrypted message]" : t);
+
 const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
   const isGuest = sender === "guest";
   const isUnsent = message.status === "failed" || message.pendingRetry;
@@ -64,7 +83,7 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
     >
       <div className="message-content">
         {/* Text */}
-        {message.message && <p className="message-text">{message.message}</p>}
+        {message.message && <p className="message-text">{toDisplayText(message.message)}</p>}
 
         {/* Media thumbnail + link (P1-3: private media resolved to signed URL) */}
         {mediaType && !hideMedia && (mediaUrl || mediaResolving) && (

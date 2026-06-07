@@ -1266,16 +1266,12 @@ const BranchChatDashboard = () => {
         }
 
         /* ----------------------------------------------------------------
-           2️⃣  MERGE active-guest-ids
+           2️⃣  Presence is SERVER-authoritative (guestPresenceUpdate) and is
+           applied per-tab. We deliberately DO NOT merge activeGuestIds across
+           tabs here — additive merging resurrects "ghost" guests that another
+           tab (or the server) has already cleared. Each tab trusts the live
+           presence feed for who is online.
         ----------------------------------------------------------------- */
-        if (Array.isArray(payload?.activeGuestIds)) {
-          setActiveGuestIds((prev) => {
-            const merged = new Set(prev);
-            payload.activeGuestIds.forEach((id) => merged.add(id));
-            activeIdsRef.current = merged;
-            return merged; // new reference → sidebar re-renders
-          });
-        }
 
         isExternalUpdateRef.current = true; // prevent echo-rebroadcast
         return; // ✅ handled
@@ -1447,25 +1443,29 @@ const BranchChatDashboard = () => {
       console.warn("[SYNC] requestChats failed:", e.message);
     }
 
-    // ➤ Always apply presence updates; also refetch chats to pick up new guests
+    // ➤ Presence is SERVER-authoritative. Apply the set exactly as received —
+    //   INCLUDING an empty array (the last guest disconnected) — so closed or
+    //   dropped guests can never linger as "ghost" chats. We canonicalize ids
+    //   so they match how chat rows are keyed (canon(guestId)), and we apply
+    //   even while the tab is hidden (it's just a state update; the server is
+    //   the source of truth and the sidebar must reconcile down to reality).
     const handlePresenceUpdate = async (ids) => {
-      // 1️⃣ Ignore empty arrays
-      if (!Array.isArray(ids) || ids.length === 0) {
-        console.log("[PRESENCE] Ignoring empty guestPresenceUpdate:", ids);
+      if (!Array.isArray(ids)) {
+        console.warn("[PRESENCE] Ignoring malformed guestPresenceUpdate:", ids);
         return;
       }
-      // 2️⃣ Skip updates while window is hidden
-      if (document.visibilityState !== "visible") {
-        console.log("[PRESENCE] Window hidden – skipping guestPresenceUpdate:", ids);
-        return;
-      }
-      // 3️⃣ Apply the presence set
-      setActiveGuestIds(new Set(ids));
-      // 4️⃣ And refresh the chat list so any brand-new guest threads appear
-      try {
-        await fetchActiveChats();
-      } catch (err) {
-        console.warn("[PRESENCE] fetchActiveChats failed:", err.message);
+      const nextIds = ids.map((id) => canon(id));
+      const nextSet = new Set(nextIds);
+      setActiveGuestIds(nextSet);
+      activeIdsRef.current = nextSet;
+      // Refresh previews so brand-new guest threads appear (nothing to hydrate
+      // when the set is empty).
+      if (nextIds.length > 0) {
+        try {
+          await fetchActiveChats();
+        } catch (err) {
+          console.warn("[PRESENCE] fetchActiveChats failed:", err.message);
+        }
       }
     };
 

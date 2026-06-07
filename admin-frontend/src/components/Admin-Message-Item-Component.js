@@ -4,6 +4,25 @@ import PropTypes from 'prop-types';
 import './AdminMessageItem.css';
 import { resolveAdminMedia } from '../utils/mediaResolver';
 
+// Defense-in-depth: never render a raw encrypted payload. If decryption failed
+// upstream (e.g. the secure channel wasn't established for this session), the
+// content may still be a {"ciphertext":...,"iv":...} blob — show a friendly
+// placeholder instead of leaking ciphertext to the screen. We parse + verify
+// the shape so a plaintext message that merely mentions "ciphertext" is safe.
+const looksLikeCiphertext = (t) => {
+  if (typeof t !== 'string') return false;
+  const s = t.trim();
+  if (s[0] !== '{' || s[s.length - 1] !== '}') return false;
+  if (!s.includes('"ciphertext"') || !s.includes('"iv"')) return false;
+  try {
+    const o = JSON.parse(s);
+    return !!o && typeof o.ciphertext === 'string' && typeof o.iv === 'string';
+  } catch {
+    return false;
+  }
+};
+const toDisplayText = (t) => (looksLikeCiphertext(t) ? '[Encrypted message]' : t);
+
 const AdminMessageItem = ({ message, sender, isLatest }) => {
   const isUnsent = message.status === 'failed' || message.pendingRetry;
   // Format timestamp as "MMM DD, YYYY at hh:mm AM/PM"
@@ -63,7 +82,7 @@ const AdminMessageItem = ({ message, sender, isLatest }) => {
       <div className="message-content">
         {/* Text Content */}
         <p className="message-text">
-          {message.message || message.content || "[No message]"}
+          {toDisplayText(message.message || message.content) || "[No message]"}
         </p>
 
         {/* Media Content (P1-3: private media resolved to signed URL) */}
