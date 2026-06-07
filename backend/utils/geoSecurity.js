@@ -27,6 +27,17 @@ const GEO_ANOMALY_MODE =
 const EDGE_SHARED_SECRET = process.env.EDGE_SHARED_SECRET || "";
 const SECURITY_ANOMALY_COLLECTION = "securityAnomalies";
 
+// P2-2: origin lock-down rollout mode. "monitor" (default) logs non-edge /api
+// requests WITHOUT blocking — use it first to confirm that all legitimate
+// traffic carries the edge secret. "enforce" 403s any /api request that did not
+// come through the Cloudflare worker. We default to monitor on purpose: a
+// premature "enforce" (e.g. the worker isn't injecting the header yet) would
+// 403 ALL API traffic, so enabling blocking must be an explicit, deliberate act.
+const EDGE_AUTH_MODE =
+  String(process.env.EDGE_AUTH_MODE || "monitor").toLowerCase() === "enforce"
+    ? "enforce"
+    : "monitor";
+
 /**
  * Constant-time string comparison (avoids timing leaks on the secret).
  */
@@ -49,6 +60,69 @@ function isEdgeTrusted(req) {
   if (!IS_PRODUCTION) return true;
   if (!EDGE_SHARED_SECRET) return true;
   return safeEqual(req.headers["x-edge-auth"] || "", EDGE_SHARED_SECRET);
+}
+
+let __lastEdgeAuthLogAt = 0;
+
+/**
+ * Express middleware that locks the origin to the Cloudflare edge (P2-2).
+ *
+ * The edge worker injects `X-Edge-Auth: <EDGE_SHARED_SECRET>` on every /api
+ * request it proxies (see withForwardedGeo in magis-edge-worker/index.js).
+ * Direct-to-origin requests that bypass the edge — and therefore its JWT, rate
+ * limiting and geo controls — will not carry a valid value.
+ *
+ * Rollout-safe by design:
+ *   - Non-production            → always allowed (no edge in front of dev).
+ *   - EDGE_SHARED_SECRET unset  → always allowed (fail-open, backward compat).
+ *   - OPTIONS preflight         → always allowed (CORS carries no secret).
+ *   - Valid X-Edge-Auth         → allowed.
+ *   - Otherwise: "monitor" logs (throttled) + allows; "enforce" returns 403.
+ *
+ * Mount on the sensitive surface only — app.use("/api", requireEdgeAuth) — so
+ * health probes (/health) and the realtime transport (/socket.io) are never
+ * affected.
+ */
+function requireEdgeAuth(req, res, next) {
+  if (!IS_PRODUCTION) return next();
+  if (!EDGE_SHARED_SECRET) return next();
+  if (req.method === "OPTIONS") return next();
+
+  const provided = req.headers["x-edge-auth"] || "";
+  if (provided && safeEqual(provided, EDGE_SHARED_SECRET)) return next();
+
+  const now = Date.now();
+  if (now - __lastEdgeAuthLogAt > 30_000) {
+    __lastEdgeAuthLogAt = now;
+    const ip =
+      (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "";
+    console.warn(
+      `[SECURITY] 🚧 Non-edge origin request (${EDGE_AUTH_MODE}) ${req.method} ${req.originalUrl} from ${ip || "?"}` +
+        (EDGE_AUTH_MODE === "enforce" ? " — BLOCKED (403)" : " — allowed (monitor)")
+    );
+  }
+
+  if (EDGE_AUTH_MODE === "enforce") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  return next();
+}
+
+// Startup visibility (P2-2): make the origin-lock posture obvious in prod logs
+// so it can never be silently inert (mirrors the P2-1 observability fix).
+if (IS_PRODUCTION) {
+  if (EDGE_SHARED_SECRET) {
+    console.log(
+      `[SECURITY] 🔒 Origin edge-lock: secret SET, mode=${EDGE_AUTH_MODE}` +
+        (EDGE_AUTH_MODE === "monitor"
+          ? " (logging only — set EDGE_AUTH_MODE=enforce to block non-edge /api)"
+          : " (blocking non-edge /api)")
+    );
+  } else {
+    console.warn(
+      "[SECURITY] ⚠️ Origin edge-lock DISABLED: EDGE_SHARED_SECRET not set — direct-to-origin /api bypasses edge JWT/rate/geo controls (P2-2)."
+    );
+  }
 }
 
 /**
@@ -128,9 +202,11 @@ function isInternationalChange(baselineCountry, currentCountry) {
 module.exports = {
   GEO_ANOMALY_ENABLED,
   GEO_ANOMALY_MODE,
+  EDGE_AUTH_MODE,
   SECURITY_ANOMALY_COLLECTION,
   normalizeCountry,
   isEdgeTrusted,
+  requireEdgeAuth,
   getClientGeo,
   logGeoAnomaly,
   isInternationalChange,

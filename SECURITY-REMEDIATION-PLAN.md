@@ -155,6 +155,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Where:** Backend directly reachable (`magis-edge-worker/wrangler.toml:20`); `EDGE_SHARED_SECRET` absent from env template → trust **fails open** (`backend/utils/geoSecurity.js:48-52`).
 - **Risk:** Edge JWT/rate/geo controls are bypassable by hitting the origin directly; geo headers spoofable.
 - **Remediation:** Set `EDGE_SHARED_SECRET` and reject non-edge traffic, or use Cloudflare Tunnel / mTLS origin authentication.
+- **Resolution (code done 2026-06-07; infra PENDING operator):** The edge already injects `X-Edge-Auth: <EDGE_SHARED_SECRET>` on every `/api` request and strips client-supplied copies first (`magis-edge-worker/index.js` `withForwardedGeo`). The missing half — backend enforcement — is now in place: `backend/utils/geoSecurity.js` adds a `requireEdgeAuth` middleware mounted on `/api` in `server.js` (after CORS, before all `/api` routes). It is **rollout-safe**: no-op in non-prod, no-op when `EDGE_SHARED_SECRET` is unset, always allows `OPTIONS` preflight, and is scoped to `/api` so `/health` probes and `/socket.io` are unaffected. Mode is governed by `EDGE_AUTH_MODE`, defaulting to **`monitor`** (logs the offending `METHOD path + IP`, throttled, but allows) — deliberately NOT `enforce` by default, since a premature block (worker not yet sending the header) would 403 *all* API traffic. A startup log makes the posture explicit (`🔒 secret SET, mode=…` / `⚠️ DISABLED`). **Still required (infra/operator):** (1) `wrangler secret put EDGE_SHARED_SECRET` + redeploy the worker; (2) set the same `EDGE_SHARED_SECRET` on the backend with `EDGE_AUTH_MODE=monitor`; (3) confirm only `/health`/probes are flagged in logs; (4) flip `EDGE_AUTH_MODE=enforce`. (Defense-in-depth only; pairs with confirming whether the Render origin is reachable directly — see open question.) Socket.IO/WS origin-locking left out of scope to avoid handshake/upgrade risk (it has its own JWT handshake, P1-2).
 - **Effort:** S-M
 
 #### [ ] P2-3 — One symmetric JWT secret shared across edge and origin
@@ -236,7 +237,7 @@ None of the recommended fixes require removing features or degrading the custome
 
 **Phase 2 — Weeks 2-4 (P2)**
 - [ ] P2-1 Provision Redis + edge KV — code hardening shipped 2026-06-07 (observability + `REQUIRE_REDIS`/`JWT_REVOCATION_FAIL_CLOSED`/`RATE_LIMIT_FAIL_CLOSED` toggles); **infra still pending operator** (set `REDIS_URL`, create+bind `RATE_LIMIT_KV`)
-- [ ] P2-2 Lock origin to the edge
+- [ ] P2-2 Lock origin to the edge — backend `requireEdgeAuth` shipped 2026-06-07 (mounted on `/api`, `EDGE_AUTH_MODE` default monitor); **infra pending operator** (`wrangler secret put EDGE_SHARED_SECRET` + set same on backend → confirm in monitor → `EDGE_AUTH_MODE=enforce`)
 - [ ] P2-3 Asymmetric JWT signing
 - [ ] P2-4 Secret hygiene + token rotation
 - [ ] P2-5 Authenticate `/start` and `/update-status`

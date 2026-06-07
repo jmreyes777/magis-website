@@ -112,6 +112,7 @@ process.on("unhandledRejection", (reason, p) => {
 
 const { db,admin } = require("./utils/firebase");
 const { initializeSocket } = require("./utils/socket");
+const { requireEdgeAuth } = require("./utils/geoSecurity");
 
 const app = express();
 // Behind the Cloudflare edge worker / reverse proxy: trust forwarded headers so
@@ -189,6 +190,13 @@ app.options("*", (req, res) => {
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+
+// ── P2-2: lock the API surface to the Cloudflare edge ───────────────────────
+// Rejects (enforce) or logs (monitor) direct-to-origin /api requests that did
+// NOT pass through the edge worker, closing the bypass of edge JWT/rate/geo
+// controls. No-op until EDGE_SHARED_SECRET is set (see backend.env.example).
+// Scoped to /api so /health probes and /socket.io are unaffected.
+app.use("/api", requireEdgeAuth);
 
 // ── INSERT HERE ────────────────────────────────────────────────────────────
 // Create a standalone GET /api/csrf-token that _only_ runs through its own csurf
