@@ -1,7 +1,8 @@
 // src/components/Admin-Message-Item-Component.js
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import './AdminMessageItem.css';
+import { resolveAdminMedia } from '../utils/mediaResolver';
 
 const AdminMessageItem = ({ message, sender, isLatest }) => {
   const isUnsent = message.status === 'failed' || message.pendingRetry;
@@ -20,6 +21,39 @@ const AdminMessageItem = ({ message, sender, isLatest }) => {
   const isSeenByGuest = message.seenByGuest === true;
   const showSeenIndicator = isLatest && sender === 'branch' && isSeenByGuest;
 
+  // Media (P1-3): new uploads are PRIVATE and carry a storage `path`, resolved
+  // to a short-lived signed URL via the backend. Legacy docs with a full http(s)
+  // URL — and optimistic blob:/data: previews — are used directly.
+  const media = message.media || null;
+  const directUrl =
+    media && typeof media.url === 'string' && /^(https?:|blob:|data:)/i.test(media.url)
+      ? media.url
+      : null;
+  const directSrc =
+    media && typeof media.src === 'string' && /^(https?:|blob:|data:)/i.test(media.src)
+      ? media.src
+      : null;
+  const needsResolve = !!(media && media.path && !directUrl && !directSrc);
+
+  const [resolved, setResolved] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (needsResolve && message.id) {
+      resolveAdminMedia(message.id)
+        .then((d) => { if (!cancelled) setResolved(d); })
+        .catch(() => { if (!cancelled) setResolved(null); });
+    } else {
+      setResolved(null);
+    }
+    return () => { cancelled = true; };
+  }, [needsResolve, message.id]);
+
+  const mediaType = media ? media.type : null;
+  const mediaUrl = directUrl || directSrc || resolved?.url || resolved?.src || null;
+  const mediaSrc = directSrc || directUrl || resolved?.src || resolved?.url || null;
+  const mediaSrcSet = (directSrc || directUrl) ? media.srcSet : resolved?.srcSet;
+  const mediaResolving = needsResolve && !mediaUrl;
+
   return (
     <div
       className={`admin-message-item ${sender === 'branch' ? 'branch' : 'guest'}`}
@@ -32,13 +66,20 @@ const AdminMessageItem = ({ message, sender, isLatest }) => {
           {message.message || message.content || "[No message]"}
         </p>
 
-        {/* Media Content */}
-        {message.media && (
+        {/* Media Content (P1-3: private media resolved to signed URL) */}
+        {mediaType && (mediaUrl || mediaResolving) && (
           <div className="media-content">
-            {message.media.type === 'image' ? (
+            {mediaResolving ? (
+              <span
+                className="attachment-loading"
+                style={{ fontSize: '0.8rem', color: '#888', fontStyle: 'italic' }}
+              >
+                Loading attachment…
+              </span>
+            ) : mediaType === 'image' ? (
               <img
-                src={message.media.src || message.media.url}
-                srcSet={message.media.srcSet}
+                src={mediaSrc || mediaUrl}
+                srcSet={mediaSrcSet}
                 sizes="(max-width: 600px) 100vw, 600px"
                 alt="Image Attachment"
                 className="attachment-image"
@@ -46,7 +87,7 @@ const AdminMessageItem = ({ message, sender, isLatest }) => {
               />
             ) : (
               <a
-                href={message.media.url}
+                href={mediaUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="attachment-link"
@@ -123,10 +164,12 @@ AdminMessageItem.propTypes = {
       PropTypes.instanceOf(Date)
     ]).isRequired,
     media: PropTypes.shape({
-      url: PropTypes.string.isRequired,
+      url: PropTypes.string,
+      path: PropTypes.string,
       type: PropTypes.oneOf(['image', 'file']).isRequired,
       src: PropTypes.string,
       srcSet: PropTypes.string,
+      name: PropTypes.string,
     }),
     status: PropTypes.string,
     pendingRetry: PropTypes.bool,

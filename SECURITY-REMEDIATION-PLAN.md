@@ -102,7 +102,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Effort:** S
 - **Resolution:** `joinRoom` (`backend/utils/socket.js:488-517`) no longer trusts the client-supplied `roomName`. The joined room is derived strictly from the verified token identity — admins → `admin-<socket.user.branchEmail||email>`, guests → `guest-<socket.user.guestId>` — so an admin can no longer subscribe to another branch's room (nor a guest to another guest's). A mismatch between the requested and bound room is logged (`🚫 joinRoom denied`) for anomaly detection. **No-regression verified:** every frontend caller already passes its own room (admin `admin-${branchEmail}` from session — `Admin-Utils-socket.js:310,502,577,846`, `Utils-socket.js:188`; guest `guestRoom` — `Guest-Chat-Box-Component.js:1334`, `User-Utils-socket.js:405,546`). All other `socket.join()` sites (`:390`, `:397`) were already token-derived. `node --check` OK.
 
-#### [ ] P1-3 — Customer-uploaded media is world-public
+#### [x] P1-3 — Customer-uploaded media is world-public — ✅ FIXED 2026-06-07
 - **Severity:** High
 - **Where:** `backend/utils/firebase.js:129` and `backend/routes/messages.js:42` call `file.makePublic()` on every upload.
 - **Risk:** Photos of IDs, pawned items, and receipts become permanent public URLs accessible without authentication.
@@ -110,6 +110,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Remediation:** Keep objects private; serve through short-lived signed URLs scoped to the conversation participants.
 - **No-regression note:** The chat UI receives a signed URL instead of a public one; images still display.
 - **Effort:** M
+- **Resolution:** Chat media is now stored PRIVATE and served via short-lived (~15-min) V4 signed URLs scoped to the participant. **Backend** (`backend/routes/messages.js`): `uploadMediaToStorage` no longer calls `makePublic()` and returns the storage path; guest + admin uploads store `media.path`; added `signMediaPath`/`signMessageMedia` + two resolver endpoints — `GET /api/messages/media/:id` (guest, scoped to own `guestId`) and `GET /api/messages/admin-media/:id` (`authenticateBranchAdmin` + `requireMFA`, scoped to own branch). **Frontends**: `mediaResolver.js` helpers (guest + admin) + both live renderers (`admin-frontend/src/components/Admin-Message-Item-Component.js`, `user-frontend/src/Shared/Message-Item-Component.js`) resolve `media.path` → signed URL on display (cached; legacy `http(s)` + optimistic `blob:`/`data:` pass through; "Loading attachment…" placeholder). **Scope decision:** branch storefront pictures (`firebase.js:uploadToStorage` → `branches.js`) intentionally stay PUBLIC — marketing assets shown to anonymous users on the public branches page (not customer SPI); signing cannot protect a public page. **Migration (Option 2):** `backend/scripts/migrate-media-private.js` (dry-run default, `--apply`) backfills `media.path` from existing public URLs, `makePrivate()`s the objects, and drops the public `url`/`src`/`srcSet`. **Verified:** backend `node --check` OK; admin + user builds compile. **Owner actions:** run the migration once with `--apply`, then redeploy all three services.
 
 #### [ ] P1-4 — Guest tokens mintable/refreshable without proof; predictable IDs; no server-side CAPTCHA
 - **Severity:** High
@@ -190,8 +191,9 @@ None of the recommended fixes require removing features or degrading the custome
 #### [ ] P3-5 — No `iss`/`aud` binding on JWTs
 - **Where:** `backend/workers/secretWorker.js` — add issuer/audience claims and verification to harden token reuse across roles/services. **Effort:** S
 
-#### [ ] P3-6 — Latent functional bug: `sharp` referenced but removed
+#### [x] P3-6 — Latent functional bug: `sharp` referenced but removed — ✅ FIXED 2026-06-07 (via P1-3)
 - **Where:** `backend/routes/messages.js:534` uses `sharp`, but the import is commented out at `:20`; admin image replies will throw. (Reliability, not security — included so it isn't lost.) **Effort:** S
+- **Resolution:** The P1-3 rewrite of the admin reply media path removed the `sharp`/webp resize entirely — admin image replies now store the original image privately, so the missing-`sharp` ReferenceError can no longer occur.
 
 ---
 
@@ -225,7 +227,7 @@ None of the recommended fixes require removing features or degrading the custome
 **Phase 1 — Week 1 (P1)**
 - [x] P1-1 Label corrected + `CONV_KEY_SECRET` wired (set value in Render); managed-key model retained, KMS/true-E2EE deferred — 2026-06-07
 - [x] P1-2 Bind socket `joinRoom` to the verified token identity (admins + guests) — ✅ 2026-06-07
-- [ ] P1-3 Private media + signed URLs
+- [x] P1-3 Private media + signed URLs — ✅ 2026-06-07 (then run `backend/scripts/migrate-media-private.js --apply`)
 - [ ] P1-4 UUID guest IDs + server-side Turnstile + refresh requires prior token
 - [ ] P1-5 Lock down `/contact`
 

@@ -36,12 +36,55 @@ const upload = multer({
 const io = getSocketIOInstance();
 const bucket = admin.storage().bucket();
 
-// Upload a buffer to Cloud Storage and make it public
-async function uploadMediaToStorage(buffer, fileName) {
+// Upload a buffer to Cloud Storage as a PRIVATE object (P1-3). Returns the
+// storage path (object name). Callers store the path on the message; media is
+// served on demand via short-lived signed URLs from the resolver endpoints.
+async function uploadMediaToStorage(buffer, fileName, contentType) {
   const file = bucket.file(fileName);
-  await file.save(buffer);
-  await file.makePublic();
-  return `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  await file.save(buffer, contentType ? { metadata: { contentType } } : undefined);
+  return fileName;
+}
+
+// Short-lived V4 signed URL for a stored media object path. The Firebase Admin
+// service-account key signs locally (no extra IAM/SignBlob permission needed).
+const MEDIA_SIGNED_URL_TTL_MS = Number(process.env.MEDIA_SIGNED_URL_TTL_MS) || 15 * 60 * 1000;
+async function signMediaPath(path) {
+  const [url] = await bucket.file(path).getSignedUrl({
+    version: "v4",
+    action: "read",
+    expires: Date.now() + MEDIA_SIGNED_URL_TTL_MS,
+  });
+  return url;
+}
+
+// Build a signed media payload from a message's stored `media`. Legacy docs that
+// still carry a full public URL are passed through unchanged (pre-migration).
+async function signMessageMedia(media) {
+  if (!media) return null;
+  if (typeof media.url === "string" && /^https?:\/\//i.test(media.url)) {
+    return {
+      type: media.type,
+      url: media.url,
+      src: media.src || media.url,
+      ...(media.srcSet ? { srcSet: media.srcSet } : {}),
+    };
+  }
+  if (Array.isArray(media.paths) && media.paths.length) {
+    const signed = await Promise.all(
+      media.paths.map(async (p) => ({ width: p.width, url: await signMediaPath(p.path) }))
+    );
+    signed.sort((a, b) => a.width - b.width);
+    const best = signed[signed.length - 1].url;
+    return {
+      type: media.type,
+      url: best,
+      src: best,
+      srcSet: signed.map((p) => `${p.url} ${p.width}w`).join(", "),
+    };
+  }
+  if (!media.path) return null;
+  const url = await signMediaPath(media.path);
+  return { type: media.type, url, src: url, ...(media.name ? { name: media.name } : {}) };
 }
 
 // Normalize room name based on role
@@ -409,19 +452,15 @@ router.post(
       let media = null;
       if (hasFile) {
         if (req.file.mimetype.startsWith("image/")) {
-          // image → upload directly without sharp processing (Node.js 24 compatibility)
+          // image → stored privately; served via short-lived signed URL (P1-3)
           const fileName = `media/${guestId}/${uuidv4()}-${req.file.originalname}`;
-          const url = await uploadMediaToStorage(req.file.buffer, fileName);
-          media = {
-            type: "image",
-            url,
-            src: url,
-          };
+          await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
+          media = { type: "image", path: fileName };
         } else {
-          // non-image (PDF, etc)
+          // non-image (PDF, etc) → stored privately; served via signed URL
           const fileName = `media/${guestId}/${uuidv4()}-${req.file.originalname}`;
-          const url = await uploadMediaToStorage(req.file.buffer, fileName);
-          media = { type: "file", url };
+          await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
+          media = { type: "file", path: fileName, name: req.file.originalname };
         }
       }
 
@@ -530,30 +569,16 @@ router.post(
       let media = null;
       if (hasFile) {
         if (req.file.mimetype.startsWith("image/")) {
-          const sizes = [320, 640, 1280];
-          const uploads = await Promise.all(sizes.map(async (width) => {
-            const webpBuffer = await sharp(req.file.buffer)
-              .resize({ width })
-              .webp({ quality: 80 })
-              .toBuffer();
-            const fileName = `media/${branchId}/${uuidv4()}-${width}.webp`;
-            const url = await uploadMediaToStorage(webpBuffer, fileName);
-            return { width, url };
-          }));
-          uploads.sort((a, b) => a.width - b.width);
-          const best = uploads[uploads.length - 1].url;
-          media = {
-            type:   "image",
-            url:    best,               // absolute URL for both UIs
-            src:    best,
-            srcSet: uploads
-              .map(u => `${u.url} ${u.width}w`)
-              .join(", "),
-          };
+          // Store the original image privately (no server-side resize: `sharp`
+          // was removed for Node 24 compatibility — see P3-6). Served via a
+          // short-lived signed URL (P1-3).
+          const fileName = `media/${branchId}/${uuidv4()}-${req.file.originalname}`;
+          await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
+          media = { type: "image", path: fileName };
         } else {
           const fileName = `media/${branchId}/${uuidv4()}-${req.file.originalname}`;
-          const url = await uploadMediaToStorage(req.file.buffer, fileName);
-          media = { type: "file", url };
+          await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
+          media = { type: "file", path: fileName, name: req.file.originalname };
         }
       }
 
@@ -734,6 +759,53 @@ router.get(
     } catch (err) {
       console.error("[MESSAGES:conversation-key:admin] ❌", err);
       return res.status(500).json({ error: "Failed to fetch conversation key." });
+    }
+  }
+);
+
+/**
+ * GET /api/messages/media/:id        (guest)
+ * GET /api/messages/admin-media/:id   (branch admin + active MFA session)
+ * Return short-lived signed URL(s) for a message's media, scoped strictly to
+ * the authenticated participant. Chat objects are stored PRIVATE (P1-3), so a
+ * fresh signed URL is minted per request and expires in ~15 min.
+ */
+router.get("/media/:id", authenticateGuest, async (req, res) => {
+  try {
+    const snap = await db.collection("messages").doc(req.params.id).get();
+    if (!snap.exists) return res.status(404).json({ error: "Message not found." });
+    const m = snap.data();
+    if (normGuestKeyId(m.guestId) !== normGuestKeyId(req.user.guestId)) {
+      return res.status(403).json({ error: "Forbidden." });
+    }
+    const signed = await signMessageMedia(m.media);
+    if (!signed) return res.status(404).json({ error: "No media on this message." });
+    return res.status(200).json(signed);
+  } catch (err) {
+    console.error("[MESSAGES:media:guest] ❌", err);
+    return res.status(500).json({ error: "Failed to resolve media." });
+  }
+});
+
+router.get(
+  "/admin-media/:id",
+  authenticateBranchAdmin,
+  requireMFA, // SPI gate: active MFA session required to view chat media (P0-2/P1-3)
+  async (req, res) => {
+    try {
+      const branchEmail = (req.branchEmail || "").toLowerCase();
+      const snap = await db.collection("messages").doc(req.params.id).get();
+      if (!snap.exists) return res.status(404).json({ error: "Message not found." });
+      const m = snap.data();
+      if ((m.branchEmail || "").toLowerCase() !== branchEmail) {
+        return res.status(403).json({ error: "Forbidden." });
+      }
+      const signed = await signMessageMedia(m.media);
+      if (!signed) return res.status(404).json({ error: "No media on this message." });
+      return res.status(200).json(signed);
+    } catch (err) {
+      console.error("[MESSAGES:media:admin] ❌", err);
+      return res.status(500).json({ error: "Failed to resolve media." });
     }
   }
 );

@@ -1,8 +1,9 @@
 // src/Shared/Message-Item-Component.js
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import "./MessageItem.css";
+import { resolveGuestMedia } from "./mediaResolver";
 
 const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
   const isGuest = sender === "guest";
@@ -23,15 +24,37 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
   const isSeenByAdmin = message.seenByAdmin === true;
   const showSeenIndicator = isLatest && sender === "guest" && isSeenByAdmin;
 
-  // Derive media URL/src with fallback
-  let mediaUrl = null;
-  let mediaSrc = null;
-  let mediaType = null;
-  if (message.media) {
-    mediaType = message.media.type;
-    mediaUrl = message.media.url || message.media.src || null;
-    mediaSrc = message.media.src || message.media.url || null;
-  }
+  // Derive media (P1-3): new uploads are PRIVATE and carry a storage `path`,
+  // resolved to a short-lived signed URL via the backend. Legacy docs with a
+  // full http(s) URL — and optimistic blob:/data: previews — are used directly.
+  const media = message.media || null;
+  const directUrl =
+    media && typeof media.url === "string" && /^(https?:|blob:|data:)/i.test(media.url)
+      ? media.url
+      : null;
+  const directSrc =
+    media && typeof media.src === "string" && /^(https?:|blob:|data:)/i.test(media.src)
+      ? media.src
+      : null;
+  const needsResolve = !!(media && media.path && !directUrl && !directSrc);
+
+  const [resolved, setResolved] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    if (needsResolve && message.id) {
+      resolveGuestMedia(message.id)
+        .then((d) => { if (!cancelled) setResolved(d); })
+        .catch(() => { if (!cancelled) setResolved(null); });
+    } else {
+      setResolved(null);
+    }
+    return () => { cancelled = true; };
+  }, [needsResolve, message.id]);
+
+  const mediaType = media ? media.type : null;
+  const mediaUrl = directUrl || directSrc || resolved?.url || resolved?.src || null;
+  const mediaSrc = directSrc || directUrl || resolved?.src || resolved?.url || null;
+  const mediaResolving = needsResolve && !mediaUrl;
 
   return (
     <div
@@ -43,10 +66,17 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
         {/* Text */}
         {message.message && <p className="message-text">{message.message}</p>}
 
-        {/* Media thumbnail + link */}
-        {mediaType && mediaUrl && !hideMedia && (
+        {/* Media thumbnail + link (P1-3: private media resolved to signed URL) */}
+        {mediaType && !hideMedia && (mediaUrl || mediaResolving) && (
           <div className="media-content">
-            {mediaType.startsWith("image") ? (
+            {mediaResolving ? (
+              <span
+                className="attachment-loading"
+                style={{ fontSize: "0.8rem", color: "#888", fontStyle: "italic" }}
+              >
+                Loading attachment…
+              </span>
+            ) : mediaType.startsWith("image") ? (
               <a
                 href={mediaUrl}
                 target="_blank"
