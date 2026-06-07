@@ -1744,6 +1744,20 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
   // navigation/idle unmount runs the full close (archive + chatClosed).
   handleChatCloseRef.current = handleChatClose;
 
+  // User-initiated close (X button): play the slide-out exit animation first,
+  // THEN run the real teardown + unmount so the chat box closes smoothly
+  // instead of vanishing abruptly. Non-user paths (idle/navigation) still close
+  // directly via handleChatClose.
+  const CLOSE_ANIM_MS = 280; // keep in sync with .guest-chat-box--closing
+  const handleUserClose = () => {
+    if (isClosingRef.current) return; // already closing — ignore repeat clicks
+    isClosingRef.current = true;       // skip the unmount-effect re-teardown
+    setIsClosing(true);                // triggers the slide-out animation
+    window.setTimeout(() => {
+      handleChatClose();
+    }, CLOSE_ANIM_MS);
+  };
+
   // Sensitive data confirmation handlers
   const confirmSensitiveSend = () => {
     setHasConfirmedSensitive(true);
@@ -1971,7 +1985,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
           <span>Chat with {branchName || "Support"}</span>
         </div>
       ) : (
-        <div className="guest-chat-box">
+        <div className={`guest-chat-box${isClosing ? " guest-chat-box--closing" : ""}`}>
           {/* Header */}
           <div className="guest-chat-box-header gc--yellow">
             <div className="gc-left">
@@ -2027,7 +2041,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
                       "Closing this will require a new conversation. Are you sure?"
                     )
                   ) {
-                    handleChatClose();
+                    handleUserClose();
                   }
                 }}
                 aria-label="Close"
