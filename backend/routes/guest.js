@@ -8,6 +8,7 @@ const { signJWT, verifyJWT } = require("../utils/secretPool"); // worker-backed
 const authenticateGuest = require("../middlewares/authenticateGuest");
 const authenticateBranchAdmin = require("../middlewares/authenticateBranchAdmin");
 const { ensureGuestOwns } = require("../middlewares/ensureResourceOwner");
+const { requireMFA } = require("../middlewares/requireMFA");
 
 /**
  * Resolve the branch’s staff email (fallback to branchEmail).
@@ -132,7 +133,7 @@ router.post("/init", async (req, res) => {
  * Fetch all transcript logs sent to this branch (staff inbox).
  * Requires a valid branch admin JWT.
  */
-router.get("/chat-logs", authenticateBranchAdmin, async (req, res) => {
+router.get("/chat-logs", authenticateBranchAdmin, requireMFA, async (req, res) => {
   const branchEmail = req.branchEmail;
   if (!branchEmail) {
     return res.status(400).json({ error: "Branch email not found in token." });
@@ -282,7 +283,7 @@ router.post("/pending-inquiry", async (req, res) => {
  * GET /pending-inquiries
  * Fetch all pending inquiries for the authenticated branch admin.
  */
-router.get("/pending-inquiries", authenticateBranchAdmin, async (req, res) => {
+router.get("/pending-inquiries", authenticateBranchAdmin, requireMFA, async (req, res) => {
   const branchEmail = req.branchEmail;
   try {
     const snap = await db.collection("pendingInquiries")

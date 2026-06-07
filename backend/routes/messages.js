@@ -17,6 +17,7 @@ const {
   ensureBranchOwns,
 } = require("../middlewares/ensureResourceOwner");
 const rateLimitByGuest       = require("../middlewares/rateLimitByGuest");
+const { requireMFA }          = require("../middlewares/requireMFA");
 // const sharp = require("sharp"); // Removed due to Node.js 24 compatibility issues
 
 // Multer setup: memory storage, 5 MB limit, only images/PDFs
@@ -606,6 +607,7 @@ router.post(
 router.get(
   "/history/:guestId",
   authenticateBranchAdmin,
+  requireMFA, // SPI gate: active MFA session required (P0-2)
   async (req, res) => {
     const { guestId } = req.params;
     if (!guestId) {
@@ -719,6 +721,7 @@ router.post("/conversation-key", authenticateGuest, async (req, res) => {
 router.get(
   "/conversation-key/:guestId",
   authenticateBranchAdmin,
+  requireMFA, // SPI gate: active MFA session required to obtain decryption key (P0-2)
   async (req, res) => {
     try {
       const { guestId } = req.params;

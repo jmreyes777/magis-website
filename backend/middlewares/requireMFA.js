@@ -1,94 +1,88 @@
 /**
  * MFA Enforcement Middleware
- * Ensures MFA verification for sensitive operations
+ * ---------------------------------------------------------------------------
+ * Server-side gate for endpoints that expose sensitive personal information
+ * (SPI). It requires an ACTIVE MFA session for the authenticated branch admin.
+ *
+ * The session is established by POST /api/mfa/session-verify (routes/mfa.js)
+ * ONLY after a fresh Firebase TOTP second-factor step-up. It is stored in the
+ * `mfa_sessions` collection as `${email}_${sessionId}` with an 8h expiry and a
+ * `geoLocked` flag that is set on international location anomalies.
+ *
+ * IMPORTANT: this must run AFTER authenticateBranchAdmin, which populates
+ * req.user / req.branchEmail. (P0-2)
  */
 
 const { db } = require('../utils/firebase');
 
-const MFA_COLLECTION = 'mfa_enrollment';
+const MFA_SESSION_COLLECTION = 'mfa_sessions';
+
+// On an unexpected error (e.g. a transient Firestore blip) we fail OPEN so a
+// legitimately-verified admin is never ejected by an infrastructure hiccup —
+// matching the dashboard's session-status soft-pass behavior. Set
+// MFA_FAIL_OPEN=false to fail closed (stricter; recommended once stable).
+const MFA_FAIL_OPEN = String(process.env.MFA_FAIL_OPEN || 'true') !== 'false';
+
+function isSessionActive(data) {
+  if (!data || data.geoLocked === true) return false;
+  const expMs = data.expiresAt ? new Date(data.expiresAt).getTime() : 0;
+  return Number.isFinite(expMs) && expMs > Date.now();
+}
+
+// True when the admin has at least one active (non-expired, non-geo-locked)
+// MFA session. Uses the exact session document when the client sends its
+// X-Session-Id, otherwise falls back to any active session for the email so
+// existing data fetches (which do not send the header) are not broken.
+async function hasActiveMfaSession(email, sessionId) {
+  if (sessionId) {
+    const doc = await db
+      .collection(MFA_SESSION_COLLECTION)
+      .doc(`${email}_${sessionId}`)
+      .get();
+    if (doc.exists && isSessionActive(doc.data())) return true;
+  }
+  const snap = await db
+    .collection(MFA_SESSION_COLLECTION)
+    .where('email', '==', email)
+    .get();
+  return snap.docs.some((d) => isSessionActive(d.data()));
+}
 
 /**
- * Middleware to check if MFA is enrolled and verified
- * Use this for routes that require MFA protection
+ * Require an active MFA session to access SPI. Returns 403 MFA_VERIFY_REQUIRED
+ * when none exists, which the admin dashboard already handles by opening the
+ * step-up modal (it also polls session-status every 60s).
  */
 async function requireMFA(req, res, next) {
+  const email = ((req.user && req.user.email) || req.branchEmail || '').toLowerCase();
+  if (!email) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+
   try {
-    // Skip if no user (should be caught by auth middleware first)
-    if (!req.user || !req.user.email) {
-      return res.status(401).json({ error: 'Authentication required' });
+    const sessionId = req.headers['x-session-id'];
+    if (await hasActiveMfaSession(email, sessionId)) {
+      return next();
     }
-    
-    const email = req.user.email.toLowerCase();
-    
-    // Check if user has completed MFA enrollment
-    const doc = await db.collection(MFA_COLLECTION).doc(email).get();
-    
-    if (!doc.exists) {
-      return res.status(403).json({
-        error: 'MFA enrollment required',
-        code: 'MFA_REQUIRED',
-        message: 'Multi-factor authentication must be set up before accessing sensitive data',
-        setupRequired: true,
-      });
-    }
-    
-    const data = doc.data();
-    
-    if (!data.enrolled) {
-      return res.status(403).json({
-        error: 'MFA setup incomplete',
-        code: 'MFA_INCOMPLETE',
-        message: 'Please complete MFA verification to continue',
-        setupRequired: true,
-      });
-    }
-    
-    // Check if MFA was verified in this session
-    // This would typically be stored in session/JWT claims
-    if (!req.user.mfaVerified) {
-      return res.status(403).json({
-        error: 'MFA verification required',
-        code: 'MFA_VERIFY_REQUIRED',
-        message: 'Please verify your MFA code to continue',
-        verifyRequired: true,
-      });
-    }
-    
-    next();
+    return res.status(403).json({
+      error: 'MFA verification required',
+      code: 'MFA_VERIFY_REQUIRED',
+      message: 'Please verify your identity with your authenticator app to access this data.',
+      verifyRequired: true,
+    });
   } catch (error) {
-    console.error('[MFA Middleware] Error:', error);
-    res.status(500).json({ error: 'MFA check failed' });
+    console.error('[MFA] requireMFA check failed:', error.message);
+    if (MFA_FAIL_OPEN) {
+      console.warn('[MFA] ⚠️ Failing OPEN on a transient error (set MFA_FAIL_OPEN=false to fail closed).');
+      return next();
+    }
+    return res.status(503).json({ error: 'MFA verification temporarily unavailable. Please retry.' });
   }
 }
 
-/**
- * Middleware to check if MFA is enrolled (but not necessarily verified in this session)
- * Use this for less sensitive operations that just need MFA setup
- */
-async function requireMFAEnrollment(req, res, next) {
-  try {
-    if (!req.user || !req.user.email) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-    
-    const email = req.user.email.toLowerCase();
-    
-    const doc = await db.collection(MFA_COLLECTION).doc(email).get();
-    
-    if (!doc.exists || !doc.data().enrolled) {
-      return res.status(403).json({
-        error: 'MFA enrollment required',
-        code: 'MFA_REQUIRED',
-        setupRequired: true,
-      });
-    }
-    
-    next();
-  } catch (error) {
-    console.error('[MFA Middleware] Error:', error);
-    res.status(500).json({ error: 'MFA check failed' });
-  }
-}
+// Backwards-compatible alias: an active session only exists after a real TOTP
+// step-up, so enrollment is implied by the same check.
+const requireMFAEnrollment = requireMFA;
 
 module.exports = {
   requireMFA,

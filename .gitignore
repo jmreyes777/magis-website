@@ -64,3 +64,11 @@ Thumbs.db
 # --- Misc temp ---
 *.tmp
 **/magis-edge-worker-temp/
+
+# --- Service-account key mis-named as firebase.json (contains a private key) ---
+# NOTE: this is NOT the Firebase CLI config; it is a leaked SA key. Rotate it.
+backend/firebase.json
+
+# --- Build/source archives (must never be committed; may bundle secrets) ---
+*.zip
+**/*.zip

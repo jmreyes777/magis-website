@@ -60,7 +60,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Effort:** S
 - **Resolution:** `/api/issue-fallback-token` is now a proof-required token *exchange* (`backend/server.js:413-555`). It accepts only (1) a valid Firebase ID token resolving to a branchadmin, or (2) rotation of an existing/recently-expired (≤ `FALLBACK_REFRESH_GRACE_MIN`, default 24h), non-revoked HMAC token. Identity is derived from the verified proof — the client-supplied `branchEmail` is no longer trusted (only checked for consistency). Client call sites now attach proof: `admin-frontend/src/pages/BranchAdmin-Login.js` (Firebase ID token at login), `admin-frontend/src/context/AuthContext.js` (Firebase token + prior HMAC token on refresh), `admin-frontend/src/components/Admin-Utils-socket.js` (both socket refresh paths). The edge allow-list entry stays (the edge cannot verify Firebase RS256 tokens; the backend now verifies). Verified: backend `node --check` OK; admin build OK.
 
-#### [ ] P0-2 — Server-side MFA is never enforced
+#### [x] P0-2 — Server-side MFA is never enforced — ✅ FIXED 2026-06-07
 - **Severity:** Critical
 - **Where:** `backend/middlewares/requireMFA.js` exists but is **applied to zero routes** (verified by search). Sensitive endpoints rely only on `authenticateBranchAdmin`: `backend/routes/messages.js:606` (history), `:697`/`:719` (conversation-key), `:641` (`/all`).
 - **Risk:** The MFA step-up and geo-lock logic in `backend/routes/mfa.js` is effectively **client-side only**. A token obtained without MFA (see P0-1) can read customer data.
@@ -68,6 +68,16 @@ None of the recommended fixes require removing features or degrading the custome
 - **Remediation:** Apply `requireMFA` to the SPI-bearing routes and source `mfaVerified` from the existing `mfa_sessions` Firestore record.
 - **No-regression note:** Admins who have completed TOTP already have a valid session document, so normal usage is unaffected.
 - **Effort:** S-M
+- **Resolution:** `requireMFA` (`backend/middlewares/requireMFA.js`) rewritten to validate an active `mfa_sessions` record (exact `${email}_${sessionId}` fast path when `X-Session-Id` is sent, else any active session for the email; honors 8h expiry + `geoLocked`; fails open on transient errors, `MFA_FAIL_OPEN=false` to fail closed). Applied after `authenticateBranchAdmin` to `/api/messages/history`, `/api/messages/conversation-key` (admin), `/api/guest/chat-logs`, `/api/guest/pending-inquiries`. Verified `node --check` OK. **Effective control:** the admin dashboard reads `messages` directly from Firestore but fetches the AES key via `conversation-key`, so gating that endpoint means E2EE content cannot be decrypted without MFA. `/api/messages/all` (superadmin) intentionally NOT gated (different token model; MFA enforced at superadmin login). **Caveat:** plaintext messages read directly from Firestore are not covered — see P1-6.
+
+#### [ ] P0-3 — Live Firebase service-account private key committed to git — 🚨 NEW (CRITICAL)
+- **Severity:** Critical
+- **Where:** `backend/firebase.json` — a real service-account key (`private_key`, key id `0a1755be...`, SA `firebase-adminsdk-opl9i@magis-website.iam.gserviceaccount.com`). Tracked since `887fbb2`, pushed to `github.com/jmreyes777/magis-website`, not gitignored. Referenced only by the one-off script `backend/updateMessagesWithBranchId.js:25` (the server uses env vars).
+- **Risk:** Grants full Firebase project admin (Firestore/Auth/Storage) and bypasses ALL application controls (P0-1, P0-2, Firestore rules). Anyone with repo access or a clone holds it.
+- **PH legal driver:** DPA 2012 (security of processing; a reportable personal-data breach if exploited); BSP IT-risk.
+- **Remediation:** (1) ROTATE the key in GCP and update Render `FIREBASE_PRIVATE_KEY`; (2) untrack `firebase.json` + stray `.zip`s and `.gitignore` them; (3) purge from git history (BFG / git filter-repo) + force-push.
+- **Status:** Untracked + ignored 2026-06-07. ⚠️ KEY ROTATION + HISTORY PURGE still required (owner action).
+- **Effort:** S (rotation) + M (history rewrite + coordination)
 
 ### HIGH
 
@@ -114,6 +124,14 @@ None of the recommended fixes require removing features or degrading the custome
 - **PH legal driver:** RA 11765 (consumer-facing channel integrity); anti-spam good practice.
 - **Remediation:** Turnstile-gate or authenticate; restrict recipient to the resolved branch address; encode/sanitize the body; rate-limit.
 - **Effort:** S-M
+
+#### [ ] P1-6 — Admin reads plaintext messages directly from Firestore (rules-dependent) — 🚨 NEW
+- **Severity:** High
+- **Where:** `admin-frontend/src/pages/Branch-Chat-Dashboard.js:1022,1215,1337,1822` read the `messages` collection via the Firebase client SDK (`getDocs`), bypassing the backend API. No `firestore.rules` file exists in the repo (rules live in the Firebase console; unverified).
+- **Risk:** P0-2 protects the backend API + the conversation-key (so E2EE content needs MFA to decrypt), but NON-E2EE/plaintext message bodies read straight from Firestore are governed only by Firestore Security Rules.
+- **PH legal driver:** DPA 2012 (access control on SPI at the data layer).
+- **Remediation:** Author `firestore.rules` enforcing branch-scoped reads (and, where feasible, an MFA-session check via `get()`), commit them to the repo, deploy. Verify against the admin's existing direct reads + guest writes before rollout.
+- **Effort:** M
 
 ### MEDIUM
 
@@ -198,7 +216,8 @@ None of the recommended fixes require removing features or degrading the custome
 
 **Phase 0 — Immediate (P0)**
 - [x] P0-1 Lock down `/api/issue-fallback-token` — ✅ done 2026-06-07
-- [ ] P0-2 Enforce `requireMFA` on SPI routes
+- [x] P0-2 Enforce `requireMFA` on SPI routes — ✅ done 2026-06-07 (effective via conversation-key gate; plaintext gap tracked in P1-6)
+- [ ] P0-3 Rotate leaked SA key + purge git history (owner) — untracked/ignored 2026-06-07
 
 **Phase 1 — Week 1 (P1)**
 - [ ] P1-1 Set `CONV_KEY_SECRET`; decide E2EE labeling vs KMS custody
