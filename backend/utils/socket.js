@@ -486,7 +486,30 @@ const initializeSocket = (server) => {
     // joinRoom
     // ───────────────────────────────────────────────────────────────────
     socket.on("joinRoom", async (roomName, ack) => {
-      const normalizedRoom = typeof roomName === "string" ? normalizeRoomName(socket.user.role, roomName) : roomName;
+      // SECURITY (P1-2): never trust the client-supplied room. Derive the room
+      // strictly from the verified token identity so a branch admin cannot
+      // subscribe to another branch's conversations, and a guest cannot
+      // subscribe to another guest's chat. `roomName` is advisory only.
+      const u = socket.user || {};
+      const isAdminUser = u.role === "admin" || u.role === "branchadmin";
+      const ownIdentifier = isAdminUser ? (u.branchEmail || u.email) : u.guestId;
+
+      if (!ownIdentifier) {
+        console.warn(`[SOCKET] 🚫 joinRoom: no identity on socket ${socket.id} (role=${u.role}); ignoring`);
+        if (typeof ack === "function") ack();
+        return;
+      }
+
+      const normalizedRoom = getRoomName(u.role, ownIdentifier);
+
+      if (typeof roomName === "string" && roomName.trim()) {
+        const requested = normalizeRoomName(u.role, roomName);
+        if (requested !== normalizedRoom) {
+          console.warn(
+            `[SOCKET] 🚫 joinRoom denied: socket ${socket.id} (${u.role}/${ownIdentifier}) requested "${requested}" — bound to own room "${normalizedRoom}"`
+          );
+        }
+      }
 
       if (!socket.rooms.has(normalizedRoom)) {
         socket.join(normalizedRoom);

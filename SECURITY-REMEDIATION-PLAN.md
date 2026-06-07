@@ -92,7 +92,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Effort:** S (set secret) / M-L (KMS or true E2EE)
 - **Resolution:** Decision = keep the server-managed-key model and correct the claim (option a, label). (1) **Label fixed** — removed the false "End-to-end encrypted" claim — admin badge → "Encrypted (AES-256-GCM)" (`admin-frontend/src/pages/Branch-Chat-Dashboard.js:2776`); guest badge → "Your messages are encrypted" with the cipher detail in a hover tooltip (`user-frontend/src/components/Guest-Chat-Box-Component.js:2121`); "failed/connecting" states unchanged. (2) **At-rest key wrapping** — `CONV_KEY_SECRET` documented in `backend/backend.env.example` (was absent); value generated, **must be set in Render** (owner action). Backward-compatible: `unwrapConversationKey` returns non-`v1:` values as-is, so existing raw keys keep working and new keys are written wrapped (`v1:`) — no migration/outage. **Scope:** this is encryption-at-rest for the key material (defends a Firestore/backup-only leak), NOT true E2EE; full client-held E2EE / KMS custody deferred (roadmap). **Pending owner action:** set `CONV_KEY_SECRET` in Render + rebuild/redeploy both frontends to ship the label.
 
-#### [ ] P1-2 — Cross-branch live message leak via socket `joinRoom`
+#### [x] P1-2 — Cross-branch live message leak via socket `joinRoom` — ✅ FIXED 2026-06-07
 - **Severity:** High
 - **Where:** `backend/utils/socket.js:488-494` joins `admin-<client-supplied-room>` with no check that the room is the admin's own branch.
 - **Risk:** A branch-A admin can subscribe to branch-B's live conversations (tenant isolation break / IDOR).
@@ -100,6 +100,7 @@ None of the recommended fixes require removing features or degrading the custome
 - **Remediation:** Ignore the client-supplied room for admins; bind strictly to `socket.user.email`.
 - **No-regression note:** Admins already auto-join the correct branch room at connection time (`backend/utils/socket.js:386-398`), so legitimate behaviour is unchanged.
 - **Effort:** S
+- **Resolution:** `joinRoom` (`backend/utils/socket.js:488-517`) no longer trusts the client-supplied `roomName`. The joined room is derived strictly from the verified token identity — admins → `admin-<socket.user.branchEmail||email>`, guests → `guest-<socket.user.guestId>` — so an admin can no longer subscribe to another branch's room (nor a guest to another guest's). A mismatch between the requested and bound room is logged (`🚫 joinRoom denied`) for anomaly detection. **No-regression verified:** every frontend caller already passes its own room (admin `admin-${branchEmail}` from session — `Admin-Utils-socket.js:310,502,577,846`, `Utils-socket.js:188`; guest `guestRoom` — `Guest-Chat-Box-Component.js:1334`, `User-Utils-socket.js:405,546`). All other `socket.join()` sites (`:390`, `:397`) were already token-derived. `node --check` OK.
 
 #### [ ] P1-3 — Customer-uploaded media is world-public
 - **Severity:** High
@@ -223,7 +224,7 @@ None of the recommended fixes require removing features or degrading the custome
 
 **Phase 1 — Week 1 (P1)**
 - [x] P1-1 Label corrected + `CONV_KEY_SECRET` wired (set value in Render); managed-key model retained, KMS/true-E2EE deferred — 2026-06-07
-- [ ] P1-2 Bind socket `joinRoom` to the admin's own branch
+- [x] P1-2 Bind socket `joinRoom` to the verified token identity (admins + guests) — ✅ 2026-06-07
 - [ ] P1-3 Private media + signed URLs
 - [ ] P1-4 UUID guest IDs + server-side Turnstile + refresh requires prior token
 - [ ] P1-5 Lock down `/contact`
