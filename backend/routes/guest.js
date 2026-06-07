@@ -16,6 +16,9 @@ const { requireMFA } = require("../middlewares/requireMFA");
 // Enforced ONLY when TURNSTILE_SECRET is configured (graceful no-op otherwise).
 // On verifier outage we fail OPEN (the per-IP rate-limit on /init still applies).
 const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET || "";
+// Set TURNSTILE_ENFORCE=false to run in MONITOR mode (verify + log, do NOT block)
+// — useful while validating the widget/hostname setup. Default: enforce.
+const TURNSTILE_ENFORCE = process.env.TURNSTILE_ENFORCE !== "false";
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 async function verifyTurnstile(token, ip) {
   if (!TURNSTILE_SECRET) return { ok: true, skipped: true };
@@ -121,8 +124,10 @@ router.post("/init", async (req, res) => {
     req.body.turnstileToken || req.body["cf-turnstile-response"] || null;
   const captcha = await verifyTurnstile(turnstileToken, req.ip);
   if (!captcha.ok) {
-    console.warn(`[GUEST INIT] 🚫 Turnstile failed (${captcha.reason || "verify"}) ip=${req.ip}`);
-    return res.status(403).json({ error: "Bot verification failed. Please reload and try again." });
+    console.warn(`[GUEST INIT] ${TURNSTILE_ENFORCE ? "🚫 BLOCK" : "👀 monitor"} Turnstile (${captcha.reason || "verify-failed"}) ip=${req.ip}`);
+    if (TURNSTILE_ENFORCE) {
+      return res.status(403).json({ error: "Bot verification failed. Please reload and try again." });
+    }
   }
 
   // P1-4: unguessable, non-enumerable guest id (was `guest-${Date.now()}`).
