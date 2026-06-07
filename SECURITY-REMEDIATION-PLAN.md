@@ -70,14 +70,14 @@ None of the recommended fixes require removing features or degrading the custome
 - **Effort:** S-M
 - **Resolution:** `requireMFA` (`backend/middlewares/requireMFA.js`) rewritten to validate an active `mfa_sessions` record (exact `${email}_${sessionId}` fast path when `X-Session-Id` is sent, else any active session for the email; honors 8h expiry + `geoLocked`; fails open on transient errors, `MFA_FAIL_OPEN=false` to fail closed). Applied after `authenticateBranchAdmin` to `/api/messages/history`, `/api/messages/conversation-key` (admin), `/api/guest/chat-logs`, `/api/guest/pending-inquiries`. Verified `node --check` OK. **Effective control:** the admin dashboard reads `messages` directly from Firestore but fetches the AES key via `conversation-key`, so gating that endpoint means E2EE content cannot be decrypted without MFA. `/api/messages/all` (superadmin) intentionally NOT gated (different token model; MFA enforced at superadmin login). **Caveat:** plaintext messages read directly from Firestore are not covered — see P1-6.
 
-#### [ ] P0-3 — Live Firebase service-account private key committed to git — 🚨 NEW (CRITICAL)
+#### [ ] P0-3 — Live backend secrets committed to git (Firebase key + full .env bundle) — 🚨 NEW (CRITICAL)
 - **Severity:** Critical
-- **Where:** `backend/firebase.json` — a real service-account key (`private_key`, key id `0a1755be...`, SA `firebase-adminsdk-opl9i@magis-website.iam.gserviceaccount.com`). Tracked since `887fbb2`, pushed to `github.com/jmreyes777/magis-website`, not gitignored. Referenced only by the one-off script `backend/updateMessagesWithBranchId.js:25` (the server uses env vars).
-- **Risk:** Grants full Firebase project admin (Firestore/Auth/Storage) and bypasses ALL application controls (P0-1, P0-2, Firestore rules). Anyone with repo access or a clone holds it.
-- **PH legal driver:** DPA 2012 (security of processing; a reportable personal-data breach if exploited); BSP IT-risk.
-- **Remediation:** (1) ROTATE the key in GCP and update Render `FIREBASE_PRIVATE_KEY`; (2) untrack `firebase.json` + stray `.zip`s and `.gitignore` them; (3) purge from git history (BFG / git filter-repo) + force-push.
-- **Status:** Untracked + ignored 2026-06-07. ⚠️ KEY ROTATION + HISTORY PURGE still required (owner action).
-- **Effort:** S (rotation) + M (history rewrite + coordination)
+- **Where:** `backend/firebase.json` (real SA key, key id `0a1755be...`, SA `firebase-adminsdk-opl9i@magis-website.iam.gserviceaccount.com`) AND `backend/backend.zip` — a stale build artifact that bundled the **entire backend secret set**: `backend.env` (`JWT_SECRET`, `MONGO_URI`, Google OAuth `CLIENT_SECRET`/`REFRESH_TOKEN`, `GOOGLE_API_KEY`, `SMTP_PASS`/`SUPPORT_EMAIL_PASSWORD`, `FB_PAGE_ACCESS_TOKEN`, `FIREBASE_PRIVATE_KEY`) plus `.env.staging/.production/.development` (`REDIS_URL`). Tracked since `887fbb2`, pushed to `github.com/jmreyes777/magis-website`.
+- **Risk:** Total compromise. `JWT_SECRET` lets an attacker forge ANY admin/superadmin token, which fully defeats P0-1 and P0-2. `MONGO_URI` = full DB access. Firebase key = full project admin (Firestore/Auth/Storage). OAuth/SMTP/API tokens = account & service takeover.
+- **PH legal driver:** DPA 2012 (security of processing; reportable personal-data breach if exploited); BSP IT-risk; RA 11765.
+- **Remediation:** (1) PURGE from git history + force-push; (2) ROTATE every exposed secret — `JWT_SECRET` first (invalidates sessions), then Firebase key, `MONGO_URI`, OAuth client secret + refresh token, SMTP/email passwords, `GOOGLE_API_KEY`, `FB_PAGE_ACCESS_TOKEN`, and `REDIS_URL` if it embeds a password.
+- **Status:** Untracked + ignored 2026-06-07. **History PURGED 2026-06-07** (git filter-branch over all 35 commits + `--force-with-lease` push + backup/refs-original removal + reflog expire + `gc --prune=now`; verified no ref or object references the paths). ⚠️ **SECRET ROTATION still required (owner action)** — and GitHub can cache old commits by SHA until its own GC, so rotation is the only definitive fix.
+- **Effort:** S (rotation per secret) + M (history rewrite — done)
 
 ### HIGH
 
