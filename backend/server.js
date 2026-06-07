@@ -211,6 +211,8 @@ app.use(
           "https://identitytoolkit.googleapis.com",
           // Facebook SDK
           "https://connect.facebook.net",
+          // Cloudflare Turnstile
+          "https://challenges.cloudflare.com",
         ],
         scriptSrcElem: [
           "'self'",
@@ -220,6 +222,7 @@ app.use(
           "https://maps.googleapis.com",
           "https://apis.google.com",
           "https://connect.facebook.net",
+          "https://challenges.cloudflare.com",
         ],
 
         styleSrc: ["'self'", "https://fonts.googleapis.com"],
@@ -249,6 +252,8 @@ app.use(
           "https://www.googleapis.com",
           // ✅ Graph API for album/photos
           "https://graph.facebook.com",
+          // Cloudflare Turnstile
+          "https://challenges.cloudflare.com",
         ],
 
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -260,7 +265,8 @@ app.use(
           "https://connect.facebook.net",
           "https://staticxx.facebook.com",
           "https://m.facebook.com/",
-          "https://web.facebook.com"
+          "https://web.facebook.com",
+          "https://challenges.cloudflare.com"
         ],
 
         objectSrc: ["'none'"],

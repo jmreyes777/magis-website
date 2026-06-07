@@ -138,7 +138,7 @@ function cspForSpa() {
   return [
     "default-src 'self';",
     // scripts
-    "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://www.google.com https://apis.google.com https://www.googletagmanager.com https://maps.googleapis.com https://identitytoolkit.googleapis.com;",
+    "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://www.google.com https://apis.google.com https://www.googletagmanager.com https://maps.googleapis.com https://identitytoolkit.googleapis.com https://challenges.cloudflare.com;",
     // styles
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
     // images (add FB CDNs)
@@ -146,9 +146,9 @@ function cspForSpa() {
     // fonts
     "font-src 'self' https://fonts.gstatic.com;",
     // network connections (add Graph API)
-    "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com https://maps.googleapis.com https://graph.facebook.com wss:;",
+    "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://www.googleapis.com https://maps.googleapis.com https://graph.facebook.com https://challenges.cloudflare.com wss:;",
     // Facebook embeds
-    "frame-src 'self' https://www.facebook.com https://m.facebook.com https://web.facebook.com https://connect.facebook.net https://staticxx.facebook.com;",
+    "frame-src 'self' https://www.facebook.com https://m.facebook.com https://web.facebook.com https://connect.facebook.net https://staticxx.facebook.com https://challenges.cloudflare.com;",
     // other security
     "object-src 'none'; base-uri 'self'; form-action 'self' mailto: https:;",
     // ✅ allow mailto and https navigations so clicking Email opens mail app/webmail
