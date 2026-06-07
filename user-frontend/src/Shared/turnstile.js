@@ -39,11 +39,20 @@ function loadScript() {
 }
 
 /**
+ * Warm the Turnstile script ahead of time (call on page mount) so the widget
+ * renders instantly when the user opens chat — avoids paying the script
+ * download cost on the click.
+ */
+export function preloadTurnstile() {
+  try { loadScript(); } catch (_) {}
+}
+
+/**
  * Resolve a fresh Turnstile token, or null if it can't be obtained in time.
  * @param {number} timeoutMs
  * @returns {Promise<string|null>}
  */
-export async function getTurnstileToken(timeoutMs = 8000) {
+export async function getTurnstileToken(timeoutMs = 3000) {
   try {
     const ts = await loadScript();
     if (!ts || typeof ts.render !== "function") return null;

@@ -279,6 +279,34 @@ body {
   box-shadow: 0 2px 8px rgba(212, 168, 83, 0.2);
 }
 
+/* Chat button loading state (Turnstile verify + chat connect) */
+.chat-btn:disabled {
+  opacity: 0.7;
+  cursor: progress;
+  transform: none;
+}
+
+.chat-btn-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chat-btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  display: inline-block;
+  animation: chat-btn-spin 0.7s linear infinite;
+}
+
+@keyframes chat-btn-spin {
+  to { transform: rotate(360deg); }
+}
+
 /* 🔧 Chat Overlay - Premium Styling */
 .chat-overlay {
   position: fixed;

@@ -15,7 +15,7 @@ import {
 import { FaMapMarkerAlt, FaPhoneAlt, FaClock } from "react-icons/fa";
 import "./BranchesMapView.css";
 import { getSocketInstance, connectSocket, disconnectSocket } from "../Shared/User-Utils-socket";
-import { getTurnstileToken } from "../Shared/turnstile";
+import { getTurnstileToken, preloadTurnstile } from "../Shared/turnstile";
 const socket = getSocketInstance();
 
 // Utility function for formatting schedules
@@ -99,9 +99,14 @@ function BranchesMapView() {
 
   const [mapReady, setMapReady] = useState(false);
   const [filter, setFilter] = useState(initialFilter);
+  const [openingBranchId, setOpeningBranchId] = useState(null);
+  const [openingStage, setOpeningStage] = useState(""); // "verifying" | "connecting"
 
   // Start map init immediately on mount — map is above the fold
   useEffect(() => { setMapReady(true); }, []);
+
+  // Warm the Turnstile script on mount so chat opens fast (P1-4)
+  useEffect(() => { preloadTurnstile(); }, []);
 
   // 2️⃣ Fetch branches and init map
   useEffect(() => {
@@ -251,6 +256,9 @@ function BranchesMapView() {
 
   // 🚪 Open chat with prompt if another branch is active
   const openChatBox = async (branch) => {
+    if (openingBranchId) return; // prevent concurrent opens / double-clicks
+    setOpeningBranchId(branch.id);
+    setOpeningStage("connecting");
     try {
       // If there’s an active chat for another branch, prompt first
       const activeFlag  = sessionStorage.getItem("chatOpen") === "true";
@@ -313,6 +321,9 @@ function BranchesMapView() {
       // 2b) No session at all → init
       } else if (!guestId && !guestToken) {
         console.log("[GUEST] 🆕 No session found, INIT new guest");
+        setOpeningStage("verifying");
+        const turnstileToken = await getTurnstileToken(); // P1-4: bot check
+        setOpeningStage("connecting");
         const res = await fetch(
           `${process.env.REACT_APP_API_URL}/api/guest/init`,
           {
@@ -323,7 +334,7 @@ function BranchesMapView() {
               name: "Anonymous Guest",
               email: `${Date.now()}@guest.local`,
               branchEmail: branch.email,
-              turnstileToken: await getTurnstileToken(), // P1-4: bot check
+              turnstileToken,
             }),
           }
         );
@@ -382,6 +393,9 @@ function BranchesMapView() {
     } catch (err) {
       console.error("[SOCKET] ❌ Failed to open guest chat:", err);
       alert("Could not open chat. Please try again later.");
+    } finally {
+      setOpeningBranchId(null);
+      setOpeningStage("");
     }
   };
 
@@ -489,12 +503,20 @@ function BranchesMapView() {
                   {/* 💬 Chat Button */}
                   <button
                     className="chat-btn"
+                    disabled={openingBranchId !== null}
                     onClick={(e) => {
                       e.stopPropagation();
                       openChatBox(branch);
                     }}
                   >
-                    Chat with {branch.name}
+                    {openingBranchId === branch.id ? (
+                      <span className="chat-btn-loading">
+                        <span className="chat-btn-spinner" aria-hidden="true" />
+                        {openingStage === "verifying" ? "Verifying…" : "Connecting…"}
+                      </span>
+                    ) : (
+                      `Chat with ${branch.name}`
+                    )}
                   </button>
                 </div>
               );
