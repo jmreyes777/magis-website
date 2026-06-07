@@ -63,62 +63,6 @@ function escapeHtml(str) {
 }
 
 /**
- * POST /send-chat-log
- * Send a transcript of the conversation to the branch and guest.
- * Requires a valid guest JWT and ownership of guestId.
- */
-router.post(
-  "/send-chat-log",
-  authenticateGuest,
-  ensureGuestOwns,
-  async (req, res) => {
-    const { guestId, branchEmail, name, email, log } = req.body;
-
-    if (!guestId || !branchEmail || !log) {
-      return res
-        .status(400)
-        .json({ error: "Missing guestId, branchEmail, or log." });
-    }
-
-    try {
-      const staffEmail = await resolveBranchStaffEmail(branchEmail);
-
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.SUPPORT_EMAIL,
-          pass: process.env.SUPPORT_EMAIL_PASSWORD,
-        },
-      });
-
-      await transporter.sendMail({
-        from: `"Magis Chat" <${process.env.SUPPORT_EMAIL}>`,
-        to: staffEmail,
-        cc: email,
-        subject: `📨 Guest Chat Transcript from ${name || "Anonymous"} (${guestId})`,
-        text: log,
-        replyTo: email || undefined,
-      });
-
-      await db.collection("chatLogs").add({
-        guestId,
-        branchEmail,
-        name,
-        email,
-        staffEmail,
-        log,
-        sentAt: new Date(),
-      });
-
-      return res.status(200).json({ success: true });
-    } catch (err) {
-      console.error("[SEND CHAT LOG] ❌", err);
-      return res.status(500).json({ error: "Failed to send chat log." });
-    }
-  }
-);
-
-/**
  * POST /init
  * Initialize a new guest session, issue JWT in a Secure, HTTP-only cookie.
  */
@@ -328,32 +272,6 @@ router.post("/contact", authenticateGuest, async (req, res) => {
   } catch (err) {
     console.error("[CONTACT] ❌", err);
     return res.status(500).json({ error: "Failed to send message." });
-  }
-});
-
-/**
- * POST /pending-inquiry
- * Save an out-of-hours guest message to Firestore for staff follow-up.
- */
-router.post("/pending-inquiry", async (req, res) => {
-  const { branchEmail, branchName, guestName, guestEmail, message } = req.body;
-  if (!branchEmail || !guestName || !guestEmail || !message) {
-    return res.status(400).json({ error: "Missing required fields." });
-  }
-  try {
-    await db.collection("pendingInquiries").add({
-      branchEmail,
-      branchName: branchName || "Magis Support",
-      guestName,
-      guestEmail,
-      message,
-      status: "unread",
-      createdAt: new Date().toISOString(),
-    });
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    console.error("[PENDING INQUIRY] ❌", err);
-    return res.status(500).json({ error: "Failed to save inquiry." });
   }
 });
 
