@@ -4,6 +4,7 @@ import { db } from "../firebase-config";
 import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { getSessionTabId } from "../utils/initSession";
 import { ensureSessionHydrated } from "../utils/sessionHydration";
+import { getAuth } from "firebase/auth";
 
 // Use a global namespace to avoid duplicate redeclarations (e.g. in hot module reload)
 if (!window.__ADMIN_UTILS_SOCKET__) {
@@ -19,6 +20,18 @@ const isSlow = typeof conn.effectiveType === "string" && conn.effectiveType.incl
 
 const HEARTBEAT_INTERVAL = (isSlow ? 2 : 1) * 2000;
 const MAX_RECONNECT_ATTEMPTS = 5;
+
+// Best-effort fresh Firebase ID token — proof of identity for the fallback-token
+// exchange (P0-1). Returns null when no Firebase session is restored yet, in
+// which case the HTTP-only branchAdminToken cookie / prior token is used instead.
+async function getFirebaseIdToken() {
+  try {
+    const u = getAuth().currentUser;
+    return u ? await u.getIdToken() : null;
+  } catch {
+    return null;
+  }
+}
 
 // ────────────────────────────────────────────────────────────────
 // Per-branch BroadcastChannel (lazy, namespaced, auto-updating)
@@ -407,11 +420,17 @@ export const connectSocket = async (branchEmailParam, isPassive = false) => {
     if (isPassive && isTokenExpired(token)) {
       console.warn("[SOCKET] ⚠️ Expired fallback token detected — reissuing...");
       try {
+        // Prove prior auth so the backend will rotate the token (P0-1): a fresh
+        // Firebase ID token when available, plus the just-expired HMAC token.
+        const fbToken = await getFirebaseIdToken();
         const res = await fetch(`${process.env.REACT_APP_API_URL}/api/issue-fallback-token`, {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ branchEmail: freshBranchEmail }),
+          headers: {
+            "Content-Type": "application/json",
+            ...(fbToken ? { Authorization: `Bearer ${fbToken}` } : {}),
+          },
+          body: JSON.stringify({ branchEmail: freshBranchEmail, currentToken: token }),
         });
         const data = await res.json();
         if (data?.token) {
@@ -433,10 +452,16 @@ export const connectSocket = async (branchEmailParam, isPassive = false) => {
     if (fallbackEligible) {
       console.warn("[SOCKET] ⛑️ Fetching real fallback token for passive connect...");
       try {
+        // Prove prior auth (P0-1): attach a fresh Firebase ID token when a session
+        // is restored; the HTTP-only cookie (credentials) is the rotation fallback.
+        const fbToken = await getFirebaseIdToken();
         const res = await fetch(`${process.env.REACT_APP_API_URL}/api/issue-fallback-token`, {
           method: "POST",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(fbToken ? { Authorization: `Bearer ${fbToken}` } : {}),
+          },
           body: JSON.stringify({ branchEmail: freshBranchEmail }),
         });
         const data = await res.json();

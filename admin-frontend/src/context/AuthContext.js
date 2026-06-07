@@ -69,13 +69,22 @@ export const AuthProvider = ({ children }) => {
           // attempt to refresh fallback token
           try {
             const branchEmail = sessionStorage.getItem("branchEmail");
+            // Prove prior auth so the backend will rotate the token (P0-1):
+            // a fresh Firebase ID token when available, plus the just-expired
+            // HMAC token as a rotation proof.
+            const fbToken = auth.currentUser
+              ? await auth.currentUser.getIdToken().catch(() => null)
+              : null;
             const res = await fetch(
               `${process.env.REACT_APP_API_URL}/api/issue-fallback-token`,
               {
                 method: "POST",
                 credentials: "include",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ branchEmail }),
+                headers: {
+                  "Content-Type": "application/json",
+                  ...(fbToken ? { Authorization: `Bearer ${fbToken}` } : {}),
+                },
+                body: JSON.stringify({ branchEmail, currentToken: token }),
               }
             );
             const data = await res.json();
@@ -121,12 +130,21 @@ export const AuthProvider = ({ children }) => {
           // fetch a fresh fallback token
           if (!sessionStorage.getItem("branchAdminToken")) {
             try {
+              // Prove prior auth (P0-1): prefer a fresh Firebase ID token; the
+              // HTTP-only branchAdminToken cookie (sent via credentials) also
+              // serves as a rotation proof when still within the grace window.
+              const fbToken = auth.currentUser
+                ? await auth.currentUser.getIdToken().catch(() => null)
+                : null;
               const response = await fetch(
                 `${process.env.REACT_APP_API_URL}/api/issue-fallback-token`,
                 {
                   method: "POST",
                   credentials: "include",
-                  headers: { "Content-Type": "application/json" },
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(fbToken ? { Authorization: `Bearer ${fbToken}` } : {}),
+                  },
                   body: JSON.stringify({ branchEmail: fallbackEmail }),
                 }
               );

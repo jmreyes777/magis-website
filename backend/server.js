@@ -410,42 +410,131 @@ app.post("/api/branchadmin/logout", async (req, res) => {
 });
 
 
-// Fallback token issuance (branch admin)
-app.post("/api/issue-fallback-token", async (req, res) => {
-  const { branchEmail } = req.body;
-  if (!branchEmail) {
-    return res.status(400).json({ error: "branchEmail is required" });
-  }
+// ────────────────────────────────────────────────────────────────────────────
+// Fallback (HMAC) token issuance — token EXCHANGE, not free minting.
+// ----------------------------------------------------------------------------
+// The Cloudflare edge can only verify our HS256 fallback tokens, not Firebase
+// RS256 ID tokens, so authenticated admins exchange their proof of identity for
+// a short-lived HMAC token used on every subsequent API/socket call.
+//
+// SECURITY (P0-1): this endpoint previously minted a full branchadmin token from
+// nothing but a client-supplied `branchEmail` — an authentication bypass. It now
+// REQUIRES verifiable proof of prior authentication and derives the identity from
+// that proof (never from the request body):
+//   1) A valid Firebase ID token (Authorization: Bearer <idToken> or body.idToken)
+//      that resolves to a branchadmin — used at first login.
+//   2) Rotation of an existing HMAC branchAdminToken (cookie / Authorization /
+//      body.currentToken) that is still valid, or expired within
+//      FALLBACK_REFRESH_GRACE_MIN, and not revoked — used for silent refresh.
+// A caller with neither proof receives 401, closing the bypass.
+// ────────────────────────────────────────────────────────────────────────────
+const FALLBACK_TTL_MIN = Number(
+  process.env.JWT_FALLBACK_TTL_MIN || process.env.JWT_ADMIN_TTL_MIN || "240"
+);
+const FALLBACK_REFRESH_GRACE_MIN = Number(
+  process.env.FALLBACK_REFRESH_GRACE_MIN || "1440" // 24h: allow rotating a recently-expired token
+);
 
+// Resolve a branchadmin identity from a Firebase ID token, or null if the token
+// is invalid/expired or the user is not a branch admin.
+async function identityFromFirebaseIdToken(idToken) {
+  if (!idToken || typeof idToken !== "string") return null;
+  let decoded;
   try {
-    const branchDoc = await db
-      .collection("branches")
-      .where("email", "==", branchEmail)
-      .limit(1)
-      .get();
+    decoded = await admin.auth().verifyIdToken(idToken);
+  } catch (_) {
+    return null; // not a (currently-valid) Firebase token — caller may try HMAC proof
+  }
+  const email = (decoded.email || "").toLowerCase();
+  let { role, branchId, branchName } = decoded;
+  // Custom claims may not be embedded if they were assigned after this token was
+  // minted; fall back to the authoritative user record.
+  if (role !== "branchadmin" || !branchId || !branchName) {
+    try {
+      const userRecord = await admin.auth().getUser(decoded.uid);
+      const claims = userRecord.customClaims || {};
+      role = claims.role || role;
+      branchId = claims.branchId || branchId;
+      branchName = claims.branchName || branchName;
+    } catch (_) {}
+  }
+  if (role !== "branchadmin" || !branchId || !email) return null;
+  return { uid: decoded.uid, email, branchId, branchName: branchName || "Branch Admin", authVia: "firebase" };
+}
 
-    if (branchDoc.empty) {
-      return res.status(404).json({ error: "Branch not found." });
+// Resolve a branchadmin identity from an existing HMAC token for rotation. The
+// worker verifier still enforces signature + revocation; we additionally bound
+// how long after expiry a token may still be rotated.
+async function identityFromHmacToken(token) {
+  if (!token || typeof token !== "string") return null;
+  let decoded;
+  try {
+    decoded = await verifyJWT(token, {
+      algorithms: ["HS256"],
+      ignoreExpiration: true, // allow recently-expired tokens to rotate (bounded below)
+      clockTolerance: Number(process.env.JWT_CLOCK_SKEW_SEC || "60"),
+    });
+  } catch (_) {
+    return null; // bad signature, revoked, or not our token
+  }
+  if (decoded.role !== "branchadmin" || !decoded.branchId || !decoded.email) return null;
+  if (typeof decoded.exp === "number") {
+    const expiredForSec = Math.floor(Date.now() / 1000) - decoded.exp;
+    if (expiredForSec > FALLBACK_REFRESH_GRACE_MIN * 60) return null; // too stale to rotate
+  }
+  return {
+    uid: decoded.uid || decoded.id,
+    email: decoded.email.toLowerCase(),
+    branchId: decoded.branchId,
+    branchName: decoded.branchName || "Branch Admin",
+    authVia: "rotation",
+  };
+}
+
+app.post("/api/issue-fallback-token", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || "";
+    const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+
+    // Candidate proofs. Both verifiers are tolerant and return null on mismatch,
+    // so it is safe to try the bearer token as either kind.
+    const idTokenCandidate = req.body.idToken || bearer;
+    const hmacCandidate =
+      req.body.currentToken || (req.cookies && req.cookies.branchAdminToken) || bearer;
+
+    const identity =
+      (await identityFromFirebaseIdToken(idTokenCandidate)) ||
+      (await identityFromHmacToken(hmacCandidate));
+
+    if (!identity) {
+      console.warn("[FALLBACK_TOKEN] ❌ Rejected: no valid proof of prior authentication");
+      return res.status(401).json({
+        error: "Authentication required: provide a valid Firebase ID token or current admin token.",
+      });
     }
 
-    const snap = branchDoc.docs[0];
-    const data = snap.data();
-    const branchId = data.id || snap.id;
+    // If the client names a branch, it must match the authenticated identity.
+    const requestedEmail = (req.body.branchEmail || "").toLowerCase();
+    if (requestedEmail && requestedEmail !== identity.email) {
+      console.warn(
+        `[FALLBACK_TOKEN] ❌ branchEmail mismatch (requested=${requestedEmail}, identity=${identity.email})`
+      );
+      return res.status(403).json({ error: "branchEmail does not match authenticated identity." });
+    }
+
     const payload = {
-      branchId,
-      email: branchEmail,
-      branchName: data.name || "Branch Admin",
+      uid: identity.uid,
+      branchId: identity.branchId,
+      email: identity.email,
+      branchName: identity.branchName,
       role: "branchadmin",
       fallback: true,
+      authVia: identity.authVia,
     };
 
-    // Use admin TTL (align with policy). If you prefer short-lived,
-    // set JWT_ADMIN_TTL_MIN to a small value in env for fallback flows.
-    const token = await signJWT(payload, {
-      expiresIn: `${process.env.JWT_ADMIN_TTL_MIN}m`,
-    });
+    const token = await signJWT(payload, { expiresIn: `${FALLBACK_TTL_MIN}m` });
 
-    // set a Secure, HTTP-only, partitioned cookie
+    // Secure, HTTP-only, partitioned cookie (lifetime matches the token).
     const cookie = [
       `branchAdminToken=${token}`,
       `Path=/`,
@@ -453,9 +542,11 @@ app.post("/api/issue-fallback-token", async (req, res) => {
       `Secure`,
       `SameSite=Strict`,
       `Partitioned`,
-      `Max-Age=${Number(process.env.JWT_ADMIN_TTL_MIN) * 60}`, // seconds
+      `Max-Age=${FALLBACK_TTL_MIN * 60}`,
     ].join("; ");
     res.setHeader("Set-Cookie", cookie);
+
+    console.info(`[FALLBACK_TOKEN] ✅ Issued (${identity.authVia}) for ${identity.email}`);
     return res.status(200).json({ token });
   } catch (err) {
     console.error("[FALLBACK_TOKEN] ❌ Error issuing fallback token:", err.message);

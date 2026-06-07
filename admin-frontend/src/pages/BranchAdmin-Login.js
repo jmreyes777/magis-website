@@ -285,7 +285,12 @@ const finalizeLogin = async (user, customClaims) => {
       {
         method:  "POST",
         credentials: 'include',
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // Proof of identity (incl. MFA) so the backend can exchange it for the
+          // short-lived HMAC token. Without this the request is rejected (P0-1).
+          "Authorization": `Bearer ${firebaseToken}`,
+        },
         body:    JSON.stringify({ branchEmail }),
       }
     );
