@@ -282,6 +282,23 @@ const messageRoutes = require("./routes/messages");
 const guestRoutes = require("./routes/guest");
 const analyticsRoutes = require("./routes/analytics");
 const mfaRoutes = require("./routes/mfa");
+// P1-4: per-IP throttle on guest-session creation — bot/abuse mitigation on the
+// public /init endpoint. Redis-backed for multi-instance correctness (degrades
+// to in-memory if Redis is down); tunable via env. NOTE: effectiveness depends
+// on a trustworthy client IP — see P2-2 (lock origin to edge) / P3-2 (trust proxy).
+const guestInitLimiter = rateLimit({
+  windowMs: Number(process.env.GUEST_INIT_RL_WINDOW_MS) || 10 * 60 * 1000, // 10 min
+  max: Number(process.env.GUEST_INIT_RL_MAX) || 20,                        // new sessions / IP / window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many chat sessions from this network. Please wait a few minutes and try again." },
+  store: new RedisStore({
+    prefix: "rl:guest-init:",
+    sendCommand: (...args) => getRedis().call(...args),
+  }),
+});
+app.use("/api/guest/init", guestInitLimiter);
+
 app.use("/api/guest", guestRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/analytics", analyticsRoutes);
