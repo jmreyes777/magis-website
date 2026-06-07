@@ -15,6 +15,7 @@ import {
 import { FaMapMarkerAlt, FaPhoneAlt, FaClock } from "react-icons/fa";
 import "./BranchesMapView.css";
 import { getSocketInstance, connectSocket, disconnectSocket } from "../Shared/User-Utils-socket";
+import { getTurnstileToken } from "../Shared/turnstile";
 const socket = getSocketInstance();
 
 // Utility function for formatting schedules
@@ -322,6 +323,7 @@ function BranchesMapView() {
               name: "Anonymous Guest",
               email: `${Date.now()}@guest.local`,
               branchEmail: branch.email,
+              turnstileToken: await getTurnstileToken(), // P1-4: bot check
             }),
           }
         );

@@ -1,5 +1,6 @@
 // User-Utils-socket.js
 import { io } from "socket.io-client";
+import { getTurnstileToken } from "./turnstile";
 
 const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || "https://localhost:5000";
 
@@ -502,7 +503,7 @@ export const connectSocket = async (guestIdParam) => {
             method: "POST",
             credentials: "include",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "Guest", branchEmail }),
+            body: JSON.stringify({ name: "Guest", branchEmail, turnstileToken: await getTurnstileToken() }), // P1-4: bot check
           }
         );
         const data = await res.json();

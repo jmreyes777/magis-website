@@ -12,6 +12,32 @@ const authenticateBranchAdmin = require("../middlewares/authenticateBranchAdmin"
 const { ensureGuestOwns } = require("../middlewares/ensureResourceOwner");
 const { requireMFA } = require("../middlewares/requireMFA");
 
+// P1-4 (Part B): Cloudflare Turnstile verification for the public /init endpoint.
+// Enforced ONLY when TURNSTILE_SECRET is configured (graceful no-op otherwise).
+// On verifier outage we fail OPEN (the per-IP rate-limit on /init still applies).
+const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET || "";
+const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+async function verifyTurnstile(token, ip) {
+  if (!TURNSTILE_SECRET) return { ok: true, skipped: true };
+  if (!token) return { ok: false, reason: "missing-token" };
+  try {
+    const body = new URLSearchParams();
+    body.append("secret", TURNSTILE_SECRET);
+    body.append("response", token);
+    if (ip) body.append("remoteip", ip);
+    const r = await fetch(TURNSTILE_VERIFY_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    const data = await r.json();
+    return { ok: !!data.success, data };
+  } catch (e) {
+    console.warn("[GUEST INIT] Turnstile verify error (failing open):", e.message);
+    return { ok: true, degraded: true };
+  }
+}
+
 /**
  * Resolve the branch’s staff email (fallback to branchEmail).
  */
@@ -88,6 +114,15 @@ router.post("/init", async (req, res) => {
     return res
       .status(400)
       .json({ error: "Name and branchEmail are required." });
+  }
+
+  // P1-4 (Part B): bot check — no-op until TURNSTILE_SECRET is configured.
+  const turnstileToken =
+    req.body.turnstileToken || req.body["cf-turnstile-response"] || null;
+  const captcha = await verifyTurnstile(turnstileToken, req.ip);
+  if (!captcha.ok) {
+    console.warn(`[GUEST INIT] 🚫 Turnstile failed (${captcha.reason || "verify"}) ip=${req.ip}`);
+    return res.status(403).json({ error: "Bot verification failed. Please reload and try again." });
   }
 
   // P1-4: unguessable, non-enumerable guest id (was `guest-${Date.now()}`).
