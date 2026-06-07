@@ -75,10 +75,20 @@ const TranscriptModal = ({ isOpen, onClose, branchEmail, branchName }) => {
         });
         imageName = imageFile.name;
       }
+      // P1-5: /contact now requires a valid guest session. Attach a Bearer proof
+      // (cross-site guestToken cookies are often blocked, same as refresh calls).
+      const guestToken =
+        sessionStorage.getItem("guestToken") ||
+        localStorage.getItem("guestToken") ||
+        window.__FALLBACK_GUEST_TOKEN__ ||
+        "";
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/guest/contact`, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(guestToken ? { Authorization: `Bearer ${guestToken}` } : {}),
+        },
         body: JSON.stringify({ branchEmail, branchName, guestEmail: email, message, imageBase64, imageName }),
       });
       const data = await res.json();

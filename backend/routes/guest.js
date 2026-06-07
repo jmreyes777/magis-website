@@ -51,6 +51,18 @@ async function resolveBranchStaffEmail(branchEmail) {
 }
 
 /**
+ * Minimal HTML-escape to prevent injection in email bodies (P1-5).
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * POST /send-chat-log
  * Send a transcript of the conversation to the branch and guest.
  * Requires a valid guest JWT and ownership of guestId.
@@ -257,12 +269,36 @@ router.post("/reply-transcript", authenticateBranchAdmin, async (req, res) => {
  * POST /contact
  * Guest sends a contact form message (with optional image) directly to branch email.
  */
-router.post("/contact", async (req, res) => {
+// P1-5: require a valid guest session (authenticateGuest). Per-IP rate-limit is
+// applied at the app level in server.js (guestContactLimiter).
+router.post("/contact", authenticateGuest, async (req, res) => {
   const { branchEmail, branchName, guestEmail, message, imageBase64, imageName } = req.body;
   if (!branchEmail || !guestEmail || !message) {
     return res.status(400).json({ error: "Missing required fields." });
   }
+
+  // P1-5: validate the guest-supplied address — strip CR/LF (mail-header
+  // injection) and require a plausible email so replyTo/subject stay clean.
+  const cleanGuestEmail = String(guestEmail).replace(/[\r\n]+/g, " ").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanGuestEmail)) {
+    return res.status(400).json({ error: "Invalid email address." });
+  }
+  if (String(message).length > 5000) {
+    return res.status(400).json({ error: "Message too long." });
+  }
+
   try {
+    // P1-5: only deliver to a REAL branch, resolved SERVER-SIDE. The guest's
+    // email is demoted to reply-to (never a recipient), so this endpoint can't
+    // be abused as an open relay to arbitrary addresses.
+    const adminSnap = await db.collection("branchAdmins").where("email", "==", branchEmail).limit(1).get();
+    if (adminSnap.empty) {
+      return res.status(404).json({ error: "Unknown branch." });
+    }
+    const rawName = adminSnap.docs[0].data().branchName || branchName || null;
+    const displayName = rawName ? `Magis Support - ${rawName}` : "Magis Support";
+    const recipient = await resolveBranchStaffEmail(branchEmail);
+
     const smtpUser = process.env.BRANCH_SMTP_USER || process.env.SUPPORT_EMAIL;
     const smtpPass = process.env.BRANCH_SMTP_PASS || process.env.SUPPORT_EMAIL_PASSWORD;
     const transporter = nodemailer.createTransport({
@@ -270,17 +306,16 @@ router.post("/contact", async (req, res) => {
       auth: { user: smtpUser, pass: smtpPass },
     });
 
-    const adminSnap = await db.collection("branchAdmins").where("email", "==", branchEmail).limit(1).get();
-    const rawName = !adminSnap.empty ? adminSnap.docs[0].data().branchName : null;
-    const displayName = rawName ? `Magis Support - ${rawName}` : (branchName || "Magis Support");
-
+    // P1-5: escape guest-controlled values before interpolating into HTML.
+    const safeEmail = escapeHtml(cleanGuestEmail);
+    const safeMessage = escapeHtml(String(message));
     const mailOptions = {
       from: `"${displayName}" <${smtpUser}>`,
-      to: [branchEmail, guestEmail],
-      replyTo: guestEmail,
-      subject: `New Contact Form Message from ${guestEmail}`,
-      text: `From: ${guestEmail}\n\n${message}`,
-      html: `<p><strong>From:</strong> ${guestEmail}</p><p>${message.replace(/\n/g, "<br/>")}</p>`,
+      to: recipient,
+      replyTo: cleanGuestEmail,
+      subject: `New Contact Form Message from ${cleanGuestEmail}`,
+      text: `From: ${cleanGuestEmail}\n\n${String(message)}`,
+      html: `<p><strong>From:</strong> ${safeEmail}</p><p>${safeMessage.replace(/\n/g, "<br/>")}</p>`,
       attachments: imageBase64 ? [{
         filename: imageName || "attachment.jpg",
         content: imageBase64.split(",")[1] || imageBase64,

@@ -122,12 +122,13 @@ None of the recommended fixes require removing features or degrading the custome
 - **Effort:** M
 - **Resolution (A + C done 2026-06-07; B pending):** **(A) Unguessable IDs** — `/init` now mints `guest-<uuid>` instead of `guest-${Date.now()}` (`backend/routes/guest.js`). **(C) Proof-required refresh** — `/refresh-token` now requires a guest token we previously issued, read from the `guestToken` cookie, an `Authorization: Bearer` header, or `body.token`; it is verified with `jwt.verify` (`ignoreExpiration` bounded by `GUEST_REFRESH_GRACE_MS`, default 30d) and must be `role:'user'`. The new token is minted strictly for the identity inside the verified token — client-supplied `guestId`/`branchEmail` are ignored. All five frontend refresh call sites (`utils/tokenManager.js`, `utils/api.js`, `Shared/User-Utils-socket.js` ×2, `components/Guest-Chat-Box-Component.js` ×2) also send the prior token as `Bearer`, so refresh still works if cross-site cookies are blocked; user build compiles. **(B) Server-side CAPTCHA on `/init` — PENDING provider choice:** the guest site has no CAPTCHA widget today, so this needs either reCAPTCHA v3 (reuse the admin site key + a new backend secret) or Cloudflare Turnstile, plus frontend wiring + an owner-set secret. Backend will enforce only when the secret is configured (graceful). **Interim mitigation shipped 2026-06-07:** a per-IP rate-limit now guards `/api/guest/init` (`backend/server.js`, Redis-backed, prefix `rl:guest-init:`; tunable via `GUEST_INIT_RL_MAX`/`GUEST_INIT_RL_WINDOW_MS`, default 20 per 10 min). **Provider chosen: Cloudflare Turnstile** (privacy-aligned with DPA, native to the CF edge) — **WIRED 2026-06-07:** an invisible widget (`user-frontend/src/Shared/turnstile.js`) attaches a token to both `/init` callers (`pages/Branches-List-User-Page.js`, `Shared/User-Utils-socket.js`); backend `verifyTurnstile` (`backend/routes/guest.js`) checks it on `/init`, **enforced once `TURNSTILE_SECRET` is set** (graceful no-op otherwise; fail-OPEN on Cloudflare-verifier outage). Public site key embedded with an env override (`REACT_APP_TURNSTILE_SITE_KEY`). Backend `node --check` OK; guest build compiles. **Owner action:** set `TURNSTILE_SECRET` in Render `magis-website` *after* the guest frontend redeploys (users on a cached old bundle must refresh once enforcement is on).
 
-#### [ ] P1-5 — Open email relay / spam via contact endpoint
+#### [x] P1-5 — Open email relay / spam via contact endpoint — ✅ FIXED 2026-06-07
 - **Severity:** High
-- **Where:** `backend/routes/guest.js:216-253` (`/contact`) is unauthenticated, emails attacker-controlled `to: [branchEmail, guestEmail]` with attachments via the support Gmail; HTML body built by string interpolation (`:239`).
+- **Where:** `backend/routes/guest.js` (`/contact`) was unauthenticated, emailed attacker-controlled `to: [branchEmail, guestEmail]` with attachments via the support Gmail; HTML body built by string interpolation.
 - **Risk:** Abuse to send arbitrary email from your domain (blacklist/reputation damage), HTML injection.
 - **PH legal driver:** RA 11765 (consumer-facing channel integrity); anti-spam good practice.
 - **Remediation:** Turnstile-gate or authenticate; restrict recipient to the resolved branch address; encode/sanitize the body; rate-limit.
+- **Status:** Done. `/contact` now requires a valid guest session (`authenticateGuest`); recipient is resolved **server-side** from a verified branch (`branchAdmins` lookup + `resolveBranchStaffEmail`) — unknown branch → 404; the guest email is demoted to `replyTo` (never a recipient), closing the open relay; the guest email is CR/LF-stripped + format-validated (no header injection) and HTML-escaped in the body (no HTML injection); message length capped at 5000; per-IP rate-limit (`GUEST_CONTACT_RL_MAX`, default 5 / 10 min) added in `server.js`. Frontend `TranscriptModal.js` attaches a Bearer guest-token proof. **Note:** the unused `/pending-inquiry` endpoint remains a dead, unauthenticated route — candidate for removal in a follow-up.
 - **Effort:** S-M
 
 #### [ ] P1-6 — Admin reads plaintext messages directly from Firestore (rules-dependent) — 🚨 NEW
@@ -230,7 +231,7 @@ None of the recommended fixes require removing features or degrading the custome
 - [x] P1-2 Bind socket `joinRoom` to the verified token identity (admins + guests) — ✅ 2026-06-07
 - [x] P1-3 Private media + signed URLs — ✅ 2026-06-07 (then run `backend/scripts/migrate-media-private.js --apply`)
 - [x] P1-4 UUID IDs + proof-required refresh + per-IP /init rate-limit + Cloudflare Turnstile — ✅ 2026-06-07 (set `TURNSTILE_SECRET` in Render to enforce the CAPTCHA)
-- [ ] P1-5 Lock down `/contact`
+- [x] P1-5 Lock down `/contact` — auth (guest token) + server-resolved branch-only recipient + HTML-escape + rate-limit — ✅ 2026-06-07
 
 **Phase 2 — Weeks 2-4 (P2)**
 - [ ] P2-1 Provision Redis + edge KV

@@ -305,6 +305,21 @@ const guestInitLimiter = rateLimit({
 });
 app.use("/api/guest/init", guestInitLimiter);
 
+// P1-5: per-IP throttle on the public contact relay — anti-spam / open-relay
+// abuse mitigation (in addition to authenticateGuest + server-resolved recipient).
+const guestContactLimiter = rateLimit({
+  windowMs: Number(process.env.GUEST_CONTACT_RL_WINDOW_MS) || 10 * 60 * 1000, // 10 min
+  max: Number(process.env.GUEST_CONTACT_RL_MAX) || 5,                         // messages / IP / window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many messages from this network. Please wait a few minutes and try again." },
+  store: new RedisStore({
+    prefix: "rl:guest-contact:",
+    sendCommand: (...args) => getRedis().call(...args),
+  }),
+});
+app.use("/api/guest/contact", guestContactLimiter);
+
 app.use("/api/guest", guestRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/analytics", analyticsRoutes);
