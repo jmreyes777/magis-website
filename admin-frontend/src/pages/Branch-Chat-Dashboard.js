@@ -1458,6 +1458,18 @@ const BranchChatDashboard = () => {
       const nextSet = new Set(nextIds);
       setActiveGuestIds(nextSet);
       activeIdsRef.current = nextSet;
+      // Presence is authoritative for the sidebar — it must be authoritative for
+      // the OPEN thread too. If the guest we're viewing is no longer in the live
+      // set (they closed/dropped, or the set is now empty), clear the selection +
+      // messages so the right pane can't linger as a "ghost" chat after the
+      // sidebar has already reconciled down to reality. Mirrors chatClosed.
+      const openGuestId = selectedChatRef.current?.guestId;
+      if (openGuestId && !nextSet.has(openGuestId)) {
+        localStorage.removeItem("selectedGuestId");
+        setSelectedChat(null);
+        selectedChatRef.current = null;
+        setMessages([]);
+      }
       // Refresh previews so brand-new guest threads appear (nothing to hydrate
       // when the set is empty).
       if (nextIds.length > 0) {
@@ -2437,6 +2449,14 @@ const BranchChatDashboard = () => {
     }
   };
 
+  // Ghost-chat guard: the right pane must only render a thread that still
+  // exists in the presence-authoritative sidebar list. Without this, a stale
+  // `selectedChat` would keep rendering its conversation even after the guest
+  // dropped from `activeGuestIds` and the sidebar emptied — the "ghost chat".
+  const selectedChatIsActive =
+    !!selectedChat &&
+    sortedActiveChats.some((c) => c.guestId === selectedChat.guestId);
+
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
@@ -2513,7 +2533,7 @@ const BranchChatDashboard = () => {
 
         {/* Main Chat View */}
         <div className="w-2/3 flex flex-col">
-          {activeTab === "chats" && selectedChat ? (
+          {activeTab === "chats" && selectedChatIsActive ? (
             <>
               {/* E2EE Security Status */}
               {e2eeStatus[selectedChat.guestId] === "established" ? (
