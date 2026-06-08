@@ -19,6 +19,19 @@ const TOTP_CONFIG = {
 };
 
 /**
+ * Constant-time string comparison (P3-3). Avoids the timing side-channel of
+ * `===`/`.includes`, which short-circuit on the first differing byte and can
+ * leak how much of a secret an attacker guessed correctly. Returns false on any
+ * length mismatch (lengths here are fixed: 6-digit TOTP, 64-char SHA-256 hex).
+ */
+function constantTimeEqual(a, b) {
+  const bufA = Buffer.from(String(a));
+  const bufB = Buffer.from(String(b));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
+/**
  * Generate a random base32 secret for TOTP
  */
 function generateSecret() {
@@ -41,8 +54,10 @@ function generateTOTPURI(secret, email, issuer = 'Magis Pawnshop') {
 function generateBackupCodes(count = 10) {
   const codes = [];
   for (let i = 0; i < count; i++) {
-    // Generate 8-character alphanumeric code
-    const code = crypto.randomBytes(4).toString('hex').toUpperCase();
+    // P3-3: 64 bits of entropy (8 random bytes -> 16 uppercase hex chars). The
+    // previous 4-byte/32-bit codes were feasibly brute-forceable; 64 bits is the
+    // floor for a single-use recovery secret.
+    const code = crypto.randomBytes(8).toString('hex').toUpperCase();
     codes.push(code);
   }
   return codes;
@@ -56,18 +71,16 @@ function generateBackupCodes(count = 10) {
  */
 function verifyTOTP(secret, token) {
   try {
-    const expectedToken = generateTOTP(secret);
-    
-    // Check exact match
-    if (token === expectedToken) return true;
-    
-    // Check window (1 step before/after for time drift)
+    // P3-3: compare against every token in the allowed drift window using a
+    // constant-time comparison and WITHOUT early-exit, so neither the expected
+    // code nor which time-step matched can leak through response timing. The
+    // i === 0 iteration covers the exact (current-step) match.
+    let matched = false;
     for (let i = -TOTP_CONFIG.window; i <= TOTP_CONFIG.window; i++) {
       const windowToken = generateTOTP(secret, i * TOTP_CONFIG.step);
-      if (token === windowToken) return true;
+      if (constantTimeEqual(token, windowToken)) matched = true;
     }
-    
-    return false;
+    return matched;
   } catch (error) {
     console.error('[MFA] Verification error:', error);
     return false;
@@ -101,7 +114,12 @@ function generateTOTP(secret, timeOffset = 0) {
  * Hash backup code for storage
  */
 function hashBackupCode(code) {
-  return crypto.createHash('sha256').update(code.toUpperCase()).digest('hex');
+  // Normalize before hashing: uppercase + strip any separators/whitespace, so a
+  // user can enter the code with or without spacing/dashes. Existing 8-char hex
+  // codes contain no separators, so their hashes are UNCHANGED (backward
+  // compatible with already-stored backup codes).
+  const normalized = String(code).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
 /**
@@ -112,7 +130,13 @@ function hashBackupCode(code) {
  */
 function verifyBackupCode(code, hashedCodes) {
   const hashedInput = hashBackupCode(code);
-  return hashedCodes.includes(hashedInput);
+  // P3-3: constant-time membership check with no early-exit over the stored
+  // hashes (compares hash-vs-hash, so all entries are the same fixed length).
+  let matched = false;
+  for (const stored of Array.isArray(hashedCodes) ? hashedCodes : []) {
+    if (constantTimeEqual(hashedInput, stored)) matched = true;
+  }
+  return matched;
 }
 
 /**

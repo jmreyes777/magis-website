@@ -27,10 +27,10 @@ const MFAVerifyModal = ({ isOpen, onVerify, onCancel, operation = 'access sensit
       return;
     }
     
-    // Validate format
+    // Validate format (accept legacy 8-char and current 16-char backup codes)
     if (usingBackupCode) {
-      if (!/^[A-F0-9]{8}$/i.test(code)) {
-        setError('Backup code must be 8 characters (letters and numbers)');
+      if (!/^([A-F0-9]{8}|[A-F0-9]{16})$/i.test(code)) {
+        setError('Please enter your backup recovery code');
         return;
       }
     } else {
@@ -118,16 +118,16 @@ const MFAVerifyModal = ({ isOpen, onVerify, onCancel, operation = 'access sensit
               onChange={(e) => {
                 const val = e.target.value.toUpperCase();
                 if (usingBackupCode) {
-                  setCode(val.replace(/[^A-F0-9]/g, '').slice(0, 8));
+                  setCode(val.replace(/[^A-F0-9]/g, '').slice(0, 16));
                 } else {
                   setCode(val.replace(/\D/g, '').slice(0, 6));
                 }
               }}
-              placeholder={usingBackupCode ? 'XXXXXXXX' : '000000'}
+              placeholder={usingBackupCode ? 'XXXXXXXXXXXXXXXX' : '000000'}
               className={`w-full border rounded px-3 py-2 text-center tracking-widest ${
                 usingBackupCode ? 'text-base' : 'text-xl'
               }`}
-              maxLength={usingBackupCode ? 8 : 6}
+              maxLength={usingBackupCode ? 16 : 6}
               autoFocus
             />
           </div>
@@ -148,7 +148,7 @@ const MFAVerifyModal = ({ isOpen, onVerify, onCancel, operation = 'access sensit
             
             {usingBackupCode && (
               <span className="text-xs text-gray-500">
-                8-character recovery code
+                recovery code
               </span>
             )}
           </div>
@@ -166,7 +166,7 @@ const MFAVerifyModal = ({ isOpen, onVerify, onCancel, operation = 'access sensit
             <button
               type="submit"
               className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-              disabled={loading || code.length !== (usingBackupCode ? 8 : 6)}
+              disabled={loading || (usingBackupCode ? !(code.length === 8 || code.length === 16) : code.length !== 6)}
             >
               {loading ? (
                 <span className="inline-flex items-center">
