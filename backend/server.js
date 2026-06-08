@@ -124,13 +124,29 @@ process.on("unhandledRejection", (reason, p) => {
 
 const { db,admin } = require("./utils/firebase");
 const { initializeSocket } = require("./utils/socket");
-const { requireEdgeAuth } = require("./utils/geoSecurity");
+const { requireEdgeAuth, rateLimitKey } = require("./utils/geoSecurity");
 const authenticateBranchAdmin = require("./middlewares/authenticateBranchAdmin");
 
 const app = express();
-// Behind the Cloudflare edge worker / reverse proxy: trust forwarded headers so
-// req.ip and X-Forwarded-For reflect the real client (used by geo anomaly check).
-app.set("trust proxy", true);
+// P3-2: pin `trust proxy` to the known proxy hop count instead of `true`. With
+// `true`, Express trusts the ENTIRE X-Forwarded-For chain and req.ip becomes the
+// left-most, client-controlled value — trivially spoofable to evade per-IP rate
+// limits. TRUST_PROXY accepts an integer hop count (recommended in prod), the
+// string "false" to disable, or a CSV of trusted IPs/CIDRs (Express-native).
+// Default 1 (one trusted reverse proxy in front of Node). Rate-limit keys also
+// prefer the edge-authenticated client IP (see rateLimitKey), so this value only
+// governs req.ip on untrusted/fallback paths.
+const parseTrustProxy = (raw) => {
+  const v = String(raw == null ? "" : raw).trim();
+  if (!v) return 1;
+  const low = v.toLowerCase();
+  if (low === "false") return false;
+  if (low === "true") return true;
+  if (/^\d+$/.test(v)) return Number(v);
+  return v.includes(",") ? v.split(",").map((s) => s.trim()).filter(Boolean) : v;
+};
+app.set("trust proxy", parseTrustProxy(process.env.TRUST_PROXY));
+console.log("[SERVER] trust proxy =", JSON.stringify(app.get("trust proxy")));
 const PORT = process.env.PORT || 5000;
 const fs   = require("fs");
 const path = require("path");
@@ -374,6 +390,7 @@ const guestInitLimiter = rateLimit({
   max: Number(process.env.GUEST_INIT_RL_MAX) || 20,                        // new sessions / IP / window
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many chat sessions from this network. Please wait a few minutes and try again." },
   store: new RedisStore({
     prefix: "rl:guest-init:",
@@ -389,6 +406,7 @@ const guestContactLimiter = rateLimit({
   max: Number(process.env.GUEST_CONTACT_RL_MAX) || 5,                         // messages / IP / window
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many messages from this network. Please wait a few minutes and try again." },
   store: new RedisStore({
     prefix: "rl:guest-contact:",
@@ -406,6 +424,7 @@ app.use("/api/mfa", mfaRoutes);
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5,
+  keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many login attempts. Please try again later." },
   headers: true,
   // Cluster-safe store backed by Redis:
@@ -711,6 +730,7 @@ app.use("/api", branchStatusRoutes);
 const fbLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60, // allow more per minute per IP since caching protects Facebook
+  keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many requests from this IP. Try again later." },
 });
 

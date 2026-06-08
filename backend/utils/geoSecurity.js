@@ -162,6 +162,27 @@ function getClientGeo(req) {
 }
 
 /**
+ * Rate-limit key = the most trustworthy client IP we can derive (P3-2).
+ *
+ * Edge-routed traffic: the Cloudflare worker STRIPS any client-supplied
+ * X-Forwarded-For and sets a single authoritative entry (the real client IP),
+ * authenticated via X-Edge-Auth. We key off that, so an attacker can NOT mint
+ * unlimited rate-limit buckets by rotating spoofed X-Forwarded-For values.
+ *
+ * Untrusted / direct-to-origin traffic (no valid edge secret) falls back to
+ * Express `req.ip` — now derived from a PINNED `trust proxy` hop count (see
+ * server.js) rather than the entire client-controlled chain — and finally the
+ * raw socket peer. In every branch the key is not attacker-controlled.
+ *
+ * Returns a stable string suitable for an express-rate-limit `keyGenerator`.
+ */
+function rateLimitKey(req) {
+  const { ip, edgeTrusted } = getClientGeo(req);
+  if (edgeTrusted && ip) return ip;
+  return req.ip || (req.socket && req.socket.remoteAddress) || "unknown";
+}
+
+/**
  * Record a geolocation anomaly to Firestore for the audit trail.
  * Best-effort: never throws.
  */
@@ -208,6 +229,7 @@ module.exports = {
   isEdgeTrusted,
   requireEdgeAuth,
   getClientGeo,
+  rateLimitKey,
   logGeoAnomaly,
   isInternationalChange,
 };

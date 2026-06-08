@@ -6,6 +6,7 @@ const { db, assignCustomClaims, getCustomClaims } = require("../utils/firebase")
 const bcrypt = require("bcrypt");
 const rateLimit = require("express-rate-limit");
 const { signJWT, verifyJWT } = require("../utils/secretPool"); // worker-backed
+const { rateLimitKey } = require("../utils/geoSecurity"); // P3-2: trustworthy IP
 
 // Memory/Firestore-backed lockout config
 const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
@@ -41,6 +42,7 @@ const validateInput = (value, fieldName) => {
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: MAX_ATTEMPTS,
+  keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many login attempts. Please try again later." },
   headers: true,
 });
