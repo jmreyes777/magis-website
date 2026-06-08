@@ -2,7 +2,7 @@
 # Service-worker format (index.js uses addEventListener("fetch", ...) and
 # reads bindings from globalThis: BACKEND_URL, ADMIN_URL, GUEST_URL,
 # JWT_SECRET, JWT_PUBLIC_KEY, EDGE_SHARED_SECRET, RATE_LIMIT_KV,
-# RATE_LIMIT_FAIL_CLOSED, CSP_MODE).
+# RATE_LIMIT_FAIL_CLOSED, CSP_MODE, JWT_VERIFY_CLAIMS, JWT_ISSUER, JWT_AUD_ADMIN).
 #
 # Secrets are NOT stored here. Set them with:
 #   wrangler secret put JWT_SECRET
@@ -48,6 +48,20 @@ BACKEND_URL = "https://magis-website.onrender.com"
 # substituting the nonce (note: the SPA's baked <meta> CSP still enforces the
 # nonce policy regardless, so "legacy" mirrors the pre-fix production behavior).
 # CSP_MODE = "nonce"
+
+# P3-5: defense-in-depth iss/aud enforcement on the EDGE admin gate. The edge
+# already verifies the admin token's signature + role; these add an issuer +
+# admin-audience check mirroring the origin's claim policy (claims are stamped
+# by the origin's secret worker). Rollout order:
+#   1) ship origin + edge in "monitor" (default) — mismatches are logged only
+#   2) flip the ORIGIN to JWT_VERIFY_CLAIMS=enforce; wait the longest admin TTL
+#      (branch-admin login = 8h) so every live token carries the claims
+#   3) THEN set JWT_VERIFY_CLAIMS="enforce" here so the edge BLOCKS admin-route
+#      tokens with a wrong/missing iss or aud.
+# JWT_ISSUER / JWT_AUD_ADMIN must match the origin (defaults below).
+# JWT_VERIFY_CLAIMS = "monitor"
+# JWT_ISSUER = "magis-api"
+# JWT_AUD_ADMIN = "magis-admin"
 
 # P2-1: KV namespace for edge rate-limiting. While UNBOUND, edge rate-limiting
 # auto-skips (the origin still applies its own Redis-backed limits). To ACTIVATE

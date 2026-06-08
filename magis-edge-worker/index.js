@@ -111,6 +111,52 @@ function base64UrlDecode(base64Url) {
   return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P3-5 (edge): defense-in-depth iss/aud enforcement on the admin gate.
+//
+// The edge already verifies an admin token's SIGNATURE + expiry. This binds an
+// accepted admin token to OUR issuer and the ADMIN audience (both stamped by
+// the origin's secret worker), so a validly-signed token for another role,
+// issuer, or deployment can't satisfy the edge admin gate.
+//
+// Mirrors the origin's JWT_VERIFY_CLAIMS rollout (set via wrangler [vars]):
+//   monitor (default) → LOG mismatches, never block. Safe to ship immediately;
+//                       enable enforce only AFTER the origin is in enforce so
+//                       every live admin token already carries the claims.
+//   enforce           → BLOCK tokens with wrong/missing iss or aud.
+//   off               → skip the check entirely.
+// `typeof` guards keep these safe when the optional [vars] are unbound.
+const JWT_CLAIMS_MODE = (() => {
+  const m =
+    typeof JWT_VERIFY_CLAIMS !== "undefined"
+      ? String(JWT_VERIFY_CLAIMS).toLowerCase()
+      : "monitor";
+  return m === "off" || m === "enforce" ? m : "monitor";
+})();
+const EXPECTED_ISSUER =
+  typeof JWT_ISSUER !== "undefined" && JWT_ISSUER ? String(JWT_ISSUER) : "magis-api";
+const EXPECTED_ADMIN_AUD =
+  typeof JWT_AUD_ADMIN !== "undefined" && JWT_AUD_ADMIN
+    ? String(JWT_AUD_ADMIN)
+    : "magis-admin";
+
+// Compare a decoded admin token to the iss/aud policy. Pure; never throws.
+// aud may be a string or an array (RFC 7519); match either form.
+function checkAdminClaims(payload) {
+  const issues = [];
+  if (EXPECTED_ISSUER && (!payload || payload.iss !== EXPECTED_ISSUER)) {
+    issues.push(`iss(got=${payload && payload.iss},want=${EXPECTED_ISSUER})`);
+  }
+  const aud = payload && payload.aud;
+  const audOk = Array.isArray(aud)
+    ? aud.includes(EXPECTED_ADMIN_AUD)
+    : aud === EXPECTED_ADMIN_AUD;
+  if (EXPECTED_ADMIN_AUD && !audOk) {
+    issues.push(`aud(got=${JSON.stringify(aud)},want=${EXPECTED_ADMIN_AUD})`);
+  }
+  return { ok: issues.length === 0, issues };
+}
+
 // Clone the incoming request headers and explicitly forward the real client IP
 // and Cloudflare-resolved country to the backend. These power the geolocation
 // anomaly detection (international IP change mid-session) on the backend.
@@ -497,6 +543,31 @@ async function handle(request) {
         JSON.stringify({ error: "Forbidden: Branch Admins only" }),
         { status: 403, headers: h }
       );
+    }
+
+    // P3-5: defense-in-depth iss/aud check on the admin gate (monitor logs,
+    // enforce blocks, off skips). Layered on top of the signature + role check
+    // above so an admin route only accepts our-issued, admin-audience tokens.
+    if (JWT_CLAIMS_MODE !== "off") {
+      const { ok, issues } = checkAdminClaims(payload);
+      if (!ok) {
+        const detail = `[edge] admin JWT claim mismatch jti=${payload.jti || "?"}: ${issues.join("; ")}`;
+        if (JWT_CLAIMS_MODE === "enforce") {
+          console.warn(`${detail} — BLOCKED`);
+          const h = addSecurityHeaders(
+            new Headers({ "Content-Type": "application/json" })
+          );
+          if (allowedOrigin) {
+            h.set("Access-Control-Allow-Origin", allowedOrigin);
+            h.set("Access-Control-Allow-Credentials", "true");
+          }
+          return new Response(
+            JSON.stringify({ error: "Invalid token issuer/audience" }),
+            { status: 401, headers: h }
+          );
+        }
+        console.warn(`${detail} — allowed (monitor)`);
+      }
     }
   } catch {
     const h = addSecurityHeaders(
