@@ -14,6 +14,13 @@ if (workerData && typeof workerData === "object") {
     "JWT_PUBLIC_KEY",
     "JWT_ALG",
     "JWT_ACCEPT_HS256",
+    // P3-5: issuer/audience claim policy (read by jwtKeys at require time below)
+    "JWT_ISSUER",
+    "JWT_AUDIENCE",
+    "JWT_AUD_GUEST",
+    "JWT_AUD_ADMIN",
+    "JWT_AUD_SUPERADMIN",
+    "JWT_VERIFY_CLAIMS",
   ]) {
     if (workerData[k] != null && process.env[k] == null) {
       process.env[k] = workerData[k];
@@ -54,7 +61,8 @@ const REVOCATION_FAIL_CLOSED =
   const d = jwtKeys.describe();
   console.log(
     `[secretWorker] JWT sign=${d.signAlg}; verify accepts=[${d.accepted.join(", ") || "none"}]` +
-      `; privateKey=${d.hasPrivateKey ? "yes" : "no"}, publicKey=${d.hasPublicKey ? "yes" : "no"}`
+      `; privateKey=${d.hasPrivateKey ? "yes" : "no"}, publicKey=${d.hasPublicKey ? "yes" : "no"}` +
+      `; iss=${d.issuer}; claims=${d.verifyClaimsMode}`
   );
   if (d.signAlg === "RS256" && !d.hasPrivateKey) {
     console.error(
@@ -178,6 +186,20 @@ parentPort.on("message", async (task) => {
           signOpts.expiresIn = `${ttlMin}m`;
         }
 
+        // P3-5: bind the token to a known issuer + a role-specific audience so it
+        // can't be replayed across roles/services. Any caller-supplied issuer/
+        // audience wins; otherwise we default iss from policy and derive aud from
+        // the payload's role. (jwt.sign would throw if task.data already carried
+        // iss/aud — our payloads never do.)
+        const claimsPolicy = jwtKeys.getClaimsPolicy();
+        if (signOpts.issuer == null && claimsPolicy.issuer) {
+          signOpts.issuer = claimsPolicy.issuer;
+        }
+        if (signOpts.audience == null) {
+          const aud = claimsPolicy.audienceForRole(task.data && task.data.role);
+          if (aud) signOpts.audience = aud;
+        }
+
         result = jwt.sign(task.data, signingKey, signOpts);
         parentPort.postMessage({ id: task.id, result });
         break;
@@ -200,14 +222,11 @@ parentPort.on("message", async (task) => {
         };
 
         if (raw.ignoreExpiration === true) verifyOpts.ignoreExpiration = true;
-        if (typeof raw.issuer === "string") verifyOpts.issuer = raw.issuer;
         if (typeof raw.subject === "string") verifyOpts.subject = raw.subject;
-        if (
-          typeof raw.audience === "string" ||
-          (Array.isArray(raw.audience) && raw.audience.every((x) => typeof x === "string"))
-        ) {
-          verifyOpts.audience = raw.audience;
-        }
+        // P3-5: iss/aud are NOT passed to jwt.verify here. They're applied by the
+        // central claim policy below (jwtKeys.enforceClaims) so we can run a
+        // monitor mode (log-only) before enforcing, and key the expected audience
+        // off the token's own role rather than a per-caller option.
         if (typeof raw.maxAge === "string") verifyOpts.maxAge = raw.maxAge;
         if (Number.isFinite(raw.clockTimestamp)) verifyOpts.clockTimestamp = raw.clockTimestamp;
 
@@ -217,6 +236,11 @@ parentPort.on("message", async (task) => {
         });
 
         if (!result.jti) throw new Error("MissingJTI");
+
+        // P3-5: issuer/audience policy (monitor logs, enforce rejects). Only runs
+        // for tokens our keys verified — Firebase ID tokens never reach here
+        // (they fail our signature check and fall back to verifyIdToken upstream).
+        jwtKeys.enforceClaims(result, "verify");
 
         // Check revocation (Redis preferred)
         if (useRedis) {

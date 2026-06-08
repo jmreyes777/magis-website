@@ -37,6 +37,13 @@ function spawnWorker() {
       JWT_PUBLIC_KEY: process.env.JWT_PUBLIC_KEY,
       JWT_ALG: process.env.JWT_ALG,
       JWT_ACCEPT_HS256: process.env.JWT_ACCEPT_HS256,
+      // P3-5: issuer/audience claim policy (read by jwtKeys inside the worker)
+      JWT_ISSUER: process.env.JWT_ISSUER,
+      JWT_AUDIENCE: process.env.JWT_AUDIENCE,
+      JWT_AUD_GUEST: process.env.JWT_AUD_GUEST,
+      JWT_AUD_ADMIN: process.env.JWT_AUD_ADMIN,
+      JWT_AUD_SUPERADMIN: process.env.JWT_AUD_SUPERADMIN,
+      JWT_VERIFY_CLAIMS: process.env.JWT_VERIFY_CLAIMS,
     },
   });
 

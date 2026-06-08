@@ -40,6 +40,94 @@ const PUBLIC_KEY = normalizePem(process.env.JWT_PUBLIC_KEY);
 const ACCEPT_HS256 =
   String(process.env.JWT_ACCEPT_HS256 || "true").toLowerCase() !== "false";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// P3-5: issuer (iss) + audience (aud) claim policy.
+//
+// Goal: bind every token we mint to a known ISSUER and to a role-specific
+// AUDIENCE, then verify both — so a token minted for one role can't be replayed
+// against another, and a token from a different issuer/deployment (or a leaked
+// shared secret used by another service) is rejected.
+//
+// Rollout-safe, mirrors the RS256 / edge-auth pattern:
+//   JWT_VERIFY_CLAIMS = monitor | enforce | off   (default: monitor)
+//     monitor → SIGN iss/aud + LOG mismatches, never reject (safe default)
+//     enforce → SIGN iss/aud + REJECT tokens with wrong/missing iss or aud
+//     off     → don't check claims at all (claims are still SIGNED in)
+// Tokens are ALWAYS signed with iss/aud, so the claims exist before enforcement.
+// Flip to "enforce" only AFTER the longest token TTL (branch-admin login = 8h)
+// has elapsed post-deploy, so pre-rollout tokens (which lack the claims) have
+// all expired. The aud is checked for consistency with the token's OWN role —
+// every token we mint carries a role — which, combined with each endpoint's
+// existing role check, means an endpoint effectively only accepts tokens whose
+// audience matches that role.
+const JWT_ISSUER = process.env.JWT_ISSUER || "magis-api";
+const JWT_AUD_DEFAULT = process.env.JWT_AUDIENCE || "magis-api";
+const AUDIENCES = {
+  user: process.env.JWT_AUD_GUEST || "magis-guest",
+  branchadmin: process.env.JWT_AUD_ADMIN || "magis-admin",
+  superadmin: process.env.JWT_AUD_SUPERADMIN || "magis-superadmin",
+};
+const VERIFY_CLAIMS_MODE = (() => {
+  const m = String(process.env.JWT_VERIFY_CLAIMS || "monitor").toLowerCase();
+  return m === "off" || m === "enforce" ? m : "monitor";
+})();
+
+/** Map a token's role claim to its expected audience (default for unknown). */
+function audienceForRole(role) {
+  return (role && AUDIENCES[role]) || JWT_AUD_DEFAULT;
+}
+
+/** aud may be a string or an array (RFC 7519); match either form. */
+function audienceMatches(tokenAud, expected) {
+  if (Array.isArray(tokenAud)) return tokenAud.includes(expected);
+  return tokenAud === expected;
+}
+
+/**
+ * Compare a decoded token's iss/aud against policy. Pure (never throws); returns
+ * { ok, issues }. Callers decide whether to reject (enforce) or just log.
+ */
+function checkClaims(decoded) {
+  const issues = [];
+  if (JWT_ISSUER && (!decoded || decoded.iss !== JWT_ISSUER)) {
+    issues.push(`iss(got=${decoded ? decoded.iss : undefined},want=${JWT_ISSUER})`);
+  }
+  const expectedAud = audienceForRole(decoded && decoded.role);
+  if (expectedAud && !(decoded && audienceMatches(decoded.aud, expectedAud))) {
+    issues.push(`aud(got=${JSON.stringify(decoded && decoded.aud)},want=${expectedAud})`);
+  }
+  return { ok: issues.length === 0, issues };
+}
+
+/**
+ * Apply the claim policy: throw "InvalidClaims" in enforce, warn in monitor,
+ * no-op in off. A throw here is handled exactly like any other verification
+ * failure upstream (→ 401), so enforcement degrades safely.
+ */
+function enforceClaims(decoded, ctx = "") {
+  if (VERIFY_CLAIMS_MODE === "off") return;
+  const { ok, issues } = checkClaims(decoded);
+  if (ok) return;
+  const msg = `JWT claim mismatch ${ctx ? `(${ctx}) ` : ""}jti=${(decoded && decoded.jti) || "?"}: ${issues.join("; ")}`;
+  if (VERIFY_CLAIMS_MODE === "enforce") {
+    const err = new Error("InvalidClaims");
+    err.detail = msg;
+    throw err;
+  }
+  console.warn(`[jwtKeys] (claims monitor) ${msg}`);
+}
+
+/** Signing-side policy (issuer + role→audience) consumed by the secret worker. */
+function getClaimsPolicy() {
+  return {
+    issuer: JWT_ISSUER,
+    mode: VERIFY_CLAIMS_MODE,
+    audienceForRole,
+    audiences: AUDIENCES,
+    defaultAudience: JWT_AUD_DEFAULT,
+  };
+}
+
 /**
  * Signing key + algorithm. Throws a clear error if the required key is missing
  * so misconfiguration fails loudly (rather than silently signing with a default).
@@ -87,7 +175,11 @@ function getVerifyParamsForToken(token) {
 function verifyLocal(token, options = {}) {
   const params = getVerifyParamsForToken(token);
   if (!params) throw new Error("Unsupported or unaccepted token algorithm");
-  return jwt.verify(token, params.key, { ...options, algorithms: params.algorithms });
+  const decoded = jwt.verify(token, params.key, { ...options, algorithms: params.algorithms });
+  // P3-5: apply the same iss/aud policy as the worker (monitor logs, enforce
+  // rejects). Runs only for tokens our keys verified.
+  enforceClaims(decoded, "verifyLocal");
+  return decoded;
 }
 
 /** Human-readable posture for startup logging. */
@@ -101,14 +193,25 @@ function describe() {
     hasPrivateKey: !!PRIVATE_KEY,
     hasPublicKey: !!PUBLIC_KEY,
     acceptHs256: ACCEPT_HS256,
+    issuer: JWT_ISSUER,
+    audiences: AUDIENCES,
+    verifyClaimsMode: VERIFY_CLAIMS_MODE,
   };
 }
 
 module.exports = {
   JWT_ALG,
   ACCEPT_HS256,
+  JWT_ISSUER,
+  AUDIENCES,
+  VERIFY_CLAIMS_MODE,
   getSigningParams,
   getVerifyParamsForToken,
   verifyLocal,
+  audienceForRole,
+  audienceMatches,
+  checkClaims,
+  enforceClaims,
+  getClaimsPolicy,
   describe,
 };
