@@ -779,16 +779,14 @@ export const disconnectSocket = async (branchEmail, isLogout = false) => {
     const email = branchEmail || sessionStorage.getItem("branchEmail");
     const currentTabId = localStorage.getItem("tabId");
     const activeTabId = localStorage.getItem("activeSocketTabId");
-    // P2-5: authenticate the offline beacon/fetch via a query-param token
-    // (header-less sendBeacon; the cookie may not be sent cross-origin). The
+    // P3-4: authenticate the offline beacon/fetch via a token in the JSON body
+    // (not a ?token= query param, which leaks into logs/history/referrers). The
     // backend resolves the branch from the token and ignores the body email.
     const adminToken =
       sessionStorage.getItem("branchAdminToken") ||
       localStorage.getItem("branchAdminToken") ||
       "";
-    const url = `${process.env.REACT_APP_API_URL}/api/update-status${
-      adminToken ? `?token=${encodeURIComponent(adminToken)}` : ""
-    }`;
+    const url = `${process.env.REACT_APP_API_URL}/api/update-status`;
 
     // Always tear down the socket and heartbeat first
     if (socketInstance?.connected) {
@@ -804,6 +802,7 @@ export const disconnectSocket = async (branchEmail, isLogout = false) => {
         branchEmail: email,
         online: false,
         lastSeen: new Date().toISOString(),
+        token: adminToken, // P3-4: token travels in the body, not the URL
       };
 
       // Interactive logout: use fetch

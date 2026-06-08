@@ -31,11 +31,13 @@ const authenticateBranchAdmin = async (req, res, next) => {
       token = req.cookies.branchAdminToken;
       console.debug("[AUTH] Retrieved token from HTTP-only cookie.");
     }
-    // 3) Fallback to query-param token (P2-5): for header-less calls such as
-    //    navigator.sendBeacon (tab-close offline beacon), which cannot set an
-    //    Authorization header and may not send the cookie cross-origin.
-    else if (req.query && typeof req.query.token === "string" && req.query.token) {
-      token = req.query.token.trim();
+    // 3) Fallback to a token in the JSON body (P3-4): for header-less calls such
+    //    as navigator.sendBeacon (tab-close offline beacon), which cannot set an
+    //    Authorization header and may not send the cookie cross-origin. The body
+    //    is used INSTEAD OF a ?token= query param because query strings leak into
+    //    access logs, browser history, proxy/CDN logs, and Referer headers.
+    else if (req.body && typeof req.body.token === "string" && req.body.token) {
+      token = req.body.token.trim();
     }
     // 4) No token available
     else {

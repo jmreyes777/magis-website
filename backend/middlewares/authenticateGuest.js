@@ -17,9 +17,13 @@ module.exports = async function authenticateGuest(req, res, next) {
   } else if (req.cookies && typeof req.cookies.guestToken === "string") {
     token = (req.cookies.guestToken || "").trim();
 
-  // 3) Fallback to query-param (for sendBeacon or other header-less calls)
-  } else if (req.query && typeof req.query.token === "string") {
-    token = (req.query.token || "").trim();
+  // 3) Fallback to a token in the JSON body (P3-4): for header-less calls such
+  //    as navigator.sendBeacon (tab-close force-close), which can't set an
+  //    Authorization header. The body is used INSTEAD OF a ?token= query param
+  //    because query strings leak into access logs, browser history, proxy/CDN
+  //    logs, and outbound Referer headers.
+  } else if (req.body && typeof req.body.token === "string") {
+    token = (req.body.token || "").trim();
 
   // 4) No token provided
   } else {

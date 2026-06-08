@@ -304,13 +304,8 @@ export const AuthProvider = ({ children }) => {
     // 1️⃣ Update online status in Firestore if this tab owns the socket
     if (email && activeTabId === tabId) {
       try {
-        const payload = {
-          branchEmail: email,
-          email,
-          online: false,
-          lastSeen: new Date().toISOString(),
-        };
-        // P2-5: authenticate the offline beacon via a query-param token —
+        // P3-4: authenticate the offline beacon via a token in the JSON body
+        // (not a ?token= query param, which leaks into logs/history/referrers).
         // sendBeacon can't set an Authorization header and the fetch fallback
         // below doesn't send the cookie. The backend verifies it and resolves
         // the branch from the token (the body email is ignored server-side).
@@ -318,9 +313,14 @@ export const AuthProvider = ({ children }) => {
           sessionStorage.getItem("branchAdminToken") ||
           localStorage.getItem("branchAdminToken") ||
           "";
-        const url = `${process.env.REACT_APP_API_URL}/api/update-status${
-          adminToken ? `?token=${encodeURIComponent(adminToken)}` : ""
-        }`;
+        const payload = {
+          branchEmail: email,
+          email,
+          online: false,
+          lastSeen: new Date().toISOString(),
+          token: adminToken,
+        };
+        const url = `${process.env.REACT_APP_API_URL}/api/update-status`;
   
         if (isTabClosing && navigator.sendBeacon) {
           const blob = new Blob([JSON.stringify(payload)], {

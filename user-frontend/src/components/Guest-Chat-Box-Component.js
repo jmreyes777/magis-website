@@ -1950,10 +1950,12 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
       }
 
       try {
-        const url = new URL(`${process.env.REACT_APP_API_URL}/api/guest/force-close`);
-        if (token) url.searchParams.set("token", token);
-        const payload = JSON.stringify({ guestId: gid, branchEmail: bEmail });
-        navigator.sendBeacon(url.toString(), new Blob([payload], { type: "application/json" }));
+        const url = `${process.env.REACT_APP_API_URL}/api/guest/force-close`;
+        // P3-4: send the auth token in the JSON body (not a ?token= query param,
+        // which leaks into logs/history/referrers). sendBeacon can't set headers;
+        // the backend reads the token from the body for this header-less call.
+        const payload = JSON.stringify({ guestId: gid, branchEmail: bEmail, token });
+        navigator.sendBeacon(url, new Blob([payload], { type: "application/json" }));
         console.log("[GUEST] 📡 Beacon sent to force-close API.");
       } catch (err) {
         console.warn("[GUEST] ❌ Beacon failed:", err.message);
