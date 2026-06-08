@@ -1,7 +1,8 @@
 # Cloudflare Worker config — Magis edge worker (STAGING)
 # Service-worker format (index.js uses addEventListener("fetch", ...) and
 # reads bindings from globalThis: BACKEND_URL, ADMIN_URL, GUEST_URL,
-# JWT_SECRET, JWT_PUBLIC_KEY, EDGE_SHARED_SECRET, RATE_LIMIT_KV).
+# JWT_SECRET, JWT_PUBLIC_KEY, EDGE_SHARED_SECRET, RATE_LIMIT_KV,
+# RATE_LIMIT_FAIL_CLOSED, CSP_MODE).
 #
 # Secrets are NOT stored here. Set them with:
 #   wrangler secret put JWT_SECRET
@@ -38,6 +39,15 @@ BACKEND_URL = "https://magis-website.onrender.com"
 # set "true" to fail-CLOSED (block on KV error — stronger, but a KV outage can
 # reject legitimate traffic). No effect when RATE_LIMIT_KV is simply unbound.
 # RATE_LIMIT_FAIL_CLOSED = "false"
+
+# P3-1: SPA script-src CSP mode. DEFAULT (unset) = "nonce": the edge swaps the
+# build-time placeholder nonce ("xyz123") in served HTML for a fresh per-request
+# nonce and emits a nonce-based Content-Security-Policy header WITHOUT
+# 'unsafe-inline', so injected <script>s can't execute. Set "legacy" ONLY as an
+# emergency rollback — it restores the old 'unsafe-inline' header and stops
+# substituting the nonce (note: the SPA's baked <meta> CSP still enforces the
+# nonce policy regardless, so "legacy" mirrors the pre-fix production behavior).
+# CSP_MODE = "nonce"
 
 # P2-1: KV namespace for edge rate-limiting. While UNBOUND, edge rate-limiting
 # auto-skips (the origin still applies its own Redis-backed limits). To ACTIVATE

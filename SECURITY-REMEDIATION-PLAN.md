@@ -183,8 +183,9 @@ None of the recommended fixes require removing features or degrading the custome
 
 ### LOW / HARDENING
 
-#### [ ] P3-1 — Edge CSP allows `script-src 'unsafe-inline'`
-- **Where:** `magis-edge-worker/index.js:141` — undercuts the nonce-based CSP set by the backend on the actually-served SPA. Move toward nonces/hashes. **Effort:** M
+#### [x] P3-1 — Edge CSP allows `script-src 'unsafe-inline'` — ✅ FIXED 2026-06-08
+- **Where:** `magis-edge-worker/index.js` `cspForSpa()` — the edge (the actual SPA server: it proxies `ADMIN_URL`/`GUEST_URL` and overrides the CSP header) emitted `script-src 'unsafe-inline'`. The SPA builds already ship a `<meta>` CSP + `nonce="…"` on every inline `<script>` + `window.__CSP_NONCE`, but all keyed to a **static build-time placeholder `xyz123`** that nothing ever replaced — so the nonce was public/worthless and `'unsafe-inline'` made inline injection trivial.
+- **Resolution (2026-06-08):** The edge now performs **per-request nonce substitution** on HTML responses: it generates a fresh 128-bit hex nonce and replaces the `xyz123` placeholder in the `nonce="…"` attributes, the baked `<meta>` CSP (`'nonce-…'`), and `window.__CSP_NONCE` (which runtime SDK loaders like `FacebookLatestVideo.jsx` read to tag dynamically-injected scripts). It emits a matching nonce-based `Content-Security-Policy` header with **`script-src 'self' 'nonce-<n>' <hosts>` and NO `'unsafe-inline'`**. Same-origin bundles match `'self'`; reCAPTCHA/Maps/FB match the host allowlist or the propagated nonce, so the *set* of executable scripts is unchanged — only the nonce value becomes unpredictable. `style-src 'unsafe-inline'` is intentionally KEPT (React renders inline `style=""` attributes that nonces/hashes can't cover; style injection is far lower risk). A `CSP_MODE="legacy"` wrangler var provides an instant rollback. Verified by a 14-assertion logic smoke test (substitution leaves no `xyz123`; hardened header has no `'unsafe-inline'`; legacy restores it). **Note:** the backend's own `build/` + helmet path is unaffected and is moot under the P2-2 origin lock-down (all prod traffic is edge-served). **Effort:** M
 
 #### [ ] P3-2 — `trust proxy: true` enables XFF spoofing for IP rate limits
 - **Where:** `backend/server.js:63` — pin to the known proxy hop count. **Effort:** S
@@ -249,8 +250,8 @@ None of the recommended fixes require removing features or degrading the custome
 - [ ] Passkeys / WebAuthn for staff login
 - [ ] KMS/HSM key custody + crypto-shredding
 - [ ] Tamper-evident audit logs + SIEM export
-- [ ] Edge CSP nonces; supply-chain scanning (Dependabot/SBOM)
-- [ ] Hardening items P3-1 … P3-6
+- [x] Edge CSP nonces — ✅ 2026-06-08 (P3-1: per-request nonce substitution, `script-src` no longer `'unsafe-inline'`); supply-chain scanning (Dependabot/SBOM) still pending
+- [ ] Hardening items P3-2 … P3-5 (P3-1 ✅, P3-6 ✅)
 
 ---
 

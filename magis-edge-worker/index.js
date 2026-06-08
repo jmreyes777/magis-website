@@ -174,11 +174,36 @@ function addSecurityHeaders(h, { hsts = true } = {}) {
   return h;
 }
 
-function cspForSpa() {
+// Fresh, unpredictable per-request nonce (hex → safe in HTML attrs + CSP).
+function generateNonce() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let hex = "";
+  for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, "0");
+  return hex;
+}
+
+// P3-1: script-src is now nonce-based (no 'unsafe-inline'). Inline <script>s in
+// the SPA carry the per-request nonce (substituted from the build placeholder),
+// same-origin bundles match 'self', and third-party SDKs match the host list or
+// read window.__CSP_NONCE. style-src KEEPS 'unsafe-inline' on purpose — React
+// renders inline style="" attributes that nonces/hashes cannot cover, and style
+// injection is a far lower risk than script injection.
+//   - nonce set   → script-src 'self' 'nonce-<n>' <hosts>   (hardened, default)
+//   - allowUnsafeInline → script-src 'self' 'unsafe-inline' <hosts> (legacy rollback)
+//   - neither     → script-src 'self' <hosts>               (non-HTML assets)
+function spaScriptSrc({ nonce = "", allowUnsafeInline = false } = {}) {
+  const hosts =
+    "https://connect.facebook.net https://www.google.com https://apis.google.com https://www.googletagmanager.com https://maps.googleapis.com https://identitytoolkit.googleapis.com https://challenges.cloudflare.com";
+  const extra = allowUnsafeInline ? " 'unsafe-inline'" : nonce ? ` 'nonce-${nonce}'` : "";
+  return `script-src 'self'${extra} ${hosts};`;
+}
+
+function cspForSpa(opts = {}) {
   return [
     "default-src 'self';",
-    // scripts
-    "script-src 'self' 'unsafe-inline' https://connect.facebook.net https://www.google.com https://apis.google.com https://www.googletagmanager.com https://maps.googleapis.com https://identitytoolkit.googleapis.com https://challenges.cloudflare.com;",
+    // scripts (P3-1: nonce-based; see spaScriptSrc)
+    spaScriptSrc(opts),
     // styles
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;",
     // images (add FB CDNs)
@@ -322,11 +347,42 @@ async function handle(request) {
     } else {
       h.set("Cache-Control", "no-cache");
     }
-    h.set("Content-Security-Policy", cspForSpa());
     if (allowedOrigin) {
       h.set("Access-Control-Allow-Origin", allowedOrigin);
       h.set("Access-Control-Allow-Credentials", "true");
     }
+
+    // P3-1: HTML documents are built with a placeholder nonce ("xyz123") on every
+    // legitimate inline <script>/<style>, in the baked <meta> CSP, and in
+    // window.__CSP_NONCE (which runtime SDK loaders read to tag dynamically
+    // injected scripts). We swap that placeholder for a fresh, unpredictable
+    // per-request nonce and emit a matching nonce-based CSP header WITHOUT
+    // 'unsafe-inline', so an injected <script> can no longer execute by reusing a
+    // guessable static nonce. Set CSP_MODE="legacy" (wrangler [vars]) to roll
+    // back to the old unsafe-inline header + un-substituted nonce if ever needed.
+    const cspMode =
+      typeof CSP_MODE !== "undefined" ? String(CSP_MODE).toLowerCase() : "nonce";
+    const isHtml = (resp.headers.get("Content-Type") || "").includes("text/html");
+
+    if (isHtml && cspMode !== "legacy") {
+      const nonce = generateNonce();
+      const html = (await resp.text())
+        .replaceAll('nonce="xyz123"', `nonce="${nonce}"`)
+        .replaceAll("'nonce-xyz123'", `'nonce-${nonce}'`)
+        .replaceAll('__CSP_NONCE="xyz123"', `__CSP_NONCE="${nonce}"`)
+        .replaceAll('__CSP_NONCE = "xyz123"', `__CSP_NONCE = "${nonce}"`);
+      h.set("Content-Security-Policy", cspForSpa({ nonce }));
+      h.delete("Content-Length"); // body length changed by the substitution
+      addSecurityHeaders(h);
+      return new Response(html, { status: resp.status, headers: h });
+    }
+
+    // Non-HTML assets (or legacy rollback). CSP on an asset response governs
+    // nothing, so this is effectively cosmetic except for the legacy fallback.
+    h.set(
+      "Content-Security-Policy",
+      cspForSpa(cspMode === "legacy" ? { allowUnsafeInline: true } : {})
+    );
     addSecurityHeaders(h);
     return new Response(resp.body, { status: resp.status, headers: h });
   }
