@@ -1,0 +1,252 @@
+# Magis Pawnshop — Performance & Speed Plan
+
+**Status:** Draft for review
+**Scope:** `backend/` (Express + Firebase + Socket.IO), `magis-edge-worker/` (Cloudflare), `admin-frontend/`, `user-frontend/`
+**Prepared by:** Engineering (performance review)
+**Last updated:** 2026-06-08
+
+> This document is an assessment and action plan. **No application code has been changed** as a result of this review. File/line references point to the current `main` branch. Every recommendation is designed to ship with **zero compromise to the security work** in `SECURITY-REMEDIATION-PLAN.md` (P0–P3); each item states the specific security interaction to preserve.
+
+---
+
+## 1. Executive summary
+
+The platform already has the **hardest performance fundamentals in place**: route-level code splitting (`React.lazy` + `Suspense`) in both SPAs, the tree-shakeable **modular Firebase SDK**, `console.*` stripping in production, edge-side **immutable caching of hashed assets**, and Socket.IO `perMessageDeflate`. This plan therefore targets the **remaining bottlenecks** rather than re-architecting.
+
+The biggest wins, in order of value-for-effort:
+
+- **No response compression at the origin** — gzip/brotli is not enabled for API JSON (quick, high-impact).
+- **No Firestore caching + several unbounded queries** — read-heavy near-static lookups hit Firestore on every request, and a few queries read whole collections / full conversations with no `limit` (largest API-latency lever).
+- **A single secret-worker thread** serializes every JWT operation across all HTTP and socket auth (throughput ceiling under load).
+- **The Workbox service worker is wired but disabled** — enabling it (assets-only) is a large repeat-visit win.
+
+None of the recommended changes require removing features, degrading UX, or weakening any security control. The plan is **sequenced so each phase builds on the previous one** (see §4).
+
+---
+
+## 2. How to read this document
+
+**Impact**
+
+- **High** — materially improves latency, throughput, or page-load for many requests/users.
+- **Medium** — meaningful improvement on specific paths or repeat visits.
+- **Low** — incremental / hygiene; compounds with the rest.
+
+**Effort**
+
+- **S** — hours; localized change.
+- **M** — ~1–2 days; touches multiple files or needs a small abstraction.
+- **L** — multi-day; infra or cross-cutting.
+
+**Security-preservation note** — every item states exactly how it ships **without** weakening any P0–P3 control. The two recurring invariants:
+
+- **Caching applies only to public, non-personalized data** — never auth-gated responses, decrypted message content, or JWT-revocation state.
+- **HTML stays per-request** — the P3-1 CSP nonce makes `index.html` uncacheable by design; nothing may cache HTML/navigations.
+
+---
+
+## 3. Findings & recommendations
+
+### PHASE 0 — Baseline & guardrails
+
+#### [ ] PERF0-1 — Establish a measurable baseline before any change
+- **Where:** `user-frontend/package.json` already ships `source-map-explorer` + `webpack-bundle-analyzer` (`analyze` script); `reportWebVitals.js` exists in both SPAs but is unused.
+- **Opportunity:** Without numbers, later phases are guesswork and regressions go unnoticed.
+- **Recommendation:** Capture (1) main-chunk sizes via `npm run analyze` for both SPAs, (2) p50/p95 latency on `/api/messages`, `/api/analytics`, `/api/guest/init` with `autocannon`/`k6`, (3) LCP/INP/CLS by wiring `reportWebVitals` to the console or an endpoint.
+- **Security-preservation note:** Measurement only — no runtime change.
+- **Impact:** High (enables/validates everything else). **Effort:** S
+
+### PHASE 1 — Backend quick wins
+
+#### [ ] PERF1-1 — Enable response compression at the origin
+- **Where:** No `compression` middleware anywhere in `backend/server.js`; not in `backend/package.json`.
+- **Opportunity:** Largest single origin win for JSON payloads (analytics, message history) and the origin→edge hop.
+- **Recommendation:** Add `compression()` early in the middleware chain.
+- **Security-preservation note:** BREACH only applies when a secret and reflected user input share one compressed body. Secrets here live in cookies/headers, not bodies, and Cloudflare already compresses edge→client regardless — so origin compression adds **no new client-facing risk**. To be strict, skip compression on any response that echoes request input alongside a CSRF token.
+- **Impact:** High. **Effort:** S
+
+#### [ ] PERF1-2 — Gate request logging by environment
+- **Where:** `backend/server.js:258` — `app.use(morgan("dev"))` runs unconditionally.
+- **Opportunity:** `dev` format is verbose; per-request string building + I/O on every production request.
+- **Recommendation:** Use `morgan("combined")` only when `NODE_ENV !== "production"` (or sample in prod).
+- **Security-preservation note:** Logging behavior only; keep security-relevant audit logging intact.
+- **Impact:** Low. **Effort:** S
+
+#### [ ] PERF1-3 — Add `Cache-Control` to public GET endpoints
+- **Where:** Public read endpoints set no cache headers, so neither the edge nor the browser can cache them.
+- **Opportunity:** Short caching of public, non-personalized reads (branch status, FAQ-type content) cuts repeat latency and origin load. Produces the headers Phase 5 consumes.
+- **Recommendation:** Set `Cache-Control: public, max-age=30, s-maxage=60` on **public** GET responses only.
+- **Security-preservation note:** Apply **only** to non-authenticated, non-personalized endpoints. Never on anything behind `authenticateBranchAdmin`/`authenticateSuperAdmin` (would cross-pollute users).
+- **Impact:** Medium. **Effort:** S
+
+#### [ ] PERF1-4 — Remove dead database dependencies from production
+- **Where:** `mongoose`/`mongodb` are imported **only** by the one-off script `backend/addSpaceIdToBranchAndMessages.js`, never on a request path; listed in `backend/package.json` `dependencies`.
+- **Opportunity:** Smaller install, faster cold start, lower memory, reduced attack surface.
+- **Recommendation:** Move to `devDependencies` (or drop and run the script ad hoc).
+- **Security-preservation note:** Net **reduction** in dependency/attack surface; no runtime path affected.
+- **Impact:** Low. **Effort:** S
+
+### PHASE 2 — Data layer (Firestore)
+
+#### [ ] PERF2-1 — Introduce a Redis-backed cache for near-static reads
+- **Where:** No general cache today; the only example is an in-memory cache for the FB-video endpoint (`backend/server.js:737`). Hot, repeated reads: branch list (`backend/routes/branches.js:65`), `branchAdmins` on login/profile (`backend/routes/branchadminauth.js:65`, `:196`), branch doc on guest init (`backend/routes/guest.js:46`).
+- **Opportunity:** These are read on nearly every request but change rarely — caching removes a Firestore round-trip from the hot path.
+- **Recommendation:** Generalize the FB-video pattern into a small Redis-backed helper (Redis already exists from P2-1) with a 30–300s TTL and explicit invalidation on write.
+- **Security-preservation note:** Cache **only** non-user-specific, non-sensitive data. **Never** cache conversation/message content (sensitive, encrypted at rest), auth decisions, or revocation state. Key entries by branch/role scope.
+- **Impact:** High. **Effort:** M
+
+#### [ ] PERF2-2 — Bound the full-collection read
+- **Where:** `backend/routes/archived.js:12` — `db.collection("messages").get()` reads the **entire** collection; cost grows unbounded with volume.
+- **Recommendation:** Add `where`-scoping + `limit` + cursor pagination.
+- **Security-preservation note:** Keep existing branch/role scoping filters; pure query-shape change.
+- **Impact:** High. **Effort:** S
+
+#### [ ] PERF2-3 — Paginate conversation fetches
+- **Where:** `backend/routes/messages.js:641-645` — `guestId`+`branchId`+`orderBy(timestamp)` `.get()` with no limit loads an entire conversation.
+- **Recommendation:** Add `limit(N)` + `startAfter` cursor pagination for the dashboard; lazy-load older messages.
+- **Security-preservation note:** Retain the `where("branchId", "==", req.branchId)` scoping; do not cache decrypted content.
+- **Impact:** Medium–High. **Effort:** M
+
+#### [ ] PERF2-4 — Replace in-application analytics aggregation
+- **Where:** `backend/routes/analytics.js:255-269` and `:357-367` — date-range `messages` scans with no `limit`, aggregated in Node via `forEach`.
+- **Recommendation:** Bound the range, and move counting to Firestore **aggregation queries** (`count()`) or pre-computed rollup counters updated on write.
+- **Security-preservation note:** Query shape + aggregation only; scoping filters unchanged.
+- **Impact:** High (on analytics paths). **Effort:** M
+
+#### [ ] PERF2-5 — Commit composite index configuration
+- **Where:** No `firestore.indexes.json`/`firebase.json` in the repo; multi-`where`+`orderBy` queries (e.g. `messages.js:641-645`, analytics timestamp+branch) require composite indexes.
+- **Recommendation:** Commit an index config so required indexes are reproducible and queries stay fast.
+- **Security-preservation note:** Indexing only; no data exposure or rule change (Firestore security rules unaffected).
+- **Impact:** Medium. **Effort:** S
+
+### PHASE 3 — Concurrency & scaling
+
+#### [ ] PERF3-1 — Convert the secret worker to a small pool
+- **Where:** `backend/utils/secretPool.js:13` — a **single** worker thread; every JWT sign/verify/revoke for all HTTP + socket auth serializes through it (each call also does a Redis revocation round-trip).
+- **Recommendation:** Round-robin pool of N workers (e.g. `JWT_WORKER_POOL=4`) reusing the same worker file and message protocol.
+- **Security-preservation note:** **Identical** isolation model — the signing secret stays inside worker threads, never on the main thread; same per-call verify + revocation logic. Pure throughput change.
+- **Impact:** High (under concurrency). **Effort:** M
+
+#### [ ] PERF3-2 — Enable horizontal / multi-process scaling
+- **Where:** `backend/package.json:35` — `start` is a bare `node server.js` (single process).
+- **Opportunity:** Rate-limiting + revocation are Redis-backed and Socket.IO uses `@socket.io/redis-adapter`, so scaling out is now safe (it was not pre-P2-1).
+- **Recommendation:** Run multiple Render instances or Node `cluster` workers behind the existing edge.
+- **Security-preservation note:** The cluster-safety guarantees from P2-1 are exactly what make this safe — no control degrades to per-instance. Each process spawns its own secret-worker pool.
+- **Impact:** High (capacity). **Effort:** M
+
+### PHASE 4 — Frontend delivery
+
+#### [ ] PERF4-1 — Enable and tune the Workbox service worker
+- **Where:** Wired but opt-in/likely off — `user-frontend/src/index.js:52` gates registration on `REACT_APP_ENABLE_SW === 'true'`.
+- **Recommendation:** Enable with a precache of **hashed static assets** + runtime caching for images/fonts. Large repeat-visit win.
+- **Security-preservation note (critical):** The SW must be **network-only/network-first for HTML navigations** and must **never cache `index.html`**. The P3-1 CSP uses a per-request nonce; a cached HTML page would carry a stale nonce and the CSP would block your own scripts. Caching only hashed (nonce-independent) assets avoids this entirely.
+- **Impact:** High (repeat visits). **Effort:** M
+
+#### [ ] PERF4-2 — Remove server-only packages from the browser bundles
+- **Where:** Both SPAs list `socket.io` (the server), `express`, `multer`, `mongoose` in dependencies (`user-frontend/package.json`, `admin-frontend/package.json`).
+- **Recommendation:** Confirm unimported in browser code and remove.
+- **Security-preservation note:** Reduces install + potential bundle surface; no runtime feature affected.
+- **Impact:** Low–Medium. **Effort:** S
+
+#### [ ] PERF4-3 — Keep heavy route-local libraries out of the main chunk
+- **Where:** `recharts` (admin analytics), `@react-google-maps/api` (branches), `framer-motion` — already route-split.
+- **Recommendation:** Verify via the analyzer they are not in the shared/main chunk; lazy-load Google Maps only on the branches route.
+- **Security-preservation note:** Bundling only; CSP already allows the relevant Google origins.
+- **Impact:** Medium. **Effort:** S–M
+
+#### [ ] PERF4-4 — Add connection hints
+- **Where:** `index.html` in both SPAs.
+- **Recommendation:** `preconnect`/`dns-prefetch` for `*.googleapis.com`, `*.gstatic.com`, and Firebase endpoints to cut TLS-setup latency.
+- **Security-preservation note:** Only origins already permitted by the CSP; no policy widening.
+- **Impact:** Low–Medium. **Effort:** S
+
+#### [ ] PERF4-5 — Optimize image assets
+- **Where:** `src/assets/` in both SPAs.
+- **Recommendation:** Serve WebP/AVIF at correct dimensions (the apps already depend on `browser-image-compression` for uploads).
+- **Security-preservation note:** Static asset processing only.
+- **Impact:** Medium. **Effort:** S–M
+
+### PHASE 5 — Edge / network polish
+
+#### [ ] PERF5-1 — Edge-cache public API GETs
+- **Where:** The edge forwards origin `Cache-Control` via `minimalResponse` (`magis-edge-worker/index.js:282`) but force-caches only when `isProdAsset` (`:284`).
+- **Recommendation:** Once PERF1-3 adds `s-maxage` to public GETs, optionally enable Cloudflare edge caching for those paths.
+- **Security-preservation note:** Restrict to public endpoints; never cache responses with `Set-Cookie` or that vary on `Authorization`.
+- **Impact:** Medium. **Effort:** S
+
+#### [x] PERF5-2 — Static/HTML caching is already optimal (no action)
+- **Where:** Hashed assets are `immutable` (`magis-edge-worker/index.js:392`); HTML is `no-cache` (`:394`) **by design** for per-request nonces; the nonce rewrite reads the body once (`:415`).
+- **Note:** Keep `index.html` small so the per-request `resp.text()` rewrite stays cheap. This is a deliberate security/perf tradeoff (P3-1), not a bug — left as-is.
+- **Impact:** — **Effort:** —
+
+---
+
+## 4. Sequencing & dependencies
+
+The order is dependency-driven, not just priority — each phase enables or de-risks the next:
+
+- **Phase 0 (measure)** → prerequisite for validating every later change and catching regressions.
+- **Phase 1 (compression + cache headers)** → fast and low-risk; **produces the origin `Cache-Control` headers that Phase 5 consumes**.
+- **Phase 2 (cache layer + bounded queries + indexes)** → the biggest latency lever; needs no new infra (reuses P2-1 Redis).
+- **Phase 3 (worker pool + scale-out)** → parallelizes/scales a now-**correct** backend; relies on the cluster-safety established in P2-1.
+- **Phase 4 (frontend)** → validated against the **Phase 0 bundle baseline**.
+- **Phase 5 (edge caching)** → depends on **Phase 1**'s public-GET headers.
+
+```
+Phase 0  ──►  Phase 1  ──►  Phase 5
+   │            │
+   ├──►  Phase 2  ──►  Phase 3
+   └──►  Phase 4
+```
+
+---
+
+## 5. Performance roadmap
+
+**Phase 0 — Baseline**
+- [ ] PERF0-1 Bundle analysis (both SPAs) + API latency + Web Vitals captured
+
+**Phase 1 — Backend quick wins**
+- [ ] PERF1-1 Origin compression
+- [ ] PERF1-2 Environment-gated logging
+- [ ] PERF1-3 `Cache-Control` on public GETs
+- [ ] PERF1-4 Remove dead `mongoose`/`mongodb` from prod deps
+
+**Phase 2 — Data layer**
+- [ ] PERF2-1 Redis-backed cache for near-static reads
+- [ ] PERF2-2 Bound `archived` full-collection read
+- [ ] PERF2-3 Paginate conversation fetches
+- [ ] PERF2-4 Firestore aggregation for analytics
+- [ ] PERF2-5 Commit composite index config
+
+**Phase 3 — Concurrency & scaling**
+- [ ] PERF3-1 Secret-worker pool
+- [ ] PERF3-2 Horizontal / multi-process scaling
+
+**Phase 4 — Frontend delivery**
+- [ ] PERF4-1 Enable + tune Workbox SW (assets-only)
+- [ ] PERF4-2 Remove server-only packages from bundles
+- [ ] PERF4-3 Keep heavy libs out of the main chunk
+- [ ] PERF4-4 Connection hints (`preconnect`/`dns-prefetch`)
+- [ ] PERF4-5 Image optimization
+
+**Phase 5 — Edge / network**
+- [ ] PERF5-1 Edge-cache public API GETs
+- [x] PERF5-2 Static/HTML caching already optimal (no action)
+
+---
+
+## 6. Measurement & verification
+
+- **Per item:** re-run the relevant Phase 0 measurement before/after and record the delta in the item's entry (mirroring the "Resolution/Verified" style used in `SECURITY-REMEDIATION-PLAN.md`).
+- **Targets to watch:** main-chunk size (SPAs), API p95 (messages/analytics/guest-init), LCP/INP, Firestore read counts per request, and origin CPU under load.
+- **Regression guardrails:** keep the security smoke checks green; specifically re-verify after PERF4-1 that production HTML is **not** served from the SW cache (CSP nonce must remain per-request) and after any caching work that **no authenticated/personalized response is cached**.
+
+---
+
+## 7. Notes & assumptions
+
+- File/line references reflect `main` at the time of review and may drift as code changes.
+- The public site reads some branch data directly via the **client Firestore SDK** (`firebase/firestore` is in the user bundle), which already offloads those reads from the backend; PERF2-1 targets the **server-side** read paths.
+- In production the SPAs are served via the edge/static hosts (not `backend/`'s `express.static`, whose path is preceded by a `Content-Type: application/json` middleware at `backend/server.js:272`); performance recommendations target the real serving path.
+- This plan changes **no security control**. Where performance and security interact (compression/BREACH, caching scope, SW + CSP nonce), the safe configuration is stated inline and must be honored.
