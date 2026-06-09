@@ -125,12 +125,15 @@ None of the recommended changes require removing features, degrading UX, or weak
 
 ### PHASE 2 — Data layer (Firestore)
 
-#### [ ] PERF2-1 — Introduce a Redis-backed cache for near-static reads
+#### [x] PERF2-1 — Introduce a Redis-backed cache for near-static reads — ✅ DONE 2026-06-09
 - **Where:** No general cache today; the only example is an in-memory cache for the FB-video endpoint (`backend/server.js:737`). Hot, repeated reads: branch list (`backend/routes/branches.js:65`), `branchAdmins` on login/profile (`backend/routes/branchadminauth.js:65`, `:196`), branch doc on guest init (`backend/routes/guest.js:46`).
 - **Opportunity:** These are read on nearly every request but change rarely — caching removes a Firestore round-trip from the hot path.
 - **Recommendation:** Generalize the FB-video pattern into a small Redis-backed helper (Redis already exists from P2-1) with a 30–300s TTL and explicit invalidation on write.
 - **Security-preservation note:** Cache **only** non-user-specific, non-sensitive data. **Never** cache conversation/message content (sensitive, encrypted at rest), auth decisions, or revocation state. Key entries by branch/role scope.
 - **Impact:** High. **Effort:** M
+- **Resolution (2026-06-09):** Added a generic **fail-open** read-through helper `backend/utils/cache.js` (`cached(key, ttl, producer)`, `invalidate(...keys)`, `key(...)`): JSON (de)serialize, per-op timeout (`CACHE_OP_TIMEOUT_MS`, default 200ms), throttled logging, and a `CACHE_DISABLED` kill switch. **Any Redis error/outage/timeout transparently falls back to the source read** (verified), so the cache can never break or stall a request; producer errors still propagate; `undefined` (not-found) results are returned but never cached.
+  - **Applied to** `backend/routes/branches.js`: `GET /` (`cache:branches:list`) and `GET /:id` (`cache:branches:doc:<id>`), backstop TTL `CACHE_BRANCHES_TTL` (default 300s). **Invalidated** on `POST /` (list), `PUT /:id` and `DELETE /:id` (list + doc) — all writers to the `branches` collection are local to this file, so invalidation is complete. Cached JSON matches the existing `res.json` wire format exactly (incl. Firestore Timestamps), so no client-visible change.
+  - **Security decisions (deliberately tighter than the candidate list):** **Excluded** the `branchAdmins` login/profile reads — that doc holds the bcrypt password hash, `failedAttempts`, `lockedUntil`, and MFA secrets; caching it would weaken brute-force lockout and store credentials (this is exactly the "never cache auth decisions / revocation state" rule). **Deferred** `resolveBranchStaffEmail` (guest contact relay, `guest.js:160`) — it reads a branch doc keyed by **email**, distinct from the uuid-keyed writes here, so invalidation wouldn't match (stale email-routing risk) and it's low-frequency (rate-limited 5/10min). New env vars documented in `backend.env.example`. Verified via `node --check` + a 14-case stubbed-Redis harness (hit/miss, negative-cache, single/multi invalidation, producer-error propagation, full fail-open path).
 
 #### [ ] PERF2-2 — Bound the full-collection read
 - **Where:** `backend/routes/archived.js:12` — `db.collection("messages").get()` reads the **entire** collection; cost grows unbounded with volume.
@@ -250,7 +253,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [x] PERF1-4 Remove dead `mongoose`/`mongodb` from prod deps — ✅ (run `npm install` to re-sync the lockfile)
 
 **Phase 2 — Data layer**
-- [ ] PERF2-1 Redis-backed cache for near-static reads
+- [x] PERF2-1 Redis-backed cache for near-static reads — ✅ (branches list/doc; fail-open)
 - [ ] PERF2-2 Bound `archived` full-collection read
 - [ ] PERF2-3 Paginate conversation fetches
 - [ ] PERF2-4 Firestore aggregation for analytics

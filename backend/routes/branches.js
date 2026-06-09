@@ -8,6 +8,15 @@ const authenticateBranchAdmin = require('../middlewares/authenticateBranchAdmin'
 const { v4: uuidv4 } = require('uuid'); // For generating unique filenames
 const router = express.Router();
 
+// PERF2-1: read-through cache for the near-static, NON-SENSITIVE `branches`
+// metadata (no credentials live here — those are in `branchAdmins`). The write
+// routes below invalidate it, so the TTL is just a backstop. Fail-open: if
+// Redis is down the helper transparently falls back to Firestore.
+const { cached, invalidate, key } = require('../utils/cache');
+const BRANCHES_TTL = Number(process.env.CACHE_BRANCHES_TTL || 300); // seconds
+const branchesListKey = () => key('branches', 'list');
+const branchDocKey = (id) => key('branches', 'doc', id);
+
 // File storage setup using Multer
 const storageMulter = multer.memoryStorage();
 const upload = multer({
@@ -52,6 +61,7 @@ router.post('/', authenticateSuperAdmin, upload.single('picture'), async (req, r
     };
 
     await branchRef.set(newBranch);
+    await invalidate(branchesListKey()); // new branch → list changed
     res.status(201).json({ id: branchRef.id, ...newBranch });
   } catch (error) {
     console.error('Error creating branch:', error.message);
@@ -62,8 +72,12 @@ router.post('/', authenticateSuperAdmin, upload.single('picture'), async (req, r
 // Get all branches
 router.get('/', verifyAdminRole, async (req, res) => {
   try {
-    const branchesSnapshot = await db.collection('branches').get();
-    const branches = branchesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    // Same payload for every admin (no per-user filtering), so one shared key
+    // is safe. Authorization still runs per request via verifyAdminRole above.
+    const branches = await cached(branchesListKey(), BRANCHES_TTL, async () => {
+      const branchesSnapshot = await db.collection('branches').get();
+      return branchesSnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    });
     res.status(200).json(branches);
   } catch (error) {
     console.error('Error fetching branches:', error.message);
@@ -74,14 +88,20 @@ router.get('/', verifyAdminRole, async (req, res) => {
 // Get a single branch by ID
 router.get('/:id', verifyAdminRole, async (req, res) => {
   try {
-    const branchRef = db.collection('branches').doc(req.params.id);
-    const branchSnapshot = await branchRef.get();
+    // Producer returns `undefined` for a missing branch so a 404 is never
+    // cached (no negative caching); existing docs are cached by id.
+    const branch = await cached(branchDocKey(req.params.id), BRANCHES_TTL, async () => {
+      const branchRef = db.collection('branches').doc(req.params.id);
+      const branchSnapshot = await branchRef.get();
+      if (!branchSnapshot.exists) return undefined;
+      return { id: branchSnapshot.id, ...branchSnapshot.data() };
+    });
 
-    if (!branchSnapshot.exists) {
+    if (branch === undefined) {
       return res.status(404).json({ error: 'Branch not found.' });
     }
 
-    res.status(200).json({ id: branchSnapshot.id, ...branchSnapshot.data() });
+    res.status(200).json(branch);
   } catch (error) {
     console.error('Error fetching branch:', error.message);
     res.status(500).json({ error: 'Failed to fetch branch.' });
@@ -107,6 +127,7 @@ router.put('/:id', authenticateSuperAdmin, upload.single('picture'), async (req,
     };
 
     await branchRef.update(updatedBranch);
+    await invalidate(branchesListKey(), branchDocKey(req.params.id));
     res.status(200).json({ id: req.params.id, ...updatedBranch });
   } catch (error) {
     console.error('Error updating branch:', error.message);
@@ -125,6 +146,7 @@ router.delete('/:id', authenticateSuperAdmin, async (req, res) => {
     }
 
     await branchRef.delete();
+    await invalidate(branchesListKey(), branchDocKey(req.params.id));
     res.status(204).end();
   } catch (error) {
     console.error('Error deleting branch:', error.message);
