@@ -187,20 +187,32 @@ None of the recommended changes require removing features, degrading UX, or weak
   - **Resilience:** callbacks now track their owning worker (`workerIndex`); a worker `error`/`exit` rejects **only that worker's** in-flight calls (not the whole pool), and the slot is nulled so the next dispatch lazily respawns a replacement. `shutdown()` terminates all workers.
   - **Cost note:** N workers = **N Redis connections** for revocation (one per thread) and N idle threads; default 4 is modest. Tune via `JWT_WORKER_POOL` (set `1` for legacy behavior). **Verified** `node --check` + module load (exports intact, `POOL_SIZE` reported in `_defaults`). Env documented in `backend.env.example`. Touches `backend/` → will trigger a Render deploy.
 
-#### [ ] PERF3-2 — Enable horizontal / multi-process scaling
+#### [x] PERF3-2 — Enable horizontal / multi-process scaling — ✅ DONE 2026-06-09 (horizontal / Render multi-instance)
 - **Where:** `backend/package.json:35` — `start` is a bare `node server.js` (single process).
 - **Opportunity:** Rate-limiting + revocation are Redis-backed and Socket.IO uses `@socket.io/redis-adapter`, so scaling out is now safe (it was not pre-P2-1).
 - **Recommendation:** Run multiple Render instances or Node `cluster` workers behind the existing edge.
 - **Security-preservation note:** The cluster-safety guarantees from P2-1 are exactly what make this safe — no control degrades to per-instance. Each process spawns its own secret-worker pool.
 - **Impact:** High (capacity). **Effort:** M
+- **Audit finding — already multi-instance-safe:** a full pass found the backend needs **no app rearchitecting** to scale horizontally. (1) All shared control state is Redis-backed (P2-1): rate-limiting, JWT revocation, Socket.IO adapter, branch presence (TTL keys), undelivered queue. (2) **Every** Socket.IO client connects with `transports:['websocket']` (8 call sites across `admin-frontend`, `user-frontend`, `magis-edge-worker`) — a WebSocket is one TCP connection pinned to a single instance for its lifetime, so **no sticky sessions** are needed; the `@socket.io/redis-adapter` (`utils/socket.js:216`) fans out cross-instance broadcasts. (3) The in-memory maps in `socket.js` are explicitly per-process ephemeral conveniences; cross-instance correctness goes through Redis. (4) The `setInterval` heartbeat/cleanup sweeps (`socket.js:903,959`) are correctly per-process scoped.
+- **Resolution (2026-06-09 — chosen approach: Render multi-instance):**
+  - **Server-side hardening (`utils/socket.js:201-213`):** pinned `transports:['websocket']` + `allowUpgrades:false` on the Socket.IO `Server`. No-op for real traffic (clients are already WS-only) but it guarantees the safety property above — a stray client/proxy can no longer silently fall back to HTTP long-polling against a non-sticky multi-instance backend (which would break the session). Verified `node --check`.
+  - **IaC (`render.yaml` at repo root, NEW):** a non-destructive Render Blueprint for the `web` service (`rootDir: backend`, `startCommand: npm start`, `healthCheckPath: /health`) with a `scaling` block (`minInstances:1`, `maxInstances:3`, `targetCPUPercent:70`). Secrets are `sync:false` (values stay dashboard-managed, none committed); env-specific fields (`plan`/`region`/`branch`) are flagged "VERIFY". Validated by parsing with `js-yaml`. **It does not alter the running service until connected/synced as a Blueprint in Render.**
+- **Operator steps to actually scale out (not code):** (1) provision managed Redis + set `REDIS_URL`, then set **`REQUIRE_REDIS=true`** so degradation can't go unnoticed; (2) ensure plan is **Standard+** (autoscaling requirement); (3) review/sync `render.yaml` as a Blueprint **or** just raise the instance count in the dashboard. Cross-host redundancy + zero-downtime deploys come from `minInstances >= 2`.
+- **Pre-existing caveat noted (not introduced here):** `routes/archived.js:57` runs `backfillArchivedField()` at module load (every boot). Idempotent, so fine for multi-**instance** (each instance boots once); it would only need primary-only guarding under in-process Node `cluster` (the approach NOT chosen).
 
 ### PHASE 4 — Frontend delivery
 
-#### [ ] PERF4-1 — Enable and tune the Workbox service worker
+#### [x] PERF4-1 — Enable and tune the Workbox service worker — ✅ DONE 2026-06-09 (SW authored + footgun removed; PROD-ENABLE deferred to operator)
 - **Where:** Wired but opt-in/likely off — `user-frontend/src/index.js:52` gates registration on `REACT_APP_ENABLE_SW === 'true'`.
 - **Recommendation:** Enable with a precache of **hashed static assets** + runtime caching for images/fonts. Large repeat-visit win.
 - **Security-preservation note (critical):** The SW must be **network-only/network-first for HTML navigations** and must **never cache `index.html`**. The P3-1 CSP uses a per-request nonce; a cached HTML page would carry a stale nonce and the CSP would block your own scripts. Caching only hashed (nonce-independent) assets avoids this entirely.
 - **Impact:** High (repeat visits). **Effort:** M
+- **Premise correction (audit 2026-06-09):** there was **no Workbox SW to "enable + tune."** `src/service-worker.js` (CRA InjectManifest source) does **not** exist, so InjectManifest never runs (the `craco.config.js` block only silences a leftover warning); the `workbox-*` packages are installed but unused. `public/` shipped **two** hand-written workers: `sw.js` (a kill-switch) and an **orphaned `service-worker.js`** that precached `/index.html` and was **cache-first for everything** — the almost-certain cause of the prior prod breakage (stale CSP nonce → blocked scripts) that led to the kill-switch + `REACT_APP_ENABLE_SW=false`. `ServiceWorkerRegistration.js` + the token/CSRF SW-messaging in `tokenManager.js` are **dead code** (mounted nowhere). CSP per-request nonce confirmed (`server.js:323,340`).
+- **Resolution (2026-06-09 — chosen approach: build safe SW, keep gated OFF):**
+  - **`public/sw.js` rewritten** into a safe-by-design, dependency-free worker: cache-first for **only** same-origin `/static/*` (content-hashed/immutable JS+CSS), same-origin images, and same-origin fonts, each with FIFO entry caps. It **never** calls `respondWith` for navigations (`request.mode==='navigate'` → network → fresh nonce), non-GET, cross-origin (no opaque caching), or API requests. `activate` purges any non-allowlisted cache (cleans up the old broken `v1` cache); honors the `'SKIP_WAITING'` message `index.js` already posts.
+  - **`public/service-worker.js` neutralized** into a kill-switch (legacy URL): unregisters + purges + reloads, so any browser still controlled by the old cache-first worker **self-heals** on its next update check. Removes the footgun without deleting the URL (a 404 would NOT unregister a stuck worker).
+  - **Production behavior is UNCHANGED on deploy:** `REACT_APP_ENABLE_SW` stays `false` in `.env`, `.env.example`, **and `.env.production`**, so `index.js` keeps unregistering/purging exactly as before. The new worker only activates once the flag is deliberately set to `true`. Both files pass `node --check`.
+- **Operator enable step (deliberate, not done here):** verify on a staging/preview build first, then set `REACT_APP_ENABLE_SW=true` (ideally `.env.production`). Recommended check: DevTools → Application → Service Workers shows `/sw.js` active; navigations return a **fresh** `index.html` (200, new nonce, not "from ServiceWorker"); only `/static/*`, images, fonts are served from cache; the CSP throws no nonce errors.
 
 #### [ ] PERF4-2 — Remove server-only packages from the browser bundles
 - **Where:** Both SPAs list `socket.io` (the server), `express`, `multer`, `mongoose` in dependencies (`user-frontend/package.json`, `admin-frontend/package.json`).
@@ -281,10 +293,10 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 
 **Phase 3 — Concurrency & scaling**
 - [x] PERF3-1 Secret-worker pool — ✅ (round-robin sign/verify, broadcast revoke; JWT_WORKER_POOL=4; API unchanged)
-- [ ] PERF3-2 Horizontal / multi-process scaling
+- [x] PERF3-2 Horizontal / multi-process scaling — ✅ (already Redis+WS-safe; pinned server WS transport + render.yaml scaling Blueprint; operator sets instances/Redis)
 
 **Phase 4 — Frontend delivery**
-- [ ] PERF4-1 Enable + tune Workbox SW (assets-only)
+- [x] PERF4-1 Enable + tune Workbox SW (assets-only) — ✅ (safe asset-only SW authored at public/sw.js + orphaned cache-first SW neutralized; still gated OFF — operator flips REACT_APP_ENABLE_SW after staging check)
 - [ ] PERF4-2 Remove server-only packages from bundles
 - [ ] PERF4-3 Keep heavy libs out of the main chunk
 - [ ] PERF4-4 Connection hints (`preconnect`/`dns-prefetch`)
