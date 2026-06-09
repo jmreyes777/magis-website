@@ -637,21 +637,25 @@ router.get(
       return res.status(400).json({ error: "guestId is required." });
     }
     try {
-      const snap = await db
+      // PERF2-3: bound this previously-unlimited read. We fetch the most-recent
+      // page DESC (so a huge conversation can't load entirely), then return it
+      // ASC to preserve the existing `{ messages }` contract. `limit` caps page
+      // size (default 200, hard max 500); `before` (ISO ts) is a cursor for
+      // lazy-loading OLDER messages. Branch scoping is unchanged.
+      const limitN = Math.min(Math.max(parseInt(req.query.limit, 10) || 200, 1), 500);
+      let q = db
         .collection("messages")
         .where("guestId", "==", guestId)
         .where("branchId", "==", req.branchId)
-        .orderBy("timestamp", "asc")
-        .get();
+        .orderBy("timestamp", "desc");
+      if (req.query.before) q = q.startAfter(String(req.query.before));
+      const snap = await q.limit(limitN).get();
 
-      const messages = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id:        d.id,
-          ...data,
-        };
-      });
-      return res.status(200).json({ messages });
+      const page = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      const messages = page.reverse(); // back to ascending for the client
+      const hasMore = snap.size === limitN;
+      const nextBefore = hasMore && page.length ? page[0].timestamp : null;
+      return res.status(200).json({ messages, hasMore, nextBefore });
     } catch (err) {
       console.error("[MESSAGES:history] ❌", err);
       return res.status(500).json({ error: "Failed to fetch history." });

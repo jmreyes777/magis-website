@@ -143,11 +143,13 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Resolution (2026-06-09):** Clarified scope first: `archived.js` is **not a mounted route** — it's a **one-off migration** (`admin.initializeApp()` + auto-runs `backfillArchivedField()`, imported nowhere), so the unbounded `.get()` is a migration-memory/reliability hazard (it materialized **every** message doc at once and would OOM/fail on a large collection), not a per-request latency cost. Rewrote the read as a **cursor-paginated scan**: `orderBy(documentId).limit(PAGE_SIZE).startAfter(lastDoc)` looping page-by-page, so memory stays bounded to one page regardless of collection size. Behavior preserved: still **idempotent** (only stamps docs missing `archived`), still commits per page within Firestore's 500-op batch limit (`PAGE_SIZE`/`BACKFILL_PAGE_SIZE`, default 500); documentId ordering needs **no composite index**. `where`-scoping doesn't apply (Firestore can't query a *missing* field), so pagination is the correct bound here.
   - **`where`-scoping note:** the actual per-request archive path — `server.js:1019` `POST /api/guest/force-close` — is **already** scoped (`.where("guestId").where("branchEmail")`), i.e. bounded to one conversation, so no query change was needed there. (Pre-existing, separate from PERF2-2: that endpoint reads `guestId`/`branchEmail` from the body without `authenticateGuest`; a hardened, auth'd guest force-close already exists in `routes/guest.js`. Flagging as a security follow-up, not touched here.) No message content is read/logged/egressed by the migration, so no security posture change.
 
-#### [ ] PERF2-3 — Paginate conversation fetches
+#### [x] PERF2-3 — Paginate conversation fetches — ✅ DONE 2026-06-09 (backend hardening)
 - **Where:** `backend/routes/messages.js:641-645` — `guestId`+`branchId`+`orderBy(timestamp)` `.get()` with no limit loads an entire conversation.
 - **Recommendation:** Add `limit(N)` + `startAfter` cursor pagination for the dashboard; lazy-load older messages.
 - **Security-preservation note:** Retain the `where("branchId", "==", req.branchId)` scoping; do not cache decrypted content.
 - **Impact:** Medium–High. **Effort:** M
+- **Findings (premise correction):** The **admin dashboard does not use this endpoint** — `Branch-Chat-Dashboard.js:1054` (`fetchMessages`) reads **client-side from Firestore** and is **already bounded** with `limit(100)`. The unbounded backend route `GET /api/messages/history/:guestId` is gated by `authenticateBranchAdmin`+`requireMFA`, yet its only callers are the **guest** chat boxes (`user-frontend` + `magis-edge-worker`, role `user`) — so those calls **appear to 401 today** (guests fall back to sessionStorage + live socket). A service worker also network-first-caches `/api/messages/history` (`magis-edge-worker/public/sw.js:77`).
+- **Resolution (2026-06-09 — option: backend hardening only):** Bounded the endpoint **backward-compatibly**: fetch the most-recent page `orderBy("timestamp","desc").limit(N)` (default **200**, hard max **500**), then `reverse()` to ASC so the existing `{ messages }` (ascending) contract is preserved; added additive `hasMore` + `nextBefore` and a `before` (ISO-ts) cursor for future older-message lazy-loading. **Branch scoping unchanged** (`where("branchId","==",req.branchId)`); no decrypted content is cached server-side. Timestamps are ISO strings (`new Date().toISOString()`), so desc ordering + string `startAfter` sort chronologically. No frontend/SW changes (consumers read `body.messages`). Verified `node --check`. **Deferred (separate items):** the guest↔`/history` auth mismatch (correctness/security) and the optional frontend scroll-up lazy-load (would consume `hasMore`/`nextBefore`).
 
 #### [ ] PERF2-4 — Replace in-application analytics aggregation
 - **Where:** `backend/routes/analytics.js:255-269` and `:357-367` — date-range `messages` scans with no `limit`, aggregated in Node via `forEach`.
@@ -257,7 +259,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 **Phase 2 — Data layer**
 - [x] PERF2-1 Redis-backed cache for near-static reads — ✅ (branches list/doc; fail-open)
 - [x] PERF2-2 Bound `archived` full-collection read — ✅ (cursor pagination; one-off migration)
-- [ ] PERF2-3 Paginate conversation fetches
+- [x] PERF2-3 Paginate conversation fetches — ✅ (backend /history bounded + cursor; dashboard already limit(100))
 - [ ] PERF2-4 Firestore aggregation for analytics
 - [ ] PERF2-5 Commit composite index config
 
