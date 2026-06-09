@@ -41,6 +41,7 @@
   "scripts": {
     "start": "concurrently \"cross-env BROWSER=none PORT=3001 react-scripts start\" \"wait-on http://localhost:3001 && cross-env ELECTRON_START_URL=http://localhost:3001 electron .\"",
     "build": "react-scripts build",
+    "analyze": "react-scripts build && npx source-map-explorer \"build/static/js/*.js\"",
     "electron": "npm run build && cross-env ELECTRON_START_URL=https://YOUR_PROD_URL electron .",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

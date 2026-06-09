@@ -10,6 +10,7 @@ import "./styles/admin-dashboard.css"; // Admin dashboard brand colors
 import "./styles/branch-chat-dashboard-modern.css"; // Branch chat dashboard modernization
 import ErrorBoundary from "./components/ErrorBoundary-Component";
 import { AuthProvider } from "./context/AuthContext";
+import reportWebVitals from "./reportWebVitals";
 
 // ─── Silence internal Timeout (b) & handleError logs globally ───
 // 1) Unhandled promise rejections
@@ -63,3 +64,13 @@ root.render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// ── Web Vitals (PERF0-1 baseline) ────────────────────────────────────────────
+// Dev-only: logs LCP/INP/CLS/FCP/TTFB to the console. No-op in production so
+// there is no runtime/security impact on shipped builds.
+if (process.env.NODE_ENV !== "production") {
+  reportWebVitals((metric) => {
+    const v = Math.round((metric.value + Number.EPSILON) * 100) / 100;
+    console.log(`[web-vitals] ${metric.name} = ${v} (${metric.rating || "n/a"})`, metric);
+  });
+}

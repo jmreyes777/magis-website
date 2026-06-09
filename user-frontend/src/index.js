@@ -9,6 +9,7 @@ import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import App from "./App";
 import "./index.css";
+import reportWebVitals from "./reportWebVitals";
 
 // ✅ Prevent potential memory leaks from unhandled promise rejections
 window.addEventListener("unhandledrejection", (event) => {
@@ -94,4 +95,14 @@ if (
     caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
   }
   console.log('[SW] Service worker disabled — unregistered any existing workers.');
+}
+
+// ── Web Vitals (PERF0-1 baseline) ────────────────────────────────────────────
+// Dev-only: logs LCP/INP/CLS/FCP/TTFB to the console. No-op in production so
+// there is no runtime/security impact on shipped builds.
+if (process.env.NODE_ENV !== "production") {
+  reportWebVitals((metric) => {
+    const v = Math.round((metric.value + Number.EPSILON) * 100) / 100;
+    console.log(`[web-vitals] ${metric.name} = ${v} (${metric.rating || "n/a"})`, metric);
+  });
 }

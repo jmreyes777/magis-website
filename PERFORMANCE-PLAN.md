@@ -55,6 +55,35 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Recommendation:** Capture (1) main-chunk sizes via `npm run analyze` for both SPAs, (2) p50/p95 latency on `/api/messages`, `/api/analytics`, `/api/guest/init` with `autocannon`/`k6`, (3) LCP/INP/CLS by wiring `reportWebVitals` to the console or an endpoint.
 - **Security-preservation note:** Measurement only — no runtime change.
 - **Impact:** High (enables/validates everything else). **Effort:** S
+- **Status (2026-06-09):** Instrumentation landed. `reportWebVitals` is now wired **dev-only** in both SPAs with a version-agnostic reporter that emits **INP** on `web-vitals ≥ 3` (and fixed a latent crash — `admin-frontend` ships `web-vitals@4` but its `reportWebVitals.js` still called the removed v2 `getFID`/`getCLS`). Added an `analyze` script to `admin-frontend`, bumped `user-frontend` `web-vitals` `^2.1.4 → ^4.2.4` for INP parity, and added a zero-dependency latency harness at `backend/perf/baseline.mjs`. Numbers below are pending the first capture runs.
+
+**How to capture (this repo):**
+
+- **Bundle main-chunk sizes** — opens an interactive treemap per SPA:
+  - `cd user-frontend && npm run analyze`
+  - `cd admin-frontend && npm run analyze` *(uses `npx source-map-explorer`)*
+- **API latency (p50/p95/p99)** — start the backend, then from `backend/`:
+  - `node perf/baseline.mjs` (probes `GET /health`)
+  - Authed/parameterized probes via env vars — see `backend/perf/README.md`.
+- **Web Vitals (LCP/INP/CLS/FCP/TTFB)** — run a SPA in dev and read the `[web-vitals] …` console lines; production builds stay silent (`NODE_ENV` guard).
+- *Note:* `user-frontend` needs `npm install` once to pick up `web-vitals@4` (the reporter still works on v2 meanwhile, just without INP).
+
+**Baseline results (fill in once captured):**
+
+| Metric | user-frontend | admin-frontend |
+| --- | --- | --- |
+| Main JS chunk (gzip) | _TBD_ | _TBD_ |
+| Total JS (gzip) | _TBD_ | _TBD_ |
+| LCP | _TBD_ | _TBD_ |
+| INP | _TBD_ | _TBD_ |
+| CLS | _TBD_ | _TBD_ |
+
+| API endpoint | p50 (ms) | p95 (ms) | p99 (ms) |
+| --- | --- | --- | --- |
+| GET /health | _TBD_ | _TBD_ | _TBD_ |
+| POST /api/guest/init | _TBD_ | _TBD_ | _TBD_ |
+| GET /api/messages | _TBD_ | _TBD_ | _TBD_ |
+| GET /api/analytics | _TBD_ | _TBD_ | _TBD_ |
 
 ### PHASE 1 — Backend quick wins
 
