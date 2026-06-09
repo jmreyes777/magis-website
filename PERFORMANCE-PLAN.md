@@ -176,11 +176,16 @@ None of the recommended changes require removing features, degrading UX, or weak
 
 ### PHASE 3 — Concurrency & scaling
 
-#### [ ] PERF3-1 — Convert the secret worker to a small pool
+#### [x] PERF3-1 — Convert the secret worker to a small pool — ✅ DONE 2026-06-09
 - **Where:** `backend/utils/secretPool.js:13` — a **single** worker thread; every JWT sign/verify/revoke for all HTTP + socket auth serializes through it (each call also does a Redis revocation round-trip).
 - **Recommendation:** Round-robin pool of N workers (e.g. `JWT_WORKER_POOL=4`) reusing the same worker file and message protocol.
 - **Security-preservation note:** **Identical** isolation model — the signing secret stays inside worker threads, never on the main thread; same per-call verify + revocation logic. Pure throughput change.
 - **Impact:** High (under concurrency). **Effort:** M
+- **Resolution (2026-06-09):** Replaced the single `worker` with a **round-robin pool** of `JWT_WORKER_POOL` (default **4**, min 1) identical workers reusing the **same** `workers/secretWorker.js` and message protocol (unchanged). Public API (`signJWT`/`verifyJWT`/`revokeJWT`/`signGuestJWT`/`signAdminJWT`/`shutdown`/`_defaults`) is **byte-for-byte the same** for all callers (middlewares, `server.js`, `socket.js`).
+  - **`sign`/`verify` → round-robin** (`pickWorker()`) across the pool — this is the parallelized hot path.
+  - **`revoke` → BROADCAST to every worker** (`broadcastToPool()`, resolves via `Promise.all`). **Why this matters for security:** each worker keeps its own `revokedInMemory` Set (the fallback used only when Redis is unreachable). A naive round-robin pool would let a `revoke` land on worker A while a later `verify` for the same `jti` routes to worker B → **a revoked token could be accepted during a Redis outage**. Broadcasting keeps every worker's fallback consistent, so the single-worker revocation guarantee is preserved **exactly**. (When Redis is up it remains the shared source of truth across workers *and* instances, unchanged.) `revoke` is rare, so the N× fan-out + idempotent per-worker Redis `SET` is negligible.
+  - **Resilience:** callbacks now track their owning worker (`workerIndex`); a worker `error`/`exit` rejects **only that worker's** in-flight calls (not the whole pool), and the slot is nulled so the next dispatch lazily respawns a replacement. `shutdown()` terminates all workers.
+  - **Cost note:** N workers = **N Redis connections** for revocation (one per thread) and N idle threads; default 4 is modest. Tune via `JWT_WORKER_POOL` (set `1` for legacy behavior). **Verified** `node --check` + module load (exports intact, `POOL_SIZE` reported in `_defaults`). Env documented in `backend.env.example`. Touches `backend/` → will trigger a Render deploy.
 
 #### [ ] PERF3-2 — Enable horizontal / multi-process scaling
 - **Where:** `backend/package.json:35` — `start` is a bare `node server.js` (single process).
@@ -275,7 +280,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [x] PERF2-5 Commit composite index config — ✅ (3 `messages` composite indexes; firebase.json)
 
 **Phase 3 — Concurrency & scaling**
-- [ ] PERF3-1 Secret-worker pool
+- [x] PERF3-1 Secret-worker pool — ✅ (round-robin sign/verify, broadcast revoke; JWT_WORKER_POOL=4; API unchanged)
 - [ ] PERF3-2 Horizontal / multi-process scaling
 
 **Phase 4 — Frontend delivery**
