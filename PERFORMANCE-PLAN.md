@@ -157,11 +157,16 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Security-preservation note:** Query shape + aggregation only; scoping filters unchanged.
 - **Impact:** High (on analytics paths). **Effort:** M
 
-#### [ ] PERF2-5 — Commit composite index configuration
+#### [x] PERF2-5 — Commit composite index configuration — ✅ DONE 2026-06-09
 - **Where:** No `firestore.indexes.json`/`firebase.json` in the repo; multi-`where`+`orderBy` queries (e.g. `messages.js:641-645`, analytics timestamp+branch) require composite indexes.
 - **Recommendation:** Commit an index config so required indexes are reproducible and queries stay fast.
 - **Security-preservation note:** Indexing only; no data exposure or rule change (Firestore security rules unaffected).
 - **Impact:** Medium. **Effort:** S
+- **Resolution (2026-06-09):** Audited **every** Firestore query repo-wide (backend routes + `utils/socket.js` + `server.js`, and the client-side SDK queries in `admin-frontend`/`user-frontend`/`magis-edge-worker`, which hit the same database). Equality-only (multi-`==`) and single-field queries need **no** composite index (auto single-field indexes + zigzag merge), so the required set reduces to **3** composite indexes on `messages`, committed in `firestore.indexes.json` (+ minimal `firebase.json` referencing it) at the repo root:
+  - `(branchEmail ASC, timestamp ASC)` — serves the analytics range scans `where(branchEmail==)+where(timestamp >=/<=)` (`analytics.js:69-77`, `:152-158`, `:261-266`) **and** the dashboard conversation-list `where(branchEmail==)+orderBy(timestamp desc)` (`Branch-Chat-Dashboard.js:863`) via Firestore **reverse-index traversal** (equality filter has no direction, so one ASC index covers both timestamp directions — avoids a redundant DESC index on this high-write collection).
+  - `(guestId ASC, branchId ASC, timestamp DESC)` — backend `GET /history/:guestId` (`messages.js:648-650`, the PERF2-3 desc query).
+  - `(guestId ASC, branchEmail ASC, timestamp ASC)` — dashboard `fetchMessages` + BC-sync (`Branch-Chat-Dashboard.js:1056-1058`, `:1675-1677`).
+  - **Not indexed (intentionally):** equality-only combos — `socket.js` seen/unseen + sender filters, `server.js:1021` force-close, guest-chat `where(guestId==)+where(branchEmail==)`, `analytics.js:363-364` single-field timestamp range, and `branchAdmins`/`tempId` single-`==` lookups. **Deploy:** `firebase deploy --only firestore:indexes --project <FIREBASE_PROJECT_ID>` (no `.firebaserc` committed — project id stays env-specific). JSON validated via `node`. **Observation (ties to PERF2-4, not fixed here):** analytics filters `timestamp` against `Date`/Timestamp values while writes store **ISO strings** (`new Date().toISOString()`) — a type mismatch that likely makes those range queries return nothing regardless of the index; flagged for the PERF2-4 analytics rework. Rules unaffected (none in repo).
 
 ### PHASE 3 — Concurrency & scaling
 
@@ -261,7 +266,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [x] PERF2-2 Bound `archived` full-collection read — ✅ (cursor pagination; one-off migration)
 - [x] PERF2-3 Paginate conversation fetches — ✅ (backend /history bounded + cursor; dashboard already limit(100))
 - [ ] PERF2-4 Firestore aggregation for analytics
-- [ ] PERF2-5 Commit composite index config
+- [x] PERF2-5 Commit composite index config — ✅ (3 `messages` composite indexes; firebase.json)
 
 **Phase 3 — Concurrency & scaling**
 - [ ] PERF3-1 Secret-worker pool
