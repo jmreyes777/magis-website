@@ -135,11 +135,13 @@ None of the recommended changes require removing features, degrading UX, or weak
   - **Applied to** `backend/routes/branches.js`: `GET /` (`cache:branches:list`) and `GET /:id` (`cache:branches:doc:<id>`), backstop TTL `CACHE_BRANCHES_TTL` (default 300s). **Invalidated** on `POST /` (list), `PUT /:id` and `DELETE /:id` (list + doc) — all writers to the `branches` collection are local to this file, so invalidation is complete. Cached JSON matches the existing `res.json` wire format exactly (incl. Firestore Timestamps), so no client-visible change.
   - **Security decisions (deliberately tighter than the candidate list):** **Excluded** the `branchAdmins` login/profile reads — that doc holds the bcrypt password hash, `failedAttempts`, `lockedUntil`, and MFA secrets; caching it would weaken brute-force lockout and store credentials (this is exactly the "never cache auth decisions / revocation state" rule). **Deferred** `resolveBranchStaffEmail` (guest contact relay, `guest.js:160`) — it reads a branch doc keyed by **email**, distinct from the uuid-keyed writes here, so invalidation wouldn't match (stale email-routing risk) and it's low-frequency (rate-limited 5/10min). New env vars documented in `backend.env.example`. Verified via `node --check` + a 14-case stubbed-Redis harness (hit/miss, negative-cache, single/multi invalidation, producer-error propagation, full fail-open path).
 
-#### [ ] PERF2-2 — Bound the full-collection read
+#### [x] PERF2-2 — Bound the full-collection read — ✅ DONE 2026-06-09
 - **Where:** `backend/routes/archived.js:12` — `db.collection("messages").get()` reads the **entire** collection; cost grows unbounded with volume.
 - **Recommendation:** Add `where`-scoping + `limit` + cursor pagination.
 - **Security-preservation note:** Keep existing branch/role scoping filters; pure query-shape change.
 - **Impact:** High. **Effort:** S
+- **Resolution (2026-06-09):** Clarified scope first: `archived.js` is **not a mounted route** — it's a **one-off migration** (`admin.initializeApp()` + auto-runs `backfillArchivedField()`, imported nowhere), so the unbounded `.get()` is a migration-memory/reliability hazard (it materialized **every** message doc at once and would OOM/fail on a large collection), not a per-request latency cost. Rewrote the read as a **cursor-paginated scan**: `orderBy(documentId).limit(PAGE_SIZE).startAfter(lastDoc)` looping page-by-page, so memory stays bounded to one page regardless of collection size. Behavior preserved: still **idempotent** (only stamps docs missing `archived`), still commits per page within Firestore's 500-op batch limit (`PAGE_SIZE`/`BACKFILL_PAGE_SIZE`, default 500); documentId ordering needs **no composite index**. `where`-scoping doesn't apply (Firestore can't query a *missing* field), so pagination is the correct bound here.
+  - **`where`-scoping note:** the actual per-request archive path — `server.js:1019` `POST /api/guest/force-close` — is **already** scoped (`.where("guestId").where("branchEmail")`), i.e. bounded to one conversation, so no query change was needed there. (Pre-existing, separate from PERF2-2: that endpoint reads `guestId`/`branchEmail` from the body without `authenticateGuest`; a hardened, auth'd guest force-close already exists in `routes/guest.js`. Flagging as a security follow-up, not touched here.) No message content is read/logged/egressed by the migration, so no security posture change.
 
 #### [ ] PERF2-3 — Paginate conversation fetches
 - **Where:** `backend/routes/messages.js:641-645` — `guestId`+`branchId`+`orderBy(timestamp)` `.get()` with no limit loads an entire conversation.
@@ -254,7 +256,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 
 **Phase 2 — Data layer**
 - [x] PERF2-1 Redis-backed cache for near-static reads — ✅ (branches list/doc; fail-open)
-- [ ] PERF2-2 Bound `archived` full-collection read
+- [x] PERF2-2 Bound `archived` full-collection read — ✅ (cursor pagination; one-off migration)
 - [ ] PERF2-3 Paginate conversation fetches
 - [ ] PERF2-4 Firestore aggregation for analytics
 - [ ] PERF2-5 Commit composite index config
