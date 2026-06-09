@@ -201,6 +201,16 @@ const initializeSocket = (server) => {
     pingInterval: 25000,
     pingTimeout: 60000,
     perMessageDeflate: true,
+    // PERF3-2: pin WebSocket-only transport. Every client already connects with
+    // transports:['websocket'], so this is a no-op for real traffic — but it is
+    // what makes HORIZONTAL SCALING safe: a WebSocket is a single TCP connection
+    // pinned to one instance for its lifetime (no HTTP long-polling), so NO
+    // sticky sessions are required across instances. Cross-instance broadcast is
+    // handled by the Redis adapter below. It also stops a stray client/proxy
+    // from silently downgrading to polling against a non-sticky multi-instance
+    // backend (which would break the session).
+    transports: ["websocket"],
+    allowUpgrades: false,
   });
 
   // Redis adapter for multi-instance Socket.IO (optional)

@@ -1,0 +1,73 @@
+# render.yaml — Render Blueprint (Infrastructure-as-Code) for the Magis backend.
+# ============================================================================
+# PERF3-2: enables HORIZONTAL SCALING. The backend is already multi-instance
+# safe — rate-limiting, JWT revocation, the Socket.IO adapter, presence, and the
+# undelivered queue are all Redis-backed (PERF2-1), and every Socket.IO client
+# uses transports:['websocket'] (now pinned server-side too, utils/socket.js).
+# A WebSocket is a single TCP connection pinned to one instance for its
+# lifetime, so NO sticky sessions are required; the Redis adapter fans out
+# broadcasts across instances.
+#
+# ADOPTION IS NON-DESTRUCTIVE: committing this file does NOT change your running
+# service. It only takes effect if you connect/sync it as a Blueprint in the
+# Render dashboard. REVIEW the environment-specific values below (plan, region,
+# branch) before syncing, and confirm they match your existing service.
+#
+# SECRETS ARE NOT STORED HERE: every secret/connection string is marked
+# `sync: false`, which tells Render the var is required but its VALUE is managed
+# in the dashboard (never committed to git). This list is NOT exhaustive — see
+# backend/backend.env.example for the full set. Render preserves env vars you
+# added manually in the dashboard across Blueprint syncs.
+#
+# AUTOSCALING (more than 1 instance) requires a Standard plan or higher.
+# ============================================================================
+services:
+  - type: web
+    name: magis-backend
+    runtime: node
+    rootDir: backend            # repo subdir that holds package.json (matches current deploy)
+    branch: main                # VERIFY: auto-deploy branch
+    region: oregon              # VERIFY: set to your service's actual region
+    plan: standard              # VERIFY: autoscaling needs Standard+; a lower plan = single instance only
+    buildCommand: npm install   # backend "build" script is a no-op (it serves a prebuilt ./build SPA)
+    startCommand: npm start     # -> node server.js
+    healthCheckPath: /health    # server.js:1056 (returns 200 when up)
+
+    # Horizontal autoscaling. Safe because all cross-instance state is Redis-backed
+    # and Socket.IO is WebSocket-only (no sticky sessions needed).
+    scaling:
+      minInstances: 1           # raise to >=2 for zero-downtime deploys + redundancy
+      maxInstances: 3           # tune to your traffic/budget
+      targetCPUPercent: 70      # scale out when avg CPU exceeds this
+      # targetMemoryPercent: 70 # optional: also scale on memory
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # ── STRONGLY RECOMMENDED for multi-instance ──────────────────────────────
+      # REQUIRE_REDIS=true makes the server refuse to start without REDIS_URL, so
+      # rate-limiting + JWT revocation can never silently degrade to per-instance.
+      # Only enable AFTER managed Redis is provisioned and REDIS_URL is set, or the
+      # service will fail to boot. Left as sync:false so you opt in deliberately.
+      - key: REQUIRE_REDIS
+        sync: false
+      # ── Secrets / connection strings: set values in the Render dashboard ──────
+      # (Full list + docs: backend/backend.env.example)
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: SUPERADMIN_EMAILS
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: TRUST_PROXY
+        sync: false
