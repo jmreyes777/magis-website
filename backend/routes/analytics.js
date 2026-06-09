@@ -5,7 +5,7 @@ const authenticateBranchAdmin = require("../middlewares/authenticateBranchAdmin"
 const authenticateSuperAdmin = require("../middlewares/authenticateSuperAdmin");
 
 const isDev = process.env.NODE_ENV === "development";
-const devLog = (...args) => { if (isDev) devLog(...args); };
+const devLog = (...args) => { if (isDev) console.log(...args); };
 
 // ── PERF2-4: bounded, type-correct analytics queries ───────────────────────
 // Messages persist `timestamp` as an ISO-8601 string (new Date().toISOString()),
