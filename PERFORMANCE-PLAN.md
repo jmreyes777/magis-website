@@ -115,12 +115,13 @@ None of the recommended changes require removing features, degrading UX, or weak
   - `GET /api/facebook/albums/latest/photos` → `publicCache(300, 600)`.
   - **Security hardening alongside:** explicitly set `Cache-Control: no-store` on `GET /api/csrf-token` (secret in body) and `GET /health` (probe), pinning them closed *before* Phase 5 begins honoring public-GET cache hints. **No authenticated route** (analytics, branches, mfa, messages history/all/media/admin-media/conversation-key, branchadmin `/profile`, superadmin `/verify`) was touched. Verified with a 6-case harness (2xx → public+Vary merge; 304/4xx/5xx/POST → no-store).
 
-#### [ ] PERF1-4 — Remove dead database dependencies from production
+#### [x] PERF1-4 — Remove dead database dependencies from production — ✅ DONE 2026-06-09
 - **Where:** `mongoose`/`mongodb` are imported **only** by the one-off script `backend/addSpaceIdToBranchAndMessages.js`, never on a request path; listed in `backend/package.json` `dependencies`.
 - **Opportunity:** Smaller install, faster cold start, lower memory, reduced attack surface.
 - **Recommendation:** Move to `devDependencies` (or drop and run the script ad hoc).
 - **Security-preservation note:** Net **reduction** in dependency/attack surface; no runtime path affected.
 - **Impact:** Low. **Effort:** S
+- **Resolution (2026-06-09):** Verified usage repo-wide first: `mongoose` is required **only** by `backend/addSpaceIdToBranchAndMessages.js` (a standalone one-off Mongo→Firestore migration using `process.env.MONGO_URI`), and `mongodb` has **zero** imports anywhere (redundant — mongoose bundles its own driver). The script is referenced by no npm script / Procfile / Dockerfile. Moved both `mongoose@^8.8.2` and `mongodb@^6.10.0` from `dependencies` → `devDependencies` in `backend/package.json` (reversible; keeps the migration script runnable after a dev install). The live app uses `firebase-admin`/Firestore exclusively, so **no runtime/request path is affected**. Run `npm install` in `backend/` to re-sync `package-lock.json`, and deploy with `npm ci --omit=dev` to realize the smaller prod surface.
 
 ### PHASE 2 — Data layer (Firestore)
 
@@ -246,7 +247,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [x] PERF1-1 Origin compression
 - [x] PERF1-2 Environment-gated logging
 - [x] PERF1-3 `Cache-Control` on public GETs — ✅
-- [ ] PERF1-4 Remove dead `mongoose`/`mongodb` from prod deps
+- [x] PERF1-4 Remove dead `mongoose`/`mongodb` from prod deps — ✅ (run `npm install` to re-sync the lockfile)
 
 **Phase 2 — Data layer**
 - [ ] PERF2-1 Redis-backed cache for near-static reads
