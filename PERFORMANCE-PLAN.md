@@ -87,12 +87,13 @@ None of the recommended changes require removing features, degrading UX, or weak
 
 ### PHASE 1 — Backend quick wins
 
-#### [ ] PERF1-1 — Enable response compression at the origin
+#### [x] PERF1-1 — Enable response compression at the origin — ✅ DONE 2026-06-09
 - **Where:** No `compression` middleware anywhere in `backend/server.js`; not in `backend/package.json`.
 - **Opportunity:** Largest single origin win for JSON payloads (analytics, message history) and the origin→edge hop.
 - **Recommendation:** Add `compression()` early in the middleware chain.
 - **Security-preservation note:** BREACH only applies when a secret and reflected user input share one compressed body. Secrets here live in cookies/headers, not bodies, and Cloudflare already compresses edge→client regardless — so origin compression adds **no new client-facing risk**. To be strict, skip compression on any response that echoes request input alongside a CSRF token.
 - **Impact:** High. **Effort:** S
+- **Resolution (2026-06-09):** Added `compression@^1.7.4` and mounted `compression()` right after CORS (`backend/server.js:213`) with `threshold: 1024` and a BREACH-hardened `filter` that honors an `x-no-compression` opt-out and **never compresses `GET /api/csrf-token`** (token in body). Static assets + JSON now gzip/br at the origin. Run `npm install` in `backend/` to materialize the dependency.
 
 #### [ ] PERF1-2 — Gate request logging by environment
 - **Where:** `backend/server.js:258` — `app.use(morgan("dev"))` runs unconditionally.
@@ -236,7 +237,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [ ] PERF0-1 Bundle analysis (both SPAs) + API latency + Web Vitals captured
 
 **Phase 1 — Backend quick wins**
-- [ ] PERF1-1 Origin compression
+- [x] PERF1-1 Origin compression
 - [ ] PERF1-2 Environment-gated logging
 - [ ] PERF1-3 `Cache-Control` on public GETs
 - [ ] PERF1-4 Remove dead `mongoose`/`mongodb` from prod deps

@@ -10,6 +10,7 @@ const express = require("express");
 const cors = require("cors");
 const morgan = require("morgan");
 const helmet = require("helmet");
+const compression = require("compression");
 const multer = require("multer");
 const http = require("http");
 const rateLimit = require("express-rate-limit");
@@ -201,6 +202,24 @@ const corsOptionsDelegate = (req, cb) => {
   });
 };
 app.use(cors(corsOptionsDelegate));
+
+// ── PERF1-1: response compression (gzip/br) ────────────────────────────────
+// Compresses API JSON + static assets at the origin, cutting payload size and
+// the origin→edge transfer. Mounted early so it wraps all downstream responses.
+// BREACH hardening: csurf already salts its token per request, but we still
+// never compress the CSRF-token response (the token sits in the body), and we
+// honor an `x-no-compression` opt-out for any future secret-bearing route that
+// also reflects request input.
+app.use(
+  compression({
+    threshold: 1024, // skip tiny payloads where overhead outweighs the benefit
+    filter: (req, res) => {
+      if (req.headers["x-no-compression"]) return false;
+      if (req.path === "/api/csrf-token") return false; // BREACH: token in body
+      return compression.filter(req, res);
+    },
+  })
+);
 
 // Strict preflight handler (no wildcard with credentials)
 app.options("*", (req, res) => {
