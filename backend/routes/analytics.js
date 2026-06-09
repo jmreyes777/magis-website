@@ -7,6 +7,67 @@ const authenticateSuperAdmin = require("../middlewares/authenticateSuperAdmin");
 const isDev = process.env.NODE_ENV === "development";
 const devLog = (...args) => { if (isDev) devLog(...args); };
 
+// ── PERF2-4: bounded, type-correct analytics queries ───────────────────────
+// Messages persist `timestamp` as an ISO-8601 string (new Date().toISOString()),
+// which sorts lexicographically === chronologically. The previous filters
+// compared against Date objects, which by Firestore type-ordering matched NO
+// string-typed docs (so these endpoints silently returned nothing). We now
+// (a) compare against ISO strings, (b) ALWAYS bound the window (default lookback
+// when no range is supplied), and (c) hard-cap the document scan while reporting
+// the accurate match total via a count() aggregation (no doc transfer). The
+// (branchEmail, timestamp) composite index serves the branch-scoped variant.
+const ANALYTICS_MAX_DOCS = Math.max(parseInt(process.env.ANALYTICS_MAX_DOCS, 10) || 20000, 1);
+const ANALYTICS_DEFAULT_DAYS = Math.max(parseInt(process.env.ANALYTICS_DEFAULT_DAYS, 10) || 90, 1);
+
+function toIsoBound(value, endOfDay = false) {
+  if (value == null || value === "") return null;
+  // The dashboard sends date-only strings (YYYY-MM-DD), parsed as UTC midnight.
+  // For an inclusive upper bound, extend a date-only end to the end of that day
+  // so the final day's messages are included.
+  if (endOfDay && typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const dt = new Date(`${value}T23:59:59.999Z`);
+    return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
+  }
+  const dt = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
+}
+
+// Build a time-bounded, branch-scoped messages query. Always bounded: if either
+// bound is missing/invalid it falls back to the last ANALYTICS_DEFAULT_DAYS.
+// Branch scoping is unchanged (equality applied only when an email is given).
+function buildBoundedMessagesQuery({ branchEmail, startDate, endDate } = {}) {
+  let startIso = toIsoBound(startDate);
+  let endIso = toIsoBound(endDate, true);
+  if (!startIso || !endIso) {
+    const endMs = endIso ? new Date(endIso).getTime() : Date.now();
+    const startMs = startIso
+      ? new Date(startIso).getTime()
+      : endMs - ANALYTICS_DEFAULT_DAYS * 86400000;
+    startIso = startIso || new Date(startMs).toISOString();
+    endIso = endIso || new Date(endMs).toISOString();
+  }
+  let q = db
+    .collection("messages")
+    .where("timestamp", ">=", startIso)
+    .where("timestamp", "<=", endIso);
+  if (branchEmail) q = q.where("branchEmail", "==", branchEmail);
+  return { query: q, startIso, endIso };
+}
+
+// Execute a bounded query: accurate match count via count() (no doc transfer)
+// plus a capped, timestamp-ordered slice of docs for in-Node aggregation, and a
+// `truncated` flag set when the scan hit ANALYTICS_MAX_DOCS.
+async function runBoundedAnalyticsQuery(boundedQuery) {
+  const ordered = boundedQuery.orderBy("timestamp", "asc");
+  const [countSnap, docsSnap] = await Promise.all([
+    ordered.count().get(),
+    ordered.limit(ANALYTICS_MAX_DOCS).get(),
+  ]);
+  const total = countSnap.data().count;
+  const messages = docsSnap.docs.map((d) => d.data());
+  return { total, messages, truncated: total > messages.length };
+}
+
 /**
  * GET /api/analytics/debug
  * Debug endpoint to check messages collection
@@ -57,43 +118,22 @@ router.get("/message-volume", authenticateBranchAdmin, async (req, res) => {
       return res.status(400).json({ error: "Branch email is required" });
     }
 
-    let query = db.collection("messages");
-    
-    devLog("[ANALYTICS] Starting Firestore query for messages collection");
-    
-    // Apply date range filter
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      devLog("[ANALYTICS] Applying date range filter:", { start, end });
-      query = query
-        .where("timestamp", ">=", start)
-        .where("timestamp", "<=", end);
-    }
-    
-    // Apply branch filter
-    if (targetBranchEmail) {
-      devLog("[ANALYTICS] Applying branch filter:", targetBranchEmail);
-      query = query.where("branchEmail", "==", targetBranchEmail);
-    }
+    const { query: boundedQuery, startIso, endIso } = buildBoundedMessagesQuery({
+      branchEmail: targetBranchEmail,
+      startDate,
+      endDate,
+    });
+    const { total, messages, truncated } = await runBoundedAnalyticsQuery(boundedQuery);
 
-    // Ensure archived messages are included (not filtered out)
-    // Firestore doesn't have a "not equal" operator, so we fetch all and filter client-side if needed
-    devLog("[ANALYTICS] Query will include both archived and non-archived messages");
-
-    const snapshot = await query.get();
-    devLog("[ANALYTICS] Firestore query returned", snapshot.size, "documents");
-    
-    if (snapshot.size === 0) {
-      devLog("[ANALYTICS] No messages found, returning empty data");
+    if (total === 0) {
       return res.json({
         totalMessages: 0,
         averageDaily: 0,
-        volumeByDate: []
+        volumeByDate: [],
+        window: { start: startIso, end: endIso },
+        truncated: false,
       });
     }
-    
-    const messages = snapshot.docs.map(doc => doc.data());
     devLog("[ANALYTICS] Sample message data:", messages[0]);
 
     // Group messages by date
@@ -116,9 +156,11 @@ router.get("/message-volume", authenticateBranchAdmin, async (req, res) => {
       : 0;
 
     res.status(200).json({
-      totalMessages: messages.length,
+      totalMessages: total,
       averageDaily: averageDaily,
       volumeByDate: volumeData,
+      window: { start: startIso, end: endIso },
+      truncated,
     });
   } catch (error) {
     console.error("[ANALYTICS] Error fetching message volume:", error.message);
@@ -144,22 +186,12 @@ router.get("/response-time", authenticateBranchAdmin, async (req, res) => {
       return res.status(400).json({ error: "Branch email is required" });
     }
 
-    let query = db.collection("messages");
-    
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      query = query
-        .where("timestamp", ">=", start)
-        .where("timestamp", "<=", end);
-    }
-    
-    if (targetBranchEmail) {
-      query = query.where("branchEmail", "==", targetBranchEmail);
-    }
-
-    const snapshot = await query.get();
-    const messages = snapshot.docs.map(doc => doc.data());
+    const { query: boundedQuery, startIso, endIso } = buildBoundedMessagesQuery({
+      branchEmail: targetBranchEmail,
+      startDate,
+      endDate,
+    });
+    const { messages, truncated } = await runBoundedAnalyticsQuery(boundedQuery);
 
     if (messages.length === 0) {
       return res.json({
@@ -226,7 +258,9 @@ router.get("/response-time", authenticateBranchAdmin, async (req, res) => {
       averageResponseTime: avgResponseTime,
       medianResponseTime: medianResponseTime,
       totalConversations: Object.keys(guestConversations).length,
-      responseTimeDistribution
+      responseTimeDistribution,
+      window: { start: startIso, end: endIso },
+      truncated,
     });
   } catch (error) {
     console.error("[ANALYTICS] Error fetching response time:", error.message);
@@ -252,22 +286,12 @@ router.get("/conversation-summary", authenticateBranchAdmin, async (req, res) =>
       return res.status(400).json({ error: "Branch email is required" });
     }
 
-    let query = db.collection("messages");
-    
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      query = query
-        .where("timestamp", ">=", start)
-        .where("timestamp", "<=", end);
-    }
-    
-    if (targetBranchEmail) {
-      query = query.where("branchEmail", "==", targetBranchEmail);
-    }
-
-    const snapshot = await query.get();
-    const messages = snapshot.docs.map(doc => doc.data());
+    const { query: boundedQuery, startIso, endIso } = buildBoundedMessagesQuery({
+      branchEmail: targetBranchEmail,
+      startDate,
+      endDate,
+    });
+    const { messages, truncated } = await runBoundedAnalyticsQuery(boundedQuery);
 
     if (messages.length === 0) {
       return res.json({
@@ -336,7 +360,9 @@ router.get("/conversation-summary", authenticateBranchAdmin, async (req, res) =>
       avgMessagesPerConversation,
       avgConversationDuration,
       conversationsWithMedia,
-      conversations
+      conversations,
+      window: { start: startIso, end: endIso },
+      truncated,
     });
   } catch (error) {
     console.error("[ANALYTICS] Error fetching conversation summary:", error.message);
@@ -354,18 +380,11 @@ router.get("/branch-performance", authenticateSuperAdmin, async (req, res) => {
     const { startDate, endDate } = req.query;
     const decoded = req.user || req.decoded;
 
-    let query = db.collection("messages");
-    
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      query = query
-        .where("timestamp", ">=", start)
-        .where("timestamp", "<=", end);
-    }
-
-    const snapshot = await query.get();
-    const messages = snapshot.docs.map(doc => doc.data());
+    const { query: boundedQuery, startIso, endIso } = buildBoundedMessagesQuery({
+      startDate,
+      endDate,
+    });
+    const { total, messages, truncated } = await runBoundedAnalyticsQuery(boundedQuery);
 
     // Group by branch
     const branchPerformance = {};
@@ -396,8 +415,10 @@ router.get("/branch-performance", authenticateSuperAdmin, async (req, res) => {
 
     res.status(200).json({
       totalBranches: performanceData.length,
-      totalMessages: messages.length,
-      branchPerformance: performanceData
+      totalMessages: total,
+      branchPerformance: performanceData,
+      window: { start: startIso, end: endIso },
+      truncated,
     });
   } catch (error) {
     console.error("[ANALYTICS] Error fetching branch performance:", error.message);
