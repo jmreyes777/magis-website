@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../utils/firebase");
+const publicCache = require("../middlewares/publicCache"); // PERF1-3
 
 // NEW: Redis presence fast-path
 const { getRedis, ensureRedisConnected } = require("../utils/redis");
@@ -14,8 +15,14 @@ const PRESENCE_PREFIX = process.env.REDIS_PRESENCE_PREFIX || "branch:online:";
  * Order of truth:
  *  1) Redis TTL presence key (most current, cross-instance, survives restarts)
  *  2) Firestore doc (existing behavior / fallback)
+ *
+ * PERF1-3: public, non-authenticated read keyed only on the `branchEmail`
+ * query — safe to cache briefly. A short TTL trades up to ~60s of presence
+ * staleness for far fewer Redis/Firestore reads on this high-frequency poll;
+ * `lastSeen` still reflects the real timestamp. publicCache only stamps 2xx
+ * responses (errors stay no-store) and appends `Vary: Origin`.
  */
-router.get("/branch-status", async (req, res) => {
+router.get("/branch-status", publicCache(30, 60), async (req, res) => {
   const { branchEmail: rawEmail } = req.query || {};
   if (!rawEmail) {
     return res.status(400).json({ error: "branchEmail is required" });

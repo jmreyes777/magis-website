@@ -103,12 +103,17 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Impact:** Low. **Effort:** S
 - **Resolution (2026-06-09):** `morgan` is now environment-gated at `backend/server.js:283`. Non-prod keeps `morgan("dev")`; production uses `morgan("combined")` **sampled** (`HTTP_LOG_SAMPLE`, default `0.05`) and skips successful `/health` probes, eliminating per-request verbose logging cost in prod (Cloudflare retains edge access logs). Security/audit logging elsewhere is untouched.
 
-#### [ ] PERF1-3 — Add `Cache-Control` to public GET endpoints
+#### [x] PERF1-3 — Add `Cache-Control` to public GET endpoints — ✅ DONE 2026-06-09
 - **Where:** Public read endpoints set no cache headers, so neither the edge nor the browser can cache them.
 - **Opportunity:** Short caching of public, non-personalized reads (branch status, FAQ-type content) cuts repeat latency and origin load. Produces the headers Phase 5 consumes.
 - **Recommendation:** Set `Cache-Control: public, max-age=30, s-maxage=60` on **public** GET responses only.
 - **Security-preservation note:** Apply **only** to non-authenticated, non-personalized endpoints. Never on anything behind `authenticateBranchAdmin`/`authenticateSuperAdmin` (would cross-pollute users).
 - **Impact:** Medium. **Effort:** S
+- **Resolution (2026-06-09):** Added a reusable `backend/middlewares/publicCache.js` factory that stamps `Cache-Control: public, max-age=<m>, s-maxage=<s>` **only on 2xx GET** responses (errors/non-GET → `no-store`, so a transient upstream failure is never cached) and appends `Vary: Origin` (CORS reflects the caller's Origin, so a shared cache must key per-origin; `res.vary()` merges with compression's `Vary: Accept-Encoding`). Applied to the three genuinely public, non-personalized GETs only:
+  - `GET /api/branch-status` → `publicCache(30, 60)` (presence; brief TTL, `lastSeen` still exact).
+  - `GET /api/facebook/latest-video` → `publicCache(300, 600)` (matches the existing 5-min origin memory cache).
+  - `GET /api/facebook/albums/latest/photos` → `publicCache(300, 600)`.
+  - **Security hardening alongside:** explicitly set `Cache-Control: no-store` on `GET /api/csrf-token` (secret in body) and `GET /health` (probe), pinning them closed *before* Phase 5 begins honoring public-GET cache hints. **No authenticated route** (analytics, branches, mfa, messages history/all/media/admin-media/conversation-key, branchadmin `/profile`, superadmin `/verify`) was touched. Verified with a 6-case harness (2xx → public+Vary merge; 304/4xx/5xx/POST → no-store).
 
 #### [ ] PERF1-4 — Remove dead database dependencies from production
 - **Where:** `mongoose`/`mongodb` are imported **only** by the one-off script `backend/addSpaceIdToBranchAndMessages.js`, never on a request path; listed in `backend/package.json` `dependencies`.
@@ -240,7 +245,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 **Phase 1 — Backend quick wins**
 - [x] PERF1-1 Origin compression
 - [x] PERF1-2 Environment-gated logging
-- [ ] PERF1-3 `Cache-Control` on public GETs
+- [x] PERF1-3 `Cache-Control` on public GETs — ✅
 - [ ] PERF1-4 Remove dead `mongoose`/`mongodb` from prod deps
 
 **Phase 2 — Data layer**

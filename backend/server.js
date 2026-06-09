@@ -127,6 +127,7 @@ const { db,admin } = require("./utils/firebase");
 const { initializeSocket } = require("./utils/socket");
 const { requireEdgeAuth, rateLimitKey } = require("./utils/geoSecurity");
 const authenticateBranchAdmin = require("./middlewares/authenticateBranchAdmin");
+const publicCache = require("./middlewares/publicCache"); // PERF1-3: short Cache-Control on public GETs
 
 const app = express();
 // P3-2: pin `trust proxy` to the known proxy hop count instead of `true`. With
@@ -270,6 +271,11 @@ app.get(
         sameSite: 'Strict',
         maxAge:   60 * 60 * 1000,
       })
+      // PERF1-3: the CSRF token lives in this response body, so it must never
+      // be stored by the browser or a shared/edge cache (also excluded from
+      // compression above for BREACH). Phase 5 will start honoring cache hints
+      // on public GETs — pin this one closed first.
+      .set("Cache-Control", "no-store")
       .json({ csrfToken: req.csrfToken() });
   }
 );
@@ -774,7 +780,7 @@ let cachedVideo = null;
 let cachedAt = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-app.get("/api/facebook/latest-video", fbLimiter, async (req, res) => {
+app.get("/api/facebook/latest-video", fbLimiter, publicCache(300, 600), async (req, res) => {
   const pageId = process.env.FB_PAGE_ID;
   const pageToken = process.env.FB_PAGE_ACCESS_TOKEN;
 
@@ -889,7 +895,7 @@ app.get("/api/facebook/latest-video", fbLimiter, async (req, res) => {
 const latestAlbumCache = { at: 0, albumId: null, photos: [] };
 const LATEST_ALBUM_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-app.get("/api/facebook/albums/latest/photos", fbLimiter, async (req, res) => {
+app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), async (req, res) => {
   const pageId = process.env.FB_PAGE_ID;
   const pageToken = process.env.FB_PAGE_ACCESS_TOKEN;
   if (!pageId || !pageToken) {
@@ -1048,6 +1054,8 @@ app.post("/api/guest/force-close", async (req, res) => {
 // Lightweight health check for load balancers / uptime probes.
 // Registered before the static/catch-all so it always returns JSON 200.
 app.get("/health", (req, res) => {
+  // Probes must always see live state — never cache the health response.
+  res.set("Cache-Control", "no-store");
   res.status(200).json({
     status: "ok",
     uptime: process.uptime(),
