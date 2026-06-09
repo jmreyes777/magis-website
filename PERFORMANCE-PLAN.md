@@ -95,12 +95,13 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Impact:** High. **Effort:** S
 - **Resolution (2026-06-09):** Added `compression@^1.7.4` and mounted `compression()` right after CORS (`backend/server.js:213`) with `threshold: 1024` and a BREACH-hardened `filter` that honors an `x-no-compression` opt-out and **never compresses `GET /api/csrf-token`** (token in body). Static assets + JSON now gzip/br at the origin. Run `npm install` in `backend/` to materialize the dependency.
 
-#### [ ] PERF1-2 — Gate request logging by environment
+#### [x] PERF1-2 — Gate request logging by environment — ✅ DONE 2026-06-09
 - **Where:** `backend/server.js:258` — `app.use(morgan("dev"))` runs unconditionally.
 - **Opportunity:** `dev` format is verbose; per-request string building + I/O on every production request.
 - **Recommendation:** Use `morgan("combined")` only when `NODE_ENV !== "production"` (or sample in prod).
 - **Security-preservation note:** Logging behavior only; keep security-relevant audit logging intact.
 - **Impact:** Low. **Effort:** S
+- **Resolution (2026-06-09):** `morgan` is now environment-gated at `backend/server.js:283`. Non-prod keeps `morgan("dev")`; production uses `morgan("combined")` **sampled** (`HTTP_LOG_SAMPLE`, default `0.05`) and skips successful `/health` probes, eliminating per-request verbose logging cost in prod (Cloudflare retains edge access logs). Security/audit logging elsewhere is untouched.
 
 #### [ ] PERF1-3 — Add `Cache-Control` to public GET endpoints
 - **Where:** Public read endpoints set no cache headers, so neither the edge nor the browser can cache them.
@@ -238,7 +239,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 
 **Phase 1 — Backend quick wins**
 - [x] PERF1-1 Origin compression
-- [ ] PERF1-2 Environment-gated logging
+- [x] PERF1-2 Environment-gated logging
 - [ ] PERF1-3 `Cache-Control` on public GETs
 - [ ] PERF1-4 Remove dead `mongoose`/`mongodb` from prod deps
 

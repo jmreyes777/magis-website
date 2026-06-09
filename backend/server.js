@@ -274,7 +274,24 @@ app.get(
   }
 );
 
-app.use(morgan("dev"));
+// ── PERF1-2: environment-gated HTTP request logging ─────────────────────────
+// The verbose `dev` logger (per-request string building + stdout I/O on every
+// request) is wasteful in production, where Cloudflare already records edge
+// access logs. Non-prod keeps full `dev` logging for DX; prod samples a small
+// fraction with the leaner `combined` format and never logs successful /health
+// probes. Security-relevant audit logging lives elsewhere and is untouched.
+if (process.env.NODE_ENV !== "production") {
+  app.use(morgan("dev"));
+} else {
+  const httpLogSample = Number(process.env.HTTP_LOG_SAMPLE || 0.05);
+  app.use(
+    morgan("combined", {
+      skip: (req, res) =>
+        (req.path === "/health" && res.statusCode < 400) ||
+        Math.random() > httpLogSample,
+    })
+  );
+}
 
 // ── Advertise HTTP/3 (QUIC) via Alt-Svc header ──────────────────────────────
 // Caddy already sets this at the proxy layer; this ensures it's also present
