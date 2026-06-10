@@ -277,11 +277,15 @@ None of the recommended changes require removing features, degrading UX, or weak
 
 ### PHASE 5 — Edge / network polish
 
-#### [ ] PERF5-1 — Edge-cache public API GETs
+#### [x] PERF5-1 — Edge-cache public API GETs — ✅ DONE 2026-06-10
 - **Where:** The edge forwards origin `Cache-Control` via `minimalResponse` (`magis-edge-worker/index.js:282`) but force-caches only when `isProdAsset` (`:284`).
 - **Recommendation:** Once PERF1-3 adds `s-maxage` to public GETs, optionally enable Cloudflare edge caching for those paths.
 - **Security-preservation note:** Restrict to public endpoints; never cache responses with `Set-Cookie` or that vary on `Authorization`.
 - **Impact:** Medium. **Effort:** S
+- **Audit (2026-06-10):** PERF1-3 prerequisite is **done** — `middlewares/publicCache.js` stamps `public, max-age, s-maxage` (2xx GET only, `Vary: Origin`, `no-store` on errors) on 3 public GETs: `/api/facebook/latest-video` & `/api/facebook/albums/latest/photos` (300/600) and `/branch-status` (30/60). The edge previously **only forwarded** `Cache-Control` to the browser — it did **no** edge-level caching (no Cache API / `cf` options).
+- **Resolution (2026-06-10 — chosen scope: Facebook endpoints only):** in the edge `isPublic` branch, added a strict **path allowlist** (`/api/facebook/latest-video`, `/api/facebook/albums/latest…`) served via the Cloudflare **Cache API** (`caches.default`): `match` on hit, else fetch origin and `cache.put` (via `event.waitUntil`, with `.catch`) **only** when the response is **2xx + `public` + has `s-maxage`/`max-age` + no `Set-Cookie`**; TTL is derived from the origin `s-maxage` (600s). Cache key is the proxied URL only (no headers); **per-request CORS `Access-Control-Allow-Origin` is re-applied by `minimalResponse`**, so a shared entry is never pinned to one origin (sidesteps `Vary: Origin`).
+- **Security preservation:** `/api/messages/history` (per-guest **private**, in the edge bypass list but personalized) and all token/cookie/admin routes are **never** cached — the allowlist is explicit (no `cacheEverything`), 2xx-only, and `Set-Cookie` responses are refused. **branch-status was intentionally excluded** (presence freshness).
+- **Verification:** `node --check` passes; allowlist confirmed to contain only the 2 Facebook paths. Biggest win: the external FB Graph API is now hit at most ~once per 10 min across the edge instead of per request.
 
 #### [x] PERF5-2 — Static/HTML caching is already optimal (no action)
 - **Where:** Hashed assets are `immutable` (`magis-edge-worker/index.js:392`); HTML is `no-cache` (`:394`) **by design** for per-request nonces; the nonce rewrite reads the body once (`:415`).
@@ -341,7 +345,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [x] PERF4-6 Optimize chat image UPLOADS — ✅ (guest composer now resizes to 1600px/q0.82 + normalizes to allowed JPEG/PNG at selection, raw fallback; ZERO backend/security changes — never emits WebP so the jpeg/png/gif/pdf allow-list + 5MB cap stay intact; fixes >5MB rejections. Admin has no upload UI = N/A. Build passes)
 
 **Phase 5 — Edge / network**
-- [ ] PERF5-1 Edge-cache public API GETs
+- [x] PERF5-1 Edge-cache public API GETs — ✅ (Cache API allowlist for the 2 public Facebook GETs only, TTL from s-maxage=600; per-request CORS re-applied; messages/history + token/admin routes never cached; branch-status excluded for freshness; node --check passes)
 - [x] PERF5-2 Static/HTML caching already optimal (no action)
 
 ---

@@ -317,10 +317,10 @@ async function maybeRateLimit(ip) {
 }
 
 addEventListener("fetch", (event) =>
-  event.respondWith(handle(event.request))
+  event.respondWith(handle(event.request, event))
 );
 
-async function handle(request) {
+async function handle(request, event) {
   const url = new URL(request.url);
   const pathname = url.pathname;
   const origin = request.headers.get("Origin") || "";
@@ -488,6 +488,33 @@ async function handle(request) {
     (request.method === "POST" && pathname === "/api/mfa/session-verify");
 
   if (isPublic) {
+    // PERF5-1: serve a small ALLOWLIST of public, NON-personalized GETs from the
+    // Cloudflare edge cache, honoring the origin's s-maxage (set by PERF1-3).
+    // Scoped to Facebook public content only. Everything else here — especially
+    // /api/messages/history (per-guest private) and any token/cookie route — is
+    // intentionally NEVER edge-cached.
+    const edgeCacheable =
+      request.method === "GET" &&
+      (pathname === "/api/facebook/latest-video" ||
+        pathname.startsWith("/api/facebook/albums/latest"));
+
+    const cache = caches.default;
+    // Key by the proxied URL only (GET, no headers) so a shared entry never
+    // varies on Origin/Authorization. Per-request CORS is re-applied by
+    // minimalResponse below, so the cached body is safe to reuse across origins.
+    const cacheKey = new Request(`${BACKEND_URL}${pathname}${url.search}`, {
+      method: "GET",
+    });
+
+    if (edgeCacheable) {
+      const cached = await cache.match(cacheKey);
+      if (cached) {
+        return minimalResponse(cached.body, cached.status, cached.headers, {
+          allowedOrigin,
+        });
+      }
+    }
+
     const backendReq = new Request(`${BACKEND_URL}${pathname}${url.search}`, {
       method: request.method,
       headers: withForwardedGeo(request),
@@ -495,6 +522,22 @@ async function handle(request) {
       redirect: "follow",
     });
     const resp = await fetch(backendReq);
+
+    // Store only safe, publicly-cacheable 2xx bodies (no Set-Cookie). The Cache
+    // API derives the edge TTL from the response's s-maxage/max-age.
+    if (edgeCacheable && resp.status >= 200 && resp.status < 300) {
+      const cc = resp.headers.get("Cache-Control") || "";
+      if (
+        !resp.headers.has("Set-Cookie") &&
+        /public/i.test(cc) &&
+        /(s-maxage|max-age)=\d+/i.test(cc)
+      ) {
+        // Best-effort: a cache.put rejection (size/header limits) must never
+        // surface as an unhandled rejection or affect the live response.
+        event.waitUntil(cache.put(cacheKey, resp.clone()).catch(() => {}));
+      }
+    }
+
     return minimalResponse(resp.body, resp.status, resp.headers, {
       allowedOrigin,
     });
