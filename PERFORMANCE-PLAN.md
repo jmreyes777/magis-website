@@ -250,11 +250,26 @@ None of the recommended changes require removing features, degrading UX, or weak
   - **`crossorigin` correctness:** set only on origins fetched via CORS (Firebase XHR, `fonts.gstatic` font files); omitted on script/stylesheet origins (Maps JS, reCAPTCHA `www.google`/`www.gstatic`, `fonts.googleapis` CSS) so the warmed connection is actually reused.
 - **Verification:** both production builds compile (exit 0) and the hints survive into the built `index.html`. Automated cross-check confirmed **every** hinted origin is already in that app's CSP — **user-frontend 13/13, admin 6/6** — so zero policy widening.
 
-#### [ ] PERF4-5 — Optimize image assets
+#### [x] PERF4-5 — Optimize image assets — ✅ DONE 2026-06-10
 - **Where:** `src/assets/` in both SPAs.
 - **Recommendation:** Serve WebP/AVIF at correct dimensions (the apps already depend on `browser-image-compression` for uploads).
 - **Security-preservation note:** Static asset processing only.
 - **Impact:** Medium. **Effort:** S–M
+- **Audit (2026-06-10):** the real assets live in **`user-frontend/public/images/`** (not `src/assets/`): **9 PNGs ≈ 5.6 MB**, all oversized photographic images (1000–2048 px) saved as PNG. `admin-frontend` has only tiny CRA defaults (~0.02 MB) → **no action**. Usage: 7 product images render through a shared `ImageWithFallback` component on the **lazy** Jewelry page; the **376 KB logo** (`686421984…n.png`) is in `Header` + `Footer` → **every page**. `chainpendant.png` (697 KB) was **unused**. No `<picture>`/`srcset`/`.webp` existed.
+- **Resolution (2026-06-10 — chosen approach: WebP + `<picture>` PNG fallback):**
+  - **One-off optimizer** `user-frontend/scripts/optimize-images.mjs` (uses `sharp`, installed locally with `--no-save` so it is **NOT** a committed dependency — zero install/supply-chain impact on deploys; script kept for reproducibility, never imported by the app/build).
+  - Generated a resized **WebP** (longest side 800 px products / 480 px logo, q80/85) and **overwrote each PNG with a resized/recompressed fallback**. Deleted the unused `chainpendant.png`.
+  - **Markup:** enhanced `ImageWithFallback` to emit `<picture>` with a WebP `<source>` (derived from the `.png` src, suppressed once the error-fallback chain kicks in) + the existing `<img>` as universal fallback; converted the `Header`/`Footer` logo to `<picture>`. Each `<picture>` uses `style={{display:"contents"}}` so it generates no box and the `<img>` keeps its place in the flex/grid layout (CSS is class-based with no `> img` selectors → zero layout-shift risk).
+- **Result:** the 8 used images go from **5051 KB PNG → 269 KB WebP** served to modern browsers (**~95% smaller**); PNG fallback (old browsers only) is 411 KB; logo **376 KB → 14 KB** on every page; plus **−697 KB** from deleting the dead file.
+- **Verification:** `user-frontend` production build compiles clean (exit 0) with the new `<picture>` markup; WebP + resized-PNG assets confirmed in `public/images/`. `<img>` `onError` chain still recovers to the placeholder for non-WebP browsers.
+
+#### [ ] PERF4-6 — Optimize guest/admin **chat image uploads** (follow-up surfaced during PERF4-5)
+- **Where:** `user-frontend/src/components/Guest-Chat-Box-Component.js` (and the admin chat dashboard upload).
+- **Gap (audited 2026-06-10):** chat image uploads are **not optimized**. `GuestChatBox` takes the raw file (`:2370-2373`), sets `mediaToSend = media || previewFile` (`:1366-1367`), and uploads it as-is via `FormData` (`form.append("media", mediaToSend)` `:1449-1455`). Received images render as a plain `<img className="attachment-thumbnail">` in `Shared/Message-Item-Component.js:105-110`. A client-side `optimizeImage()` (canvas resize 800x800 @ q0.8) exists in `Shared/Utils-imageOptimization.js` (used by `Shared/ImagePreview-Component.js`) but is **not wired into the guest chat** — so guests can upload full-size phone photos (multi-MB) that are stored and re-served at full size. This is potentially higher-impact than the static images since uploads are unbounded.
+- **Recommendation:** run uploads through an enhanced `optimizeImage()` at selection time (force WebP output; **higher cap than 800px** — appraisal/jewelry/ID photos need detail, e.g. ~1600px @ q0.85), once (not on retry).
+- **Must-audit-first (why this is its own task, not part of PERF4-5):** (1) **E2EE** — media goes via a separate `FormData` endpoint, not the E2EE socket payload; confirm encryption expectations before altering the pipeline. (2) **Backend size limit** (multer) + the `mediaToRetry`/retry path (optimize once, not re-compress). (3) **Quality** — don't degrade detail staff rely on. (4) Mirror the same treatment in the admin chat composer.
+- **Security-preservation note:** Client-side processing only; do not weaken the P1-3 private-media (signed-URL) handling.
+- **Impact:** Medium–High (unbounded user uploads). **Effort:** M
 
 ### PHASE 5 — Edge / network polish
 
@@ -318,7 +333,8 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [x] PERF4-2 Remove server-only packages from bundles — ✅ (uninstalled socket.io/express/multer/mongoose where unused across both SPAs; kept socket.io-client; user-frontend build verified)
 - [x] PERF4-3 Keep heavy libs out of the main chunk — ✅ (analyzer-verified: recharts + @googlemaps only in lazy chunks, none in main; removed dead framer-motion + @react-google-maps/api from both SPAs + admin overrides; both builds pass)
 - [x] PERF4-4 Connection hints (`preconnect`/`dns-prefetch`) — ✅ (added Firebase/Fonts/Turnstile to user, Maps/reCAPTCHA/Auth to admin; every origin CSP-verified 13/13 + 6/6, correct crossorigin, both builds pass)
-- [ ] PERF4-5 Image optimization
+- [x] PERF4-5 Image optimization — ✅ (user-frontend public/images: 5.05MB PNG → 269KB WebP via <picture>+PNG fallback, longest-side resize; logo 376KB→14KB every page; deleted unused chainpendant.png −697KB; sharp used --no-save, not committed; build passes. admin-frontend N/A)
+- [ ] PERF4-6 Optimize chat image UPLOADS (guest + admin) — follow-up from PERF4-5; raw multi-MB uploads currently unoptimized (audit E2EE/size-limit/retry/quality first)
 
 **Phase 5 — Edge / network**
 - [ ] PERF5-1 Edge-cache public API GETs

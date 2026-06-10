@@ -250,11 +250,17 @@ function Header() {
     {/* Primary top bar */}
     <nav className="header-nav">
       <NavLink to="/" className="header-logo-container" onClick={closeMenu}>
-        <img
-          src="/images/686421984_954054894279692_2045884033687314189_n.png"
-          alt="Magis Gold & Gems Pawnshop & Jewellery"
-          className="header-logo"
-        />
+        <picture style={{ display: "contents" }}>
+          <source
+            srcSet="/images/686421984_954054894279692_2045884033687314189_n.webp"
+            type="image/webp"
+          />
+          <img
+            src="/images/686421984_954054894279692_2045884033687314189_n.png"
+            alt="Magis Gold & Gems Pawnshop & Jewellery"
+            className="header-logo"
+          />
+        </picture>
       </NavLink>
 
       {/* Hamburger (mobile) */}

@@ -166,12 +166,18 @@ function Footer() {
         <div className="footer-columns grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand / Socials */}
           <div className="footer-column space-y-3">
-            <img
-              src="/images/686421984_954054894279692_2045884033687314189_n.png"
-              alt="Magis Gold & Gems Pawnshop & Jewellery logo"
-              className="footer-logo"
-              loading="lazy"
-            />
+            <picture style={{ display: "contents" }}>
+              <source
+                srcSet="/images/686421984_954054894279692_2045884033687314189_n.webp"
+                type="image/webp"
+              />
+              <img
+                src="/images/686421984_954054894279692_2045884033687314189_n.png"
+                alt="Magis Gold & Gems Pawnshop & Jewellery logo"
+                className="footer-logo"
+                loading="lazy"
+              />
+            </picture>
             <p className="footer-copy">
               Magis Gold & Gems is a BSP-regulated pawnshop. We aim to serve you
               with transparent rates and friendly customer care.

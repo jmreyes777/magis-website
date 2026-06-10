@@ -27,26 +27,38 @@ function ImageWithFallback({ src, alt, className, ...rest }) {
   const transparentPixel =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+v7c4sQAAAABJRU5ErkJggg==";
 
+  // Serve a WebP variant (~95% smaller) to browsers that support it, derived
+  // from the current .png source. Skipped once we've fallen back (placeholder /
+  // data-URI have no .webp twin). The <img> stays the universal fallback, and
+  // display:contents keeps the <img> in the parent layout as before.
+  const webpSrc =
+    !hasTriedFallback && /\.png$/i.test(imgSrc)
+      ? imgSrc.replace(/\.png$/i, ".webp")
+      : null;
+
   return (
-    <img
-      src={imgSrc}
-      alt={alt}
-      loading="lazy"
-      decoding="async"
-      onLoad={() => setLoaded(true)}
-      onError={() => {
-        if (!hasTriedFallback) {
-          setHasTriedFallback(true);
-          setImgSrc(fallbackSrc);
-        } else {
-          setImgSrc(transparentPixel);
-        }
-      }}
-      className={`${className || ""} transition-opacity duration-300 ${
-        loaded ? "opacity-100" : "opacity-0"
-      }`}
-      {...rest}
-    />
+    <picture style={{ display: "contents" }}>
+      {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
+      <img
+        src={imgSrc}
+        alt={alt}
+        loading="lazy"
+        decoding="async"
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          if (!hasTriedFallback) {
+            setHasTriedFallback(true);
+            setImgSrc(fallbackSrc);
+          } else {
+            setImgSrc(transparentPixel);
+          }
+        }}
+        className={`${className || ""} transition-opacity duration-300 ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+        {...rest}
+      />
+    </picture>
   );
 }
 
