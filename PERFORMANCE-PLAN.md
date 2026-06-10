@@ -238,11 +238,17 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Verification:** both production builds compile clean (exit 0) after removal; `.map` analysis re-confirmed no heavy lib in either entry chunk.
 - **Optional future cleanup (not done):** the dead `InteractiveMap.js` in `user-frontend` (and the copy in `magis-edge-worker`) could be deleted; it's unreferenced so already absent from all chunks.
 
-#### [ ] PERF4-4 — Add connection hints
+#### [x] PERF4-4 — Add connection hints — ✅ DONE 2026-06-10
 - **Where:** `index.html` in both SPAs.
 - **Recommendation:** `preconnect`/`dns-prefetch` for `*.googleapis.com`, `*.gstatic.com`, and Firebase endpoints to cut TLS-setup latency.
 - **Security-preservation note:** Only origins already permitted by the CSP; no policy widening.
 - **Impact:** Low–Medium. **Effort:** S
+- **Audit (2026-06-10):** `user-frontend/public/index.html` already hinted maps/storage/Facebook CDNs but **missed the Firebase backbone** (`firestore`/`identitytoolkit`/`securetoken`) hit on every load, plus Google Fonts (the header loads **Inter** via CSS `@import` in `Header-User-Component.css`) and Turnstile. `admin-frontend/public/index.html` had **no hints at all**, yet loads **Maps + reCAPTCHA v3 synchronously in `<head>`** and uses Firebase **Auth**. Admin does **not** actually fetch Google Fonts (only present in its CSP string), so font hints were intentionally omitted there.
+- **Resolution (2026-06-10):** added resource hints to both `index.html` (no CSP touched):
+  - **`user-frontend`** (added): `preconnect` `firestore.googleapis.com` (crossorigin), `fonts.googleapis.com`, `fonts.gstatic.com` (crossorigin); `dns-prefetch` `identitytoolkit`/`securetoken.googleapis.com`, `challenges.cloudflare.com`, + dns-prefetch fallbacks.
+  - **`admin-frontend`** (added, was empty): `preconnect` `maps.googleapis.com`, `www.google.com`, `www.gstatic.com` (script origins, no crossorigin), `identitytoolkit.googleapis.com` (crossorigin); `dns-prefetch` `maps.gstatic.com`, `securetoken.googleapis.com`, + fallbacks.
+  - **`crossorigin` correctness:** set only on origins fetched via CORS (Firebase XHR, `fonts.gstatic` font files); omitted on script/stylesheet origins (Maps JS, reCAPTCHA `www.google`/`www.gstatic`, `fonts.googleapis` CSS) so the warmed connection is actually reused.
+- **Verification:** both production builds compile (exit 0) and the hints survive into the built `index.html`. Automated cross-check confirmed **every** hinted origin is already in that app's CSP — **user-frontend 13/13, admin 6/6** — so zero policy widening.
 
 #### [ ] PERF4-5 — Optimize image assets
 - **Where:** `src/assets/` in both SPAs.
@@ -311,7 +317,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 - [x] PERF4-1 Enable + tune Workbox SW (assets-only) — ✅ (safe asset-only SW authored at public/sw.js + orphaned cache-first SW neutralized; still gated OFF — operator flips REACT_APP_ENABLE_SW after staging check)
 - [x] PERF4-2 Remove server-only packages from bundles — ✅ (uninstalled socket.io/express/multer/mongoose where unused across both SPAs; kept socket.io-client; user-frontend build verified)
 - [x] PERF4-3 Keep heavy libs out of the main chunk — ✅ (analyzer-verified: recharts + @googlemaps only in lazy chunks, none in main; removed dead framer-motion + @react-google-maps/api from both SPAs + admin overrides; both builds pass)
-- [ ] PERF4-4 Connection hints (`preconnect`/`dns-prefetch`)
+- [x] PERF4-4 Connection hints (`preconnect`/`dns-prefetch`) — ✅ (added Firebase/Fonts/Turnstile to user, Maps/reCAPTCHA/Auth to admin; every origin CSP-verified 13/13 + 6/6, correct crossorigin, both builds pass)
 - [ ] PERF4-5 Image optimization
 
 **Phase 5 — Edge / network**

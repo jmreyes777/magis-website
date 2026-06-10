@@ -32,6 +32,17 @@
     <link rel="preconnect" href="https://scontent.xx.fbcdn.net" crossorigin />
     <link rel="dns-prefetch" href="//platform-lookaside.fbsbx.com" />
     <link rel="preconnect" href="https://platform-lookaside.fbsbx.com" crossorigin />
+    <!-- Firebase (Firestore + Auth) — hit on every page load. crossorigin: CORS fetch/XHR -->
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="//firestore.googleapis.com" />
+    <link rel="dns-prefetch" href="//identitytoolkit.googleapis.com" />
+    <link rel="dns-prefetch" href="//securetoken.googleapis.com" />
+    <!-- Google Fonts (Inter, loaded by the site header via CSS @import) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="//fonts.gstatic.com" />
+    <!-- Cloudflare Turnstile (chat/contact widgets) -->
+    <link rel="dns-prefetch" href="//challenges.cloudflare.com" />
 
     <!-- 🔒 Disable native storage and expose safe wrappers (inlined to avoid render-blocking network request) -->
     <script nonce="xyz123">

@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Admin Dashboard - Secure Access" />
 
+    <!-- ▶️ Resource hints — origins already permitted by the CSP below; no policy change -->
+    <!-- Google Maps JS (loaded synchronously in <head> below) -->
+    <link rel="preconnect" href="https://maps.googleapis.com" />
+    <link rel="dns-prefetch" href="//maps.googleapis.com" />
+    <link rel="dns-prefetch" href="//maps.gstatic.com" />
+    <!-- Google reCAPTCHA v3 (loaded synchronously in <head> below) -->
+    <link rel="preconnect" href="https://www.google.com" />
+    <link rel="preconnect" href="https://www.gstatic.com" />
+    <!-- Firebase Auth (admin sign-in). crossorigin: CORS fetch/XHR -->
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin />
+    <link rel="dns-prefetch" href="//identitytoolkit.googleapis.com" />
+    <link rel="dns-prefetch" href="//securetoken.googleapis.com" />
+
     <!-- 🔒 Disable native storage and expose safe wrappers -->
     <script nonce="xyz123" src="/static/js/safe-storage-patch.js"></script>
 
