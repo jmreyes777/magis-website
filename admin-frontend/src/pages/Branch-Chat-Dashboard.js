@@ -308,7 +308,11 @@ const handleUnreadCount = (
 /**
  * Persist chat state to localStorage
  */
-const persistChatState = (branchEmail, chats, activeGuestIds) => {
+const persistChatState = (branchEmail, chats) => {
+  // A1: `activeGuestIds` is live / server-authoritative and is intentionally NOT
+  // persisted — restoring presence from localStorage resurrects "ghost" guests
+  // (R2/B2). Only chat previews are cached for instant paint; presence always comes
+  // from the live guestPresenceUpdate feed.
   clearTimeout(window.__CHAT_STORAGE_DEBOUNCE__);
   window.__CHAT_STORAGE_DEBOUNCE__ = setTimeout(() => {
     localStorage.setItem(
@@ -316,7 +320,7 @@ const persistChatState = (branchEmail, chats, activeGuestIds) => {
       JSON.stringify({
         version: LOCAL_STORAGE_VERSION,
         chats,
-        activeGuestIds: [...activeGuestIds],
+        activeGuestIds: [],
       })
     );
   }, STORAGE_DEBOUNCE_MS);
@@ -364,6 +368,12 @@ const BranchChatDashboard = () => {
   const [lastReadTimestamps, setLastReadTimestamps] = useState({});
   const [media, setMedia] = useState(null);
   const [activeGuestIds, setActiveGuestIds] = useState(new Set());
+  // D-1: presence is live/server-authoritative. `presenceReady` flips true the
+  // first time an authoritative guestPresenceUpdate is applied; until then a brief
+  // "syncing…" sidebar skeleton (gated >200ms) avoids painting stale/empty state on
+  // cold load — we never render unconfirmed rows.
+  const [presenceReady, setPresenceReady] = useState(false);
+  const [showSyncing, setShowSyncing] = useState(false);
 
   // E2EE state per guest
   const [e2eeStatus, setE2eeStatus] = useState({}); // { guestId: "initializing" | "exchanging" | "established" | "failed" }
@@ -1019,7 +1029,7 @@ const BranchChatDashboard = () => {
       }
 
       /* 6. persistence + BC sync ------------------------------------ */
-      persistChatState(branchEmail, chatsRef.current, activeIdsRef.current);
+      persistChatState(branchEmail, chatsRef.current);
 
       try {
         getChatChannel().postMessage({
@@ -1382,6 +1392,20 @@ const BranchChatDashboard = () => {
     setCacheHydrated(true);
   }, []);
 
+  // D-1: show a brief "syncing…" sidebar skeleton ONLY if authoritative presence
+  // takes >200ms to arrive (instant pulls show nothing). A 5s fail-safe flips
+  // presenceReady so the skeleton can never hang if a presence frame is missed
+  // before Phase B's `requestGuestPresence` handler exists.
+  useEffect(() => {
+    if (presenceReady) return undefined;
+    const showT = setTimeout(() => setShowSyncing(true), 200);
+    const failSafeT = setTimeout(() => setPresenceReady(true), 5000);
+    return () => {
+      clearTimeout(showT);
+      clearTimeout(failSafeT);
+    };
+  }, [presenceReady]);
+
   /* 🔄  React to JWT rotation in another tab – reconnect once, no extra listeners */
   useEffect(() => {
     const handleTokenChange = (event) => {
@@ -1458,6 +1482,14 @@ const BranchChatDashboard = () => {
       const nextSet = new Set(nextIds);
       setActiveGuestIds(nextSet);
       activeIdsRef.current = nextSet;
+      // D-1: authoritative presence has arrived — drop the syncing skeleton.
+      setPresenceReady(true);
+      // A4: prune chat rows whose guest is no longer in the authoritative set. The
+      // render already intersects with activeGuestIds so nothing VISIBLE changes —
+      // this just stops stale rows lingering in `chats` (and leaking via cross-tab
+      // chats sharing). Guests with recent messages are re-added by the
+      // fetchActiveChats() call below or by handleIncomingMessage.
+      setChats((prev) => prev.filter((c) => nextSet.has(canon(c.guestId))));
       // Presence is authoritative for the sidebar — it must be authoritative for
       // the OPEN thread too. If the guest we're viewing is no longer in the live
       // set (they closed/dropped, or the set is now empty), clear the selection +
@@ -1500,6 +1532,16 @@ const BranchChatDashboard = () => {
 
       socketInstance.__messageListenerAttached = true;
       console.debug("[DASHBOARD] 🔁 Rebound socket listeners");
+
+      // A3: pull authoritative presence right AFTER (re)binding the listener so the
+      // response can't lose the rebind race (B1). Runs on initial connect (when
+      // already connected at mount) and on every reconnect via onSocketConnected.
+      // The reply is a normal guestPresenceUpdate handled above. Harmless no-op
+      // until Phase B adds the server-side `requestGuestPresence` handler; the
+      // server's connection-time push + 5s fail-safe keep the UI correct meanwhile.
+      if (socketInstance?.connected) {
+        socketInstance.emit("requestGuestPresence");
+      }
     };
 
     BranchChatDashboard._rebindSocketListeners = rebindSocketListeners;
@@ -1558,7 +1600,7 @@ const BranchChatDashboard = () => {
         JSON.stringify({
           version: LOCAL_STORAGE_VERSION,
           chats: newChats,
-          activeGuestIds: [...newIds],
+          activeGuestIds: [], // A1: presence is live/server-only — never persisted
         })
       );
 
@@ -1651,11 +1693,10 @@ const BranchChatDashboard = () => {
           }
         }
 
-        if (payload?.activeGuestIds) {
-          const set = new Set(payload.activeGuestIds);
-          setActiveGuestIds(set);
-          activeIdsRef.current = set;
-        }
+        // A2: presence is live/server-authoritative PER TAB. We deliberately do NOT
+        // apply another tab's activeGuestIds here — additive cross-tab merging
+        // resurrects "ghost" guests the server already cleared (R2/B3). Each tab
+        // trusts its own guestPresenceUpdate feed (mirrors the adminSync handler).
 
         // 🔁 Rehydrate thread if selected chat was updated
         if (selectedChatRef.current) {
@@ -2475,9 +2516,25 @@ const BranchChatDashboard = () => {
           {(
             <div className="overflow-y-auto flex-grow">
               {sortedActiveChats.length === 0 ? (
-                <p className="text-sm text-gray-500 px-4 py-4 italic">
-                  No active guest chats at the moment.
-                </p>
+                !presenceReady && showSyncing ? (
+                  <div
+                    className="px-4 py-4 space-y-3"
+                    aria-busy="true"
+                    aria-label="Syncing active chats"
+                  >
+                    <p className="text-xs text-gray-400 italic">Syncing…</p>
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="animate-pulse flex flex-col gap-2">
+                        <div className="h-3 w-24 bg-gray-300 rounded" />
+                        <div className="h-3 w-40 bg-gray-200 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 px-4 py-4 italic">
+                    No active guest chats at the moment.
+                  </p>
+                )
               ) : (
                 sortedActiveChats.map((chat, index) => {
                   const isSelected = selectedChat?.guestId === chat.guestId;
