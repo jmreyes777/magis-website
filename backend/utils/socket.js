@@ -337,6 +337,10 @@ const initializeSocket = (server) => {
 
     socket.use(async (packet, next) => {
       const eventName = packet[0];
+      // Lightweight presence/lifecycle pings skip per-event JWT re-verification.
+      // Privileged reads — including `requestGuestPresence` (B3) — are deliberately
+      // NOT listed here, so they pass full token re-verification below like every
+      // other data event. Do not add requestGuestPresence to this allow-list.
       if (["heartbeat", "tabAlive", "broadcastAlive", "chatClosed", "markRead"].includes(eventName)) {
         return next();
       }
@@ -554,9 +558,47 @@ const initializeSocket = (server) => {
         }
 
         try { await touchBranchOnline(branchEmail); } catch (_) {}
+
+        // B2: re-emit authoritative presence to THIS admin on (re)join, so a correct
+        // guest set exists even if the A3 `requestGuestPresence` pull is still in
+        // flight. Third layer alongside the connection-time push (:436) and the
+        // explicit pull handler. Sent to the requesting socket only.
+        socket.emit(
+          "guestPresenceUpdate",
+          Array.from(branchGuests.get(branchEmail) || new Set())
+        );
       }
 
       if (typeof ack === "function") ack();
+    });
+
+    // ───────────────────────────────────────────────────────────────────
+    // requestGuestPresence (R1 server-side): an admin client explicitly pulls the
+    // authoritative live guest set AFTER it has (re)bound its listeners, so the UI
+    // can never depend on the racing connection-time push. The reply is sent to the
+    // REQUESTING socket only. `branchEmail` is derived strictly from the verified
+    // token identity (P1-2) — client input is never trusted (mirrors joinRoom). This
+    // event is intentionally excluded from the socket.use bypass list (B3), so it
+    // passes full per-event JWT re-verification like any other privileged read.
+    // ───────────────────────────────────────────────────────────────────
+    socket.on("requestGuestPresence", (ack) => {
+      const u = socket.user || {};
+      const isAdminUser = u.role === "admin" || u.role === "branchadmin";
+      const bEmail = (u.branchEmail || "").toLowerCase();
+
+      if (!isAdminUser || !bEmail) {
+        // Guests / identity-less sockets get no presence data.
+        if (typeof ack === "function") ack({ ok: false });
+        return;
+      }
+
+      // Authoritative in-memory set (same source/shape as the connection-time push
+      // at :436). Phase C will swap this read to Redis without changing the contract.
+      const guestSet = branchGuests.get(bEmail) || new Set();
+      const ids = Array.from(guestSet);
+      socket.emit("guestPresenceUpdate", ids);
+      console.log(`[SOCKET] 📡 requestGuestPresence → ${ids.length} guest(s) to admin ${bEmail}`);
+      if (typeof ack === "function") ack({ ok: true, count: ids.length });
     });
 
     socket.on("confirmReady", ({ branchEmail, sessionTabId }) => {

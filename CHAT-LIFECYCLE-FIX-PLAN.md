@@ -1,6 +1,6 @@
 # Guest ↔ Admin Chat Lifecycle — One-Shot Fix Plan
 
-**Status:** IN PROGRESS — open decisions resolved (§8); **Phase A IMPLEMENTED & build-verified** (2026-06-10); Phases B–D pending review gate
+**Status:** IN PROGRESS — open decisions resolved (§8); **Phases A & B IMPLEMENTED & verified** (2026-06-10; A build-verified, B `node --check` OK); Phases C–D pending review gate
 **Author:** audit 2026-06-10
 **Scope:** presence / lifecycle desync between the guest chat box and the admin
 chat dashboard. **Out of scope:** message encryption, auth, CSP, caching, bundles,
@@ -114,6 +114,19 @@ Each phase is independently shippable and verifiable.
 
 ### Phase B — Backend pull handler (R1 server-side)
 *File: `backend/utils/socket.js`.*
+
+> **✅ IMPLEMENTED & verified** (2026-06-10 — `node --check backend/utils/socket.js`
+> OK; `socket.use` JWT bypass allow-list confirmed unchanged). As-built notes:
+> - **B1** — `branchEmail` derived strictly from `socket.user` (already lowercased
+>   at auth `:293`/`:313`, so it reads the same `branchGuests` Set as the
+>   connection-time push at `:436`); reply via `socket.emit` to the requesting
+>   socket only. Accepts an optional ack, but the Phase A client emits without one.
+> - **B3** — satisfied by *exclusion*: `requestGuestPresence` is not in the
+>   `socket.use` bypass list, so it passes full per-event JWT re-verification. Added
+>   a guard comment so it isn't mistakenly added later.
+> Together with Phase A, A3 is now fully race-proof via three delivery layers
+> (connection push + `joinRoom` re-emit + explicit pull) — Scenario 1 fixed for
+> single-instance.
 
 - **B1 — Add a `requestGuestPresence` socket handler.**
   Derive `branchEmail` strictly from `socket.user` (P1-2 — never trust client
