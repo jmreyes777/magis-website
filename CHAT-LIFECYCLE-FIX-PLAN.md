@@ -1,6 +1,6 @@
 # Guest ↔ Admin Chat Lifecycle — One-Shot Fix Plan
 
-**Status:** IN PROGRESS — open decisions resolved (§8); **Phases A, B & C IMPLEMENTED & verified** (2026-06-10; A build-verified, B/C `node --check` OK); Phase D pending review gate
+**Status:** ✅ COMPLETE — all phases **A–D IMPLEMENTED & verified** (2026-06-10; A/D build-verified, B/C `node --check` OK); open decisions resolved (§8)
 **Author:** audit 2026-06-10
 **Scope:** presence / lifecycle desync between the guest chat box and the admin
 chat dashboard. **Out of scope:** message encryption, auth, CSP, caching, bundles,
@@ -183,6 +183,23 @@ Each phase is independently shippable and verifiable.
 
 ### Phase D — Tuning + optional hardening (R5, R3-optional)
 *Files: `backend/utils/socket.js`, optionally guest component.*
+
+> **✅ IMPLEMENTED & verified** (2026-06-10 — admin-frontend build exit 0, +39 B).
+> Minimal by design — most of Phase D was already satisfied by A–C:
+> - **D1** — **no code** (Decision D-2): verified `pingInterval 25s` / `pingTimeout
+>   60s` (~85s transport bound) + ~90s Redis TTL already bound presence; the 5-min
+>   `MAX_MISSED_PINGS` reap stays as a backstop (lowering it would false-reap
+>   jittery guests — a truth regression).
+> - **D2** — **no code**: satisfied by the Phase C disconnect refinement (no ZREM on
+>   transport disconnect → a reconnecting guest never leaves the authoritative set →
+>   no admin flicker) plus the existing 5s guest-banner debounce.
+> - **D3** — **one focused client change**: `handlePresenceUpdate` now prunes
+>   `unreadCounts` to the authoritative set (alongside the A4 chats prune), clearing
+>   orphan/stale unread badges for guests closed during an offline gap. The Redis
+>   `branch:closed` set was deemed **redundant**: absence from the authoritative pull
+>   *is* the cleanup signal (A3/A4 + Phase A's selection-clear already correct the
+>   list + right pane), so a new set + event/listener would add backend state and
+>   surface for zero incremental correctness.
 
 - **D1 — Server-side reap of dropped guests (Decision D-2: keep the app reap as a
   backstop; do NOT aggressively lower it).**

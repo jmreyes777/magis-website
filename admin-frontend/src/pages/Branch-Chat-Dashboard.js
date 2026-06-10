@@ -1490,6 +1490,21 @@ const BranchChatDashboard = () => {
       // chats sharing). Guests with recent messages are re-added by the
       // fetchActiveChats() call below or by handleIncomingMessage.
       setChats((prev) => prev.filter((c) => nextSet.has(canon(c.guestId))));
+      // D3 (Decision D-3): the authoritative set also governs unread badges. Drop
+      // unread counters for guests no longer present, so a thread closed during an
+      // admin's offline gap can't leave an orphan badge (or a stale count that could
+      // resurface if that guestId is ever reused). Absence from the authoritative
+      // pull already means "gone" — that is exactly the cleanup signal, so no
+      // separate recently-closed set is needed for badge/selection hygiene.
+      setUnreadCounts((prev) => {
+        let changed = false;
+        const next = {};
+        for (const gid of Object.keys(prev)) {
+          if (nextSet.has(canon(gid))) next[gid] = prev[gid];
+          else changed = true;
+        }
+        return changed ? next : prev;
+      });
       // Presence is authoritative for the sidebar — it must be authoritative for
       // the OPEN thread too. If the guest we're viewing is no longer in the live
       // set (they closed/dropped, or the set is now empty), clear the selection +
