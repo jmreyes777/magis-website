@@ -224,11 +224,19 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Verification:** `user-frontend` production build (`craco build`) compiles cleanly (exit 0) with the packages gone — the riskiest removal (`express`) included. `admin-frontend`'s removals are a strict subset with zero imports.
 - **Honest scope note:** because these were never imported, the **shipped JS bundle is unchanged** (webpack only bundles imported modules) — the real win is smaller installs and reduced dependency/supply-chain surface, not runtime bundle size.
 
-#### [ ] PERF4-3 — Keep heavy route-local libraries out of the main chunk
+#### [x] PERF4-3 — Keep heavy route-local libraries out of the main chunk — ✅ DONE 2026-06-10
 - **Where:** `recharts` (admin analytics), `@react-google-maps/api` (branches), `framer-motion` — already route-split.
 - **Recommendation:** Verify via the analyzer they are not in the shared/main chunk; lazy-load Google Maps only on the branches route.
 - **Security-preservation note:** Bundling only; CSP already allows the relevant Google origins.
 - **Impact:** Medium. **Effort:** S–M
+- **Premise correction (audit 2026-06-10):** the three named libs were partly mis-attributed. Findings from `git grep` across both SPAs: **`framer-motion` is unused** (only the `package.json` line; zero `motion.`/`AnimatePresence` usage) and **`@react-google-maps/api` is unused** (the real maps libs are `@googlemaps/js-api-loader` via `importLibrary()` in `user-frontend`, and **manual `<script>` injection** in `admin-frontend`'s `mapsLoader.js`). `recharts` is admin-only and imported solely by the `lazy()`-loaded `BranchAdmin-Analytics-Page`. (`user-frontend/src/components/InteractiveMap.js` is dead — no importer — but harmless; the live branches path is `Branches-List-User-Page` → `mapUtils` → `googleMapsLoader`.)
+- **Analyzer verification (source-map `.map` sources vs the entry chunk):**
+  - `admin-frontend` (entry `main.88cfc9b0.js`): **`recharts` → lazy chunks only** (`715.*`, `785.*`), not in main.
+  - `user-frontend` (entry `main.38879538.js`): **`@googlemaps/js-api-loader` → lazy chunk only** (`518.*`, the branches chunk) and `socket.io-client` likewise lazy; nothing heavy in main.
+  - Google Maps itself is **never bundled** (loaded at runtime via `importLibrary()` / injected `<script>`), so “lazy-load Maps on the branches route” was already satisfied.
+- **Resolution (2026-06-10):** no code-splitting change was needed (already correct). Removed the two **dead** deps from **both** SPAs via `npm uninstall framer-motion @react-google-maps/api` (user-frontend −8 packages, admin-frontend −11), and removed admin's now-pointless `overrides` block for `@react-google-maps/api`. `recharts`, `socket.io-client`, and `@googlemaps/js-api-loader` retained.
+- **Verification:** both production builds compile clean (exit 0) after removal; `.map` analysis re-confirmed no heavy lib in either entry chunk.
+- **Optional future cleanup (not done):** the dead `InteractiveMap.js` in `user-frontend` (and the copy in `magis-edge-worker`) could be deleted; it's unreferenced so already absent from all chunks.
 
 #### [ ] PERF4-4 — Add connection hints
 - **Where:** `index.html` in both SPAs.
@@ -302,7 +310,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 **Phase 4 — Frontend delivery**
 - [x] PERF4-1 Enable + tune Workbox SW (assets-only) — ✅ (safe asset-only SW authored at public/sw.js + orphaned cache-first SW neutralized; still gated OFF — operator flips REACT_APP_ENABLE_SW after staging check)
 - [x] PERF4-2 Remove server-only packages from bundles — ✅ (uninstalled socket.io/express/multer/mongoose where unused across both SPAs; kept socket.io-client; user-frontend build verified)
-- [ ] PERF4-3 Keep heavy libs out of the main chunk
+- [x] PERF4-3 Keep heavy libs out of the main chunk — ✅ (analyzer-verified: recharts + @googlemaps only in lazy chunks, none in main; removed dead framer-motion + @react-google-maps/api from both SPAs + admin overrides; both builds pass)
 - [ ] PERF4-4 Connection hints (`preconnect`/`dns-prefetch`)
 - [ ] PERF4-5 Image optimization
 

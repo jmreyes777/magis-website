@@ -5,7 +5,6 @@
   "main": "electron-main.js",
   "proxy": "http://127.0.0.1:8787",
   "dependencies": {
-    "@react-google-maps/api": "^2.20.3",
     "@react-oauth/google": "^0.12.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
@@ -14,7 +13,6 @@
     "browser-image-compression": "^2.0.2",
     "cra-template": "1.2.0",
     "firebase": "^11.1.0",
-    "framer-motion": "^11.15.0",
     "jwt-decode": "^4.0.0",
     "nosleep.js": "^0.12.0",
     "qrcode.react": "^4.2.0",
@@ -63,11 +61,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  },
-  "overrides": {
-    "@react-google-maps/api": {
-      "react": "^19.0.0"
-    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.0",
