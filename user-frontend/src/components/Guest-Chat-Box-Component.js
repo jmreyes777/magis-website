@@ -17,7 +17,7 @@ import {
 import { db } from "../firebase-config";
 import { collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import MessageItem from "../Shared/Message-Item-Component";
-import ImagePreview from "../Shared/ImagePreview-Component";
+import { optimizeImage } from "../Shared/Utils-imageOptimization";
 import "./Guest-Chat-Box-Component.css";
 import TranscriptModal from "../components/TranscriptModal";
 import {
@@ -563,6 +563,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
   const [messages, setMessages] = useState([]);
   const [media, setMedia] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
+  const [isOptimizingImage, setIsOptimizingImage] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [branchStatus, setBranchStatus] = useState({ online: false, lastSeen: "Unknown" });
@@ -1973,7 +1974,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
 
   // Disable send (offline, busy, or empty text & no image)
   const isSendDisabled =
-    showOffline || !branchStatus.online || isLoading || (message.trim().length === 0 && !previewFile);
+    showOffline || !branchStatus.online || isLoading || isOptimizingImage || (message.trim().length === 0 && !previewFile);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Render
@@ -2260,6 +2261,11 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
           {/* Footer: Image preview + toolbar */}
           <div className="guest-chat-box-footer bg-white border-t px-4 py-3">
             {/* Preview Thumbnail */}
+            {isOptimizingImage && (
+              <div className="flex justify-center mb-3 text-xs italic text-gray-500">
+                Optimizing image…
+              </div>
+            )}
             {previewFile && (
               <div className="flex justify-center mb-3">
                 <div className="relative w-16 h-16">
@@ -2367,9 +2373,28 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
                     ref={inputFileRef}
                     disabled={showOffline || !branchStatus.online}
                     hidden
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0];
-                      if (file) setPreviewFile(file);
+                      if (!file) return;
+                      // PERF4-6: downscale + recompress on the client before
+                      // upload (keeps JPEG/PNG — no backend/security change).
+                      setIsOptimizingImage(true);
+                      try {
+                        const optimized = await optimizeImage(file, {
+                          maxWidth: 1600,
+                          maxHeight: 1600,
+                          quality: 0.82,
+                        });
+                        setPreviewFile(optimized);
+                      } catch (err) {
+                        console.warn(
+                          "[GUEST] image optimize failed; sending original:",
+                          err?.message
+                        );
+                        setPreviewFile(file);
+                      } finally {
+                        setIsOptimizingImage(false);
+                      }
                     }}
                   />
                 </label>
