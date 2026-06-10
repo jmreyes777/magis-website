@@ -83,6 +83,89 @@ async function touchBranchOnline(branchEmail) {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+// Guest presence in Redis (Phase C): ONE sorted set per branch,
+// `guest:online:z:<email>`, where member = guestId and score = last-seen epoch ms.
+// A guest is "online" while their score is within GUEST_ONLINE_TTL_SEC of now; the
+// score is refreshed by the guest heartbeat. This gives cross-instance correctness
+// and a bounded ghost window (~GUEST_ONLINE_TTL_SEC) for silently-dropped guests,
+// with keyspace-independent O(log N + M) reads (no SCAN — avoids any PERF3-2
+// regression on the frequent presence reconciliation path). branchGuests stays as a
+// local cache + fail-open fallback when Redis is unavailable (C3).
+// ─────────────────────────────────────────────────────────────
+const GUEST_PRESENCE_PREFIX = process.env.REDIS_GUEST_PRESENCE_PREFIX || "guest:online:z:";
+const GUEST_ONLINE_TTL_SEC = Number(process.env.GUEST_ONLINE_TTL_SEC || 90);
+
+const guestZsetKey = (branchEmail) =>
+  `${GUEST_PRESENCE_PREFIX}${(branchEmail || "").toLowerCase()}`;
+
+/** C1: mark/refresh a guest online (bump score to now). Best-effort; never throws. */
+async function markGuestOnline(branchEmail, guestId) {
+  if (!branchEmail || !guestId) return;
+  const client = getRedis();
+  try {
+    await ensureRedisConnected(client);
+    const key = guestZsetKey(branchEmail);
+    // Backstop EXPIRE so an abandoned set (all guests silently dropped, no admin
+    // reading to prune) eventually self-cleans; refreshed on every heartbeat.
+    await client
+      .multi()
+      .zadd(key, Date.now(), guestId)
+      .expire(key, GUEST_ONLINE_TTL_SEC * 4)
+      .exec();
+  } catch (e) {
+    console.warn("[presence] Redis guest touch failed:", e.message);
+  }
+}
+
+/** C1: explicitly mark a guest offline (used on clean chatClosed). Never throws. */
+async function markGuestOffline(branchEmail, guestId) {
+  if (!branchEmail || !guestId) return;
+  const client = getRedis();
+  try {
+    await ensureRedisConnected(client);
+    await client.zrem(guestZsetKey(branchEmail), guestId);
+  } catch (e) {
+    console.warn("[presence] Redis guest untouch failed:", e.message);
+  }
+}
+
+/**
+ * C2: authoritative online-guest read — members of the per-branch sorted set whose
+ * last-seen score is within the TTL window (cross-instance truth). Stale members are
+ * pruned opportunistically. Throws if Redis is unreachable so callers can fail open
+ * to the in-memory cache (C3).
+ */
+async function getOnlineGuestsFromRedis(branchEmail) {
+  const client = getRedis();
+  await ensureRedisConnected(client);
+  const key = guestZsetKey(branchEmail);
+  const cutoff = Date.now() - GUEST_ONLINE_TTL_SEC * 1000;
+  // Live = refreshed within the TTL window (score >= cutoff). Uses the modern
+  // ZRANGE … BYSCORE (Redis ≥ 6.2; ZRANGEBYSCORE is deprecated).
+  const live = await client.zrange(key, cutoff, "+inf", "BYSCORE");
+  // Opportunistically drop members that have aged out (best-effort, fire-and-forget).
+  // ZREMRANGEBYSCORE is the canonical ranged-removal command (not deprecated).
+  client.zremrangebyscore(key, "-inf", `(${cutoff}`).catch(() => {});
+  return live || [];
+}
+
+/**
+ * Online guests for a branch — Redis-authoritative (C2) with fail-open to the
+ * in-memory `branchGuests` cache (C3). Mirrors the existing "running without Redis
+ * adapter" tolerance: no hard new dependency.
+ */
+async function getBranchPresence(branchEmail) {
+  if (!branchEmail) return [];
+  try {
+    return await getOnlineGuestsFromRedis(branchEmail);
+  } catch (e) {
+    console.warn("[presence] Redis read failed; falling back to in-memory branchGuests:", e.message);
+    const local = branchGuests.get(branchEmail);
+    return local ? [...local] : [];
+  }
+}
+
 /**
  * Normalize a room name. Returns "<prefix>-<identifier>".
  */
@@ -102,29 +185,40 @@ const getRoomName = (role, id) => normalizeRoomName(role, id);
 /**
  * Compute away/online lists for guests and emit presence only for those truly online.
  */
-function checkForStaleGuests(branchEmail) {
-  const liveSet = branchGuests.get(branchEmail);
-  if (!liveSet) return;
+async function checkForStaleGuests(branchEmail) {
+  if (!branchEmail) return;
 
-  const currentActive = new Set();
-  for (const client of clients.values()) {
-    if (client.role === "user" && client.branchEmail === branchEmail) {
-      currentActive.add(client.identifier);
+  let onlineNow;
+  try {
+    // C2: Redis is authoritative when available — cross-instance set with TTL
+    // auto-expiry already removes silently-dropped guests, so no local away-scan.
+    onlineNow = await getOnlineGuestsFromRedis(branchEmail);
+  } catch (e) {
+    // C3 fallback (Redis down): legacy per-instance away detection.
+    const liveSet = branchGuests.get(branchEmail);
+    if (!liveSet) return;
+
+    const currentActive = new Set();
+    for (const client of clients.values()) {
+      if (client.role === "user" && client.branchEmail === branchEmail) {
+        currentActive.add(client.identifier);
+      }
     }
+
+    let awaySet = branchAwayGuests.get(branchEmail);
+    if (!awaySet) {
+      awaySet = new Set();
+      branchAwayGuests.set(branchEmail, awaySet);
+    }
+
+    for (const guestId of liveSet) {
+      if (!currentActive.has(guestId)) awaySet.add(guestId);
+      else awaySet.delete(guestId);
+    }
+
+    onlineNow = [...liveSet].filter((id) => !awaySet.has(id));
   }
 
-  let awaySet = branchAwayGuests.get(branchEmail);
-  if (!awaySet) {
-    awaySet = new Set();
-    branchAwayGuests.set(branchEmail, awaySet);
-  }
-
-  for (const guestId of liveSet) {
-    if (!currentActive.has(guestId)) awaySet.add(guestId);
-    else awaySet.delete(guestId);
-  }
-
-  const onlineNow = [...liveSet].filter((id) => !awaySet.has(id));
   io.to(getRoomName("admin", branchEmail)).emit("guestPresenceUpdate", onlineNow);
 }
 
@@ -435,10 +529,10 @@ const initializeSocket = (server) => {
         console.log(`[SOCKET] 🔄 Replayed ${pending.length} buffered msgs for ${branchEmail}`);
       }
 
-      // Send initial presence to this admin
-      const guestSet = branchGuests.get(branchEmail) || new Set();
-      socket.emit("guestPresenceUpdate", Array.from(guestSet));
-      console.log(`[SOCKET] ⏯ Sent initial guestPresenceUpdate to admin ${branchEmail}:`, [...guestSet]);
+      // Send initial presence to this admin (C2: Redis-authoritative, fail-open).
+      const initialPresence = await getBranchPresence(branchEmail);
+      socket.emit("guestPresenceUpdate", initialPresence);
+      console.log(`[SOCKET] ⏯ Sent initial guestPresenceUpdate to admin ${branchEmail}:`, initialPresence);
     }
 
     // For branch admins, register them and mark branch online (presence)
@@ -481,8 +575,13 @@ const initializeSocket = (server) => {
       guestSet.add(guestId);
       branchGuests.set(branchEmail, guestSet);
 
-      io.to(getRoomName("admin", branchEmail)).emit("guestPresenceUpdate", [...guestSet]);
-      console.log(`[GUEST PRESENCE] ✅ ${guestId} marked online for ${branchEmail}`);
+      // C1: record this guest in Redis (TTL) BEFORE computing the authoritative set.
+      await markGuestOnline(branchEmail, guestId);
+      // C2: emit the cross-instance authoritative set (not just this instance's),
+      // so an admin on any instance sees every online guest.
+      const presence = await getBranchPresence(branchEmail);
+      io.to(getRoomName("admin", branchEmail)).emit("guestPresenceUpdate", presence);
+      console.log(`[GUEST PRESENCE] ✅ ${guestId} marked online for ${branchEmail} (${presence.length} online)`);
 
       // Check if any admin is online for this branch (guest presence should NOT mark branch as online)
       const anyAdminOnline = !!(onlineAdminsMap[branchEmail] && Object.keys(onlineAdminsMap[branchEmail]).length > 0);
@@ -563,10 +662,7 @@ const initializeSocket = (server) => {
         // guest set exists even if the A3 `requestGuestPresence` pull is still in
         // flight. Third layer alongside the connection-time push (:436) and the
         // explicit pull handler. Sent to the requesting socket only.
-        socket.emit(
-          "guestPresenceUpdate",
-          Array.from(branchGuests.get(branchEmail) || new Set())
-        );
+        socket.emit("guestPresenceUpdate", await getBranchPresence(branchEmail));
       }
 
       if (typeof ack === "function") ack();
@@ -581,7 +677,7 @@ const initializeSocket = (server) => {
     // event is intentionally excluded from the socket.use bypass list (B3), so it
     // passes full per-event JWT re-verification like any other privileged read.
     // ───────────────────────────────────────────────────────────────────
-    socket.on("requestGuestPresence", (ack) => {
+    socket.on("requestGuestPresence", async (ack) => {
       const u = socket.user || {};
       const isAdminUser = u.role === "admin" || u.role === "branchadmin";
       const bEmail = (u.branchEmail || "").toLowerCase();
@@ -592,10 +688,8 @@ const initializeSocket = (server) => {
         return;
       }
 
-      // Authoritative in-memory set (same source/shape as the connection-time push
-      // at :436). Phase C will swap this read to Redis without changing the contract.
-      const guestSet = branchGuests.get(bEmail) || new Set();
-      const ids = Array.from(guestSet);
+      // C2: authoritative cross-instance set from Redis (fail-open to in-memory).
+      const ids = await getBranchPresence(bEmail);
       socket.emit("guestPresenceUpdate", ids);
       console.log(`[SOCKET] 📡 requestGuestPresence → ${ids.length} guest(s) to admin ${bEmail}`);
       if (typeof ack === "function") ack({ ok: true, count: ids.length });
@@ -875,7 +969,7 @@ const initializeSocket = (server) => {
     });
 
     // chatClosed (guest)
-    socket.on("chatClosed", ({ guestId }) => {
+    socket.on("chatClosed", async ({ guestId }) => {
       const canon = (id) =>
         id?.toLowerCase().startsWith("guest-") ? id.toLowerCase() : `guest-${id?.toLowerCase()}`;
       const incomingGuestId = canon(guestId);
@@ -901,6 +995,12 @@ const initializeSocket = (server) => {
       liveSet.delete(incomingGuestId);
       if (liveSet.size) branchGuests.set(actualBranchEmail, liveSet);
       else branchGuests.delete(actualBranchEmail);
+
+      // C1: drop the guest's Redis presence key immediately on EXPLICIT close, so the
+      // authoritative set (and any admin pull) reflects the closure at once across
+      // every instance. (Transport disconnects are NOT deleted here — they rely on
+      // TTL expiry to tolerate reconnects without flapping a guest offline.)
+      await markGuestOffline(actualBranchEmail, incomingGuestId);
 
       const awaySet = branchAwayGuests.get(actualBranchEmail) || new Set();
       awaySet.delete(incomingGuestId);
@@ -1005,6 +1105,10 @@ const trackHeartbeat = (socket) => {
 
     if (socket.user && (socket.user.role === "admin" || socket.user.role === "branchadmin")) {
       try { await touchBranchOnline(socket.user.branchEmail); } catch (_) {}
+    } else if (socket.user && socket.user.role === "user") {
+      // C1: refresh the guest's Redis presence TTL. The 30s heartbeat tolerates ~2
+      // missed beats before the 90s key expires (bounded ghost window).
+      await markGuestOnline(socket.user.branchEmail, socket.user.guestId);
     }
   });
 
@@ -1111,16 +1215,18 @@ const handleDisconnect = async (socket) => {
     const guestSet = branchGuests.get(verifiedBranchEmail) || new Set();
     if (guestSet.has(identifier)) {
       guestSet.delete(identifier);
+      if (guestSet.size > 0) branchGuests.set(verifiedBranchEmail, guestSet);
+      else branchGuests.delete(verifiedBranchEmail);
 
-      if (guestSet.size > 0) {
-        branchGuests.set(verifiedBranchEmail, guestSet);
-        console.log(`[GUEST PRESENCE] Guest ${identifier} disconnected — ${guestSet.size} still online`);
-        io.to(getRoomName("admin", verifiedBranchEmail)).emit("guestPresenceUpdate", [...guestSet]);
-      } else {
-        branchGuests.delete(verifiedBranchEmail);
-        console.log(`[GUEST PRESENCE] Last guest ${identifier} disconnected from ${verifiedBranchEmail}`);
-        io.to(getRoomName("admin", verifiedBranchEmail)).emit("guestPresenceUpdate", []);
-      }
+      // C1/C2: do NOT delete the guest's Redis key here — a transport disconnect is
+      // often a transient blip or a reconnect to another instance. We let the short
+      // TTL expire it (bounded ~GUEST_ONLINE_TTL_SEC ghost window) so a still-present
+      // guest is never flapped offline. Explicit closes go through chatClosed (which
+      // DOES delete). Emit the authoritative cross-instance set (Redis-backed; falls
+      // back to the local cache if Redis is down).
+      const presence = await getBranchPresence(verifiedBranchEmail);
+      io.to(getRoomName("admin", verifiedBranchEmail)).emit("guestPresenceUpdate", presence);
+      console.log(`[GUEST PRESENCE] Guest ${identifier} disconnected — ${presence.length} online (cross-instance; TTL-bounded)`);
     } else {
       console.warn(`[DISCONNECT] Guest ${identifier} not found in branchGuests — no action taken.`);
     }

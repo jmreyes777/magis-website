@@ -1,6 +1,6 @@
 # Guest ↔ Admin Chat Lifecycle — One-Shot Fix Plan
 
-**Status:** IN PROGRESS — open decisions resolved (§8); **Phases A & B IMPLEMENTED & verified** (2026-06-10; A build-verified, B `node --check` OK); Phases C–D pending review gate
+**Status:** IN PROGRESS — open decisions resolved (§8); **Phases A, B & C IMPLEMENTED & verified** (2026-06-10; A build-verified, B/C `node --check` OK); Phase D pending review gate
 **Author:** audit 2026-06-10
 **Scope:** presence / lifecycle desync between the guest chat box and the admin
 chat dashboard. **Out of scope:** message encryption, auth, CSP, caching, bundles,
@@ -143,6 +143,27 @@ Each phase is independently shippable and verifiable.
 
 ### Phase C — Redis-backed guest presence (R4, much of R5, E-group)
 *File: `backend/utils/socket.js` (+ existing `backend/utils/redis.js`).*
+
+> **✅ IMPLEMENTED & verified** (2026-06-10 — `node --check` OK; `ZRANGE … BYSCORE`
+> deprecation-clean for Redis ≥ 6.2). As-built notes (functionally equivalent or
+> stronger):
+> - **Model** — used **one per-branch sorted set** `guest:online:z:<email>`
+>   (member = guestId, score = last-seen ms) instead of per-guest TTL keys. The plan
+>   explicitly allowed "a per-branch Redis set"; the ZSET gives keyspace-independent
+>   O(log N + M) reads, so the frequent `checkForStaleGuests` reconciliation (fired
+>   by the 5s `broadcastAlive`) never does a whole-keyspace SCAN — *strengthening*
+>   PERF3-2 rather than risking a regression.
+> - **C1** — ZADD on connect + every heartbeat (guests beat every **5s**, verified —
+>   not 30s — so the 90s window tolerates many missed beats); ZREM on explicit
+>   `chatClosed`.
+> - **Disconnect refinement** — a transport disconnect does **not** ZREM; it lets the
+>   score age out (bounded ~90s). Deleting on every disconnect would flap a
+>   *reconnecting* guest offline (a truth violation). Explicit closes still ZREM.
+> - **C2** — all six admin-facing `guestPresenceUpdate` emits **and**
+>   `checkForStaleGuests` now read the Redis set (cross-instance), not local-only —
+>   required because the client treats each emit as an authoritative full-replace.
+> - **C3** — every Redis op is wrapped; reads + reconciliation fail open to the
+>   in-memory `branchGuests`, which is still maintained.
 
 - **C1 — Mirror the branch-online TTL pattern for guests.**
   On guest connect/heartbeat, write a short-TTL key `guest:online:<email>:<guestId>`
