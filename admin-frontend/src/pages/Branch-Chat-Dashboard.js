@@ -23,6 +23,7 @@ import {
 } from "../components/Admin-Utils-socket";
 import AdminMessageItem from "../components/Admin-Message-Item-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
+import ConnectionStatus from "../components/ConnectionStatus-Component";
 import { ensureSessionHydrated } from "../utils/sessionHydration";
 import { db, storage } from "../firebase-config";
 import {
@@ -2523,6 +2524,9 @@ const BranchChatDashboard = () => {
         </div>
         {isAuthenticated && <AdminLogoutButton />}
       </div>
+
+      {/* Network/connection status banner (offline / reconnecting / back-online) */}
+      <ConnectionStatus />
 
       <div className="flex flex-row flex-grow overflow-hidden">
         {/* Sidebar */}

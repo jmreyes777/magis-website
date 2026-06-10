@@ -964,6 +964,24 @@ export const onSocketDisconnected = (fn) => {
   }
 };
 
+// ─────────────────────────────────────────────────────────────
+// Live connection-status subscription for UI indicators.
+// Reuses the existing `connectionListeners` bus, which `notifyConnectionStatus`
+// fires on every socket `connect` (true) / `disconnect` (false). The callback is
+// invoked immediately with the current state, then on every change. Returns an
+// unsubscribe function. Safe to call repeatedly (e.g. from a React effect).
+export const subscribeConnectionStatus = (cb) => {
+  if (typeof cb !== "function") return () => {};
+  connectionListeners.add(cb);
+  // Fire immediately with the current known state so the UI starts correct.
+  try {
+    cb(!!(socketInstance && socketInstance.connected));
+  } catch (_) {}
+  return () => {
+    connectionListeners.delete(cb);
+  };
+};
+
 export const emitTyping = (guestId, senderId, isTyping) => {
   try {
     if (socketInstance.connected) {
