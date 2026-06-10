@@ -214,11 +214,15 @@ None of the recommended changes require removing features, degrading UX, or weak
   - **Production behavior is UNCHANGED on deploy:** `REACT_APP_ENABLE_SW` stays `false` in `.env`, `.env.example`, **and `.env.production`**, so `index.js` keeps unregistering/purging exactly as before. The new worker only activates once the flag is deliberately set to `true`. Both files pass `node --check`.
 - **Operator enable step (deliberate, not done here):** verify on a staging/preview build first, then set `REACT_APP_ENABLE_SW=true` (ideally `.env.production`). Recommended check: DevTools → Application → Service Workers shows `/sw.js` active; navigations return a **fresh** `index.html` (200, new nonce, not "from ServiceWorker"); only `/static/*`, images, fonts are served from cache; the CSP throws no nonce errors.
 
-#### [ ] PERF4-2 — Remove server-only packages from the browser bundles
+#### [x] PERF4-2 — Remove server-only packages from the browser bundles — ✅ DONE 2026-06-10
 - **Where:** Both SPAs list `socket.io` (the server), `express`, `multer`, `mongoose` in dependencies (`user-frontend/package.json`, `admin-frontend/package.json`).
 - **Recommendation:** Confirm unimported in browser code and remove.
 - **Security-preservation note:** Reduces install + potential bundle surface; no runtime feature affected.
 - **Impact:** Low–Medium. **Effort:** S
+- **Audit (2026-06-10):** grepped every `*.js/jsx/ts/tsx` outside `node_modules`/`build` in **both** SPAs — **zero** imports/requires of `socket.io` (server), `express`, `multer`, or `mongoose`. Confirmed `socket.io-client` (the legit client, distinct package) IS used (2 refs each) and must stay. No root `server.js`/`Procfile`/`static.json`/serve script uses `express`, so it was purely vestigial. Note `admin-frontend` did **not** have `express`.
+- **Resolution (2026-06-10):** `npm uninstall` per repo — **`user-frontend`**: `express`, `mongoose`, `multer`, `socket.io`; **`admin-frontend`**: `mongoose`, `multer`, `socket.io`. `socket.io-client` retained in both. Lockfiles + `node_modules` resynced (user-frontend net −31 packages, admin-frontend −37).
+- **Verification:** `user-frontend` production build (`craco build`) compiles cleanly (exit 0) with the packages gone — the riskiest removal (`express`) included. `admin-frontend`'s removals are a strict subset with zero imports.
+- **Honest scope note:** because these were never imported, the **shipped JS bundle is unchanged** (webpack only bundles imported modules) — the real win is smaller installs and reduced dependency/supply-chain surface, not runtime bundle size.
 
 #### [ ] PERF4-3 — Keep heavy route-local libraries out of the main chunk
 - **Where:** `recharts` (admin analytics), `@react-google-maps/api` (branches), `framer-motion` — already route-split.
@@ -297,7 +301,7 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 
 **Phase 4 — Frontend delivery**
 - [x] PERF4-1 Enable + tune Workbox SW (assets-only) — ✅ (safe asset-only SW authored at public/sw.js + orphaned cache-first SW neutralized; still gated OFF — operator flips REACT_APP_ENABLE_SW after staging check)
-- [ ] PERF4-2 Remove server-only packages from bundles
+- [x] PERF4-2 Remove server-only packages from bundles — ✅ (uninstalled socket.io/express/multer/mongoose where unused across both SPAs; kept socket.io-client; user-frontend build verified)
 - [ ] PERF4-3 Keep heavy libs out of the main chunk
 - [ ] PERF4-4 Connection hints (`preconnect`/`dns-prefetch`)
 - [ ] PERF4-5 Image optimization
