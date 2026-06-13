@@ -88,6 +88,11 @@ router.post("/login", async (req, res) => {
     console.info(`[LOGIN] Super Admin authenticated successfully: ${email}`);
     return res.status(200).json({ message: "Login successful.", token });
   } catch (error) {
+    // Worker pool saturated (DoS backpressure) at sign time → transient 503.
+    // Credentials were already verified above, so a retry is correct.
+    if (error && error.code === "EWORKERBUSY") {
+      return res.status(503).json({ error: "Service busy. Please retry shortly." });
+    }
     handleErrorResponse(res, error, "Super Admin Login");
   }
 });

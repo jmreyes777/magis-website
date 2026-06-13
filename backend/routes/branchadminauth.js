@@ -142,6 +142,11 @@ router.post("/login", loginLimiter, async (req, res) => {
         branchName: claims.branchName,
       });
   } catch (error) {
+    // Worker pool saturated (DoS backpressure) at sign time → transient 503, not a
+    // server error. Credentials were already verified above, so a retry is correct.
+    if (error && error.code === "EWORKERBUSY") {
+      return res.status(503).json({ error: "Service busy. Please retry shortly." });
+    }
     console.error(`[LOGIN] Error during Branch Admin login:`, error);
     return res
       .status(500)
