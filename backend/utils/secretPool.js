@@ -150,16 +150,29 @@ module.exports = {
   signJWT: (data, options) =>
     callWorker("sign", { data }, options && typeof options === "object" ? options : {}),
 
-  verifyJWT: (token, options = {}) =>
-    callWorker(
-      "verify",
-      { token },
-      {
-        algorithms: ["HS256"],
-        clockTolerance: CLOCK_TOLERANCE_SEC,
-        ...(typeof options === "object" ? options : {}),
-      }
-    ),
+  // Public verifier. The secret worker is the real trust boundary: it derives the
+  // verification algorithm from the token under the alg-confusion-safe key policy
+  // (jwtKeys.getVerifyParamsForToken) and applies its OWN clock skew, so a caller's
+  // `algorithms`/`clockTolerance` are already ignored there. As defense-in-depth we
+  // additionally STRIP the two options that could WEAKEN verification —
+  // `ignoreExpiration` and `clockTimestamp` — so no caller (now or in future) can
+  // accept an expired/not-yet-valid token through this path. The few internal flows
+  // that must read a recently-expired token use verifyAllowExpired() below.
+  verifyJWT: (token, options = {}) => {
+    const safe = options && typeof options === "object" ? { ...options } : {};
+    delete safe.ignoreExpiration;
+    delete safe.clockTimestamp;
+    return callWorker("verify", { token }, safe);
+  },
+
+  // Sanctioned entry point for the few internal flows that legitimately operate on
+  // a recently-expired token: logout (→ revoke its jti) and fallback-token rotation.
+  // Identical to verifyJWT EXCEPT expiration is ignored — signature, alg-confusion
+  // safety, revocation and claim checks in the worker all still apply, and the
+  // resolved payload still carries jti/exp/role for the caller to act on. Keeping
+  // this explicit and separate is what lets the public verifyJWT hard-strip
+  // `ignoreExpiration`.
+  verifyAllowExpired: (token) => callWorker("verify", { token }, { ignoreExpiration: true }),
 
   revokeJWT: async ({ jti, expTimestamp }) => {
     // Broadcast so EVERY worker records the revocation in its in-memory fallback

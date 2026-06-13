@@ -17,8 +17,7 @@ const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");               // ← crypto for CSP nonces
 const cookieParser = require('cookie-parser');
 const csurf = require('csurf');
-const jwt = require("jsonwebtoken");
-const { signJWT, revokeJWT, verifyJWT } = require("./utils/secretPool");
+const { signJWT, revokeJWT, verifyAllowExpired } = require("./utils/secretPool");
 
 // ⏱️ Align JWT skew + tighten lifetimes (defaults if not set in env)
 process.env.JWT_CLOCK_SKEW_SEC = process.env.JWT_CLOCK_SKEW_SEC || "60";
@@ -534,13 +533,9 @@ app.post("/api/superadmin/logout", async (req, res) => {
   const token = req.cookies.superAdminToken;
   if (token) {
     try {
-      // Verify signature but ignore expiration to extract jti/exp for revocation.
-      // Apply the same clock skew used elsewhere, if set.
-      const clockTolerance = Number(process.env.JWT_CLOCK_SKEW_SEC || "60");
-      const decoded = await verifyJWT(token, {
-        ignoreExpiration: true,
-        clockTolerance,           // seconds
-      });
+      // Verify signature (alg-confusion-safe, worker-backed) but ignore expiration
+      // to extract jti/exp for revocation. The worker applies its own clock skew.
+      const decoded = await verifyAllowExpired(token);
       if (decoded?.jti && decoded?.exp) {
         await revokeJWT({ jti: decoded.jti, expTimestamp: decoded.exp });
       }
@@ -562,12 +557,9 @@ app.post("/api/branchadmin/logout", async (req, res) => {
   try {
     const token = req.cookies.branchAdminToken;
     if (token) {
-      const clockTolerance = Number(process.env.JWT_CLOCK_SKEW_SEC || "60");
-      // Same approach: verify signature, ignore exp to safely gather jti/exp
-      const payload = await verifyJWT(token, {
-        ignoreExpiration: true,
-        clockTolerance,
-      });
+      // Same approach: verify signature (worker-backed), ignore exp to safely
+      // gather jti/exp for revocation.
+      const payload = await verifyAllowExpired(token);
       if (payload?.jti && payload?.exp) {
         await revokeJWT({ jti: payload.jti, expTimestamp: payload.exp });
       }
@@ -645,11 +637,9 @@ async function identityFromHmacToken(token) {
   if (!token || typeof token !== "string") return null;
   let decoded;
   try {
-    decoded = await verifyJWT(token, {
-      algorithms: ["HS256"],
-      ignoreExpiration: true, // allow recently-expired tokens to rotate (bounded below)
-      clockTolerance: Number(process.env.JWT_CLOCK_SKEW_SEC || "60"),
-    });
+    // Worker-backed verify (signature + revocation + claims), expiration ignored so
+    // a recently-expired token can still rotate — bounded by the grace check below.
+    decoded = await verifyAllowExpired(token);
   } catch (_) {
     return null; // bad signature, revoked, or not our token
   }
@@ -1035,8 +1025,10 @@ app.post("/api/guest/force-close", async (req, res) => {
     const token = req.cookies.guestToken;
     if (token) {
       try {
-        // decode without caring if it’s expired yet
-        const payload = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: true });
+        // Worker-backed verify (alg-confusion-safe, keeps JWT_SECRET off the main
+        // thread, and works after an RS256 cutover); ignore expiration so a just-
+        // expired guest token can still be revoked.
+        const payload = await verifyAllowExpired(token);
         await revokeJWT({ jti: payload.jti, expTimestamp: payload.exp });
       } catch (e) {
         console.warn("[API:FORCE_CLOSE] guestToken invalid or already expired:", e.message);
