@@ -205,6 +205,10 @@ router.get("/profile", async (req, res) => {
     );
     res.status(200).json({ profile: branchAdminSnapshot.data() });
   } catch (error) {
+    // Worker pool saturated (DoS backpressure) → transient 503, not an auth failure.
+    if (error && error.code === "EWORKERBUSY") {
+      return res.status(503).json({ error: "Service busy. Please retry shortly." });
+    }
     console.error("[PROFILE] Error retrieving Branch Admin profile:", error);
     res.status(401).json({ error: "Invalid or expired token." });
   }

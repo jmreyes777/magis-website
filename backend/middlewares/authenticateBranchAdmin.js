@@ -77,6 +77,13 @@ const authenticateBranchAdmin = async (req, res, next) => {
         decoded = await admin.auth().verifyIdToken(token);
         console.log("[AUTH] ✅ Verified Firebase token for:", decoded.email);
       } catch (firebaseErr) {
+        // If the HMAC path was the saturated one (worker pool full), this is a
+        // transient backpressure failure, not a bad token → 503 + retry. A valid
+        // Firebase token still authenticates above, so this only affects HMAC
+        // tokens during an active flood.
+        if (fallbackErr && fallbackErr.code === "EWORKERBUSY") {
+          return res.status(503).json({ error: "Service busy. Please retry shortly." });
+        }
         console.error("[AUTH] ❌ Both fallback and Firebase verification failed:", {
           fallbackError: fallbackErr?.message,
           firebaseError: firebaseErr?.message,

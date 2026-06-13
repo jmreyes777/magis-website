@@ -374,6 +374,12 @@ const initializeSocket = (server) => {
           branchEmail = (firebaseDecoded.email || clientEmail || "").toLowerCase();
           console.log(`[SOCKET AUTH] 🟢 Verified Firebase token for ${branchEmail}`);
         } catch (firebaseErr) {
+          // HMAC path saturated (worker pool full) → signal a transient, retryable
+          // error so the client reconnects rather than treating it as an auth
+          // failure. A valid Firebase token still authenticates above.
+          if (fallbackErr && fallbackErr.code === "EWORKERBUSY") {
+            return next(new Error("ServiceBusy"));
+          }
           console.error("[SOCKET AUTH] 🔥 Both fallback and Firebase verification failed:", {
             fallbackError: fallbackErr.message,
             firebaseError: firebaseErr.message,

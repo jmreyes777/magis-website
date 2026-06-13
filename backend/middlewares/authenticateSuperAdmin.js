@@ -40,6 +40,10 @@ const authenticateSuperAdmin = async (req, res, next) => {
         clockTolerance: CLOCK_TOLERANCE_SEC,
       });
     } catch (error) {
+      // Worker pool saturated (DoS backpressure) → transient 503, not an auth failure.
+      if (error.code === "EWORKERBUSY") {
+        return res.status(503).json({ error: "Service busy. Please retry shortly." });
+      }
       // Handle common JWT verification errors gracefully
       if (error.message === "TokenRevoked") {
         console.warn("[AUTH] Token has been revoked.");

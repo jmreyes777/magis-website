@@ -144,6 +144,10 @@ router.get("/verify", async (req, res) => {
     console.info(`[VERIFY] Token valid for Super Admin: ${decoded.email}`);
     return res.status(200).json({ message: "Token is valid.", role: decoded.role });
   } catch (error) {
+    // Worker pool saturated (DoS backpressure) → transient 503, not an auth failure.
+    if (error && error.code === "EWORKERBUSY") {
+      return res.status(503).json({ error: "Service busy. Please retry shortly." });
+    }
     handleErrorResponse(res, error, "Verify Super Admin Token");
   }
 });

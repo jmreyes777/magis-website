@@ -51,6 +51,10 @@ module.exports = async function authenticateGuest(req, res, next) {
     return next();
 
   } catch (err) {
+    // Worker pool saturated (DoS backpressure) → transient 503, not an auth failure.
+    if (err && err.code === "EWORKERBUSY") {
+      return res.status(503).json({ error: "Service busy. Please retry shortly." });
+    }
     // Explicit revoke path → clean 401
     if (err && err.message === "TokenRevoked") {
       console.warn("[AUTH:Guest] Token revoked");

@@ -19,7 +19,26 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.JWT_WORKER_TIMEOUT_MS || "10000");
 // across the pool, preserving the single-worker revocation semantics exactly.
 const POOL_SIZE = Math.max(parseInt(process.env.JWT_WORKER_POOL, 10) || 4, 1);
 
+// Item 3 (crash back-off): an ISOLATED worker crash still respawns immediately on
+// next use (unchanged). Only REPEATED rapid crashes on the SAME slot (>= MAX within
+// a rolling window) trigger a cooldown, during which the round-robin SKIPS that
+// slot — bounding an attacker's ability to force a CPU-heavy crash/respawn loop
+// without slowing one-off recovery. Revoke broadcasts deliberately bypass this.
+const CRASH_WINDOW_MS = Number(process.env.JWT_WORKER_CRASH_WINDOW_MS || "10000");
+const CRASH_MAX_IN_WINDOW = Math.max(parseInt(process.env.JWT_WORKER_CRASH_MAX, 10) || 2, 2);
+const CRASH_BACKOFF_MS = Number(process.env.JWT_WORKER_BACKOFF_MS || "5000");
+
+// Item 4 (backpressure): hard cap on in-flight callbacks so a verify flood can't
+// grow the map without bound (OOM). Sized FAR above any legitimate concurrency
+// (in-flight ~= request-rate x worker-latency, typically tens), so it never trips
+// in normal/bursty use — only under an OOM-level flood, where callWorker rejects
+// with a distinct `EWORKERBUSY` error that callers map to HTTP 503 (not 401).
+const MAX_QUEUE = Math.max(parseInt(process.env.JWT_WORKER_MAX_QUEUE, 10) || 10000, POOL_SIZE * 16);
+
 const workers = new Array(POOL_SIZE).fill(null);
+const cooldownUntil = new Array(POOL_SIZE).fill(0); // ms epoch a cooling slot is skippable until
+const recentCrashes = Array.from({ length: POOL_SIZE }, () => []); // rolling abnormal-exit timestamps
+let shuttingDown = false; // suppress cooldown bookkeeping during graceful shutdown
 const callbacks = new Map();
 let counter = 0;
 let rr = 0;
@@ -66,11 +85,23 @@ function spawnWorker(index) {
 
   w.on("exit", (code) => {
     rejectWorkerCallbacks(index, new Error(`secretWorker ${index} exited with code ${code}`));
-    if (code !== 0) {
-      console.error(`[secretPool] Worker ${index} exited unexpectedly (code ${code}). Will respawn on next use.`);
-    }
     // Free the slot so the next dispatch lazily respawns a replacement.
     workers[index] = null;
+    if (code === 0 || shuttingDown) return; // graceful exit — respawn lazily, no backoff
+
+    console.error(`[secretPool] Worker ${index} exited unexpectedly (code ${code}).`);
+    // Item 3: throttle ONLY repeated rapid crashes. Keep just the timestamps within
+    // the rolling window; an isolated crash leaves the slot immediately respawnable.
+    const now = Date.now();
+    const recent = recentCrashes[index].filter((t) => now - t < CRASH_WINDOW_MS);
+    recent.push(now);
+    recentCrashes[index] = recent;
+    if (recent.length >= CRASH_MAX_IN_WINDOW) {
+      cooldownUntil[index] = now + CRASH_BACKOFF_MS;
+      console.error(
+        `[secretPool] Worker ${index} crashed ${recent.length}x within ${CRASH_WINDOW_MS}ms — backing off ${CRASH_BACKOFF_MS}ms (round-robin will skip it).`
+      );
+    }
   });
 
   workers[index] = w;
@@ -82,11 +113,27 @@ function getWorker(index) {
   return workers[index];
 }
 
-// Round-robin selection for the parallelizable sign/verify hot path.
+// Round-robin selection for the parallelizable sign/verify hot path. Item 3: skip
+// any slot that is cooling down after repeated rapid crashes, so a single bad slot
+// can't keep getting picked back into a crash/respawn loop. If EVERY slot is cooling
+// (extreme), respawn the soonest-recovering one anyway — we never reject here, so the
+// hot path always serves at least as many requests as before.
 function pickWorker() {
-  const index = rr;
-  rr = (rr + 1) % POOL_SIZE;
-  return { worker: getWorker(index), index };
+  const now = Date.now();
+  for (let n = 0; n < POOL_SIZE; n++) {
+    const index = rr;
+    rr = (rr + 1) % POOL_SIZE;
+    if (workers[index] || cooldownUntil[index] <= now) {
+      return { worker: getWorker(index), index };
+    }
+  }
+  // All slots cooling: pick the one whose cooldown ends soonest and use it anyway.
+  let best = 0;
+  for (let i = 1; i < POOL_SIZE; i++) {
+    if (cooldownUntil[i] < cooldownUntil[best]) best = i;
+  }
+  rr = (best + 1) % POOL_SIZE;
+  return { worker: getWorker(best), index: best };
 }
 
 // Reject only the in-flight callbacks owned by the worker that errored/exited,
@@ -105,6 +152,16 @@ function callWorker(action, payload, options = {}, timeoutMs = DEFAULT_TIMEOUT_M
   const safeOptions = options && typeof options === "object" ? options : {};
 
   return new Promise((resolve, reject) => {
+    // Item 4: backpressure. Shed load (instead of growing toward OOM) once the
+    // in-flight map hits the high-watermark. Distinct `code` so callers return 503
+    // (transient) rather than 401 (auth failure). Revoke broadcasts are exempt
+    // (rare + security-critical) — see broadcastToPool.
+    if (callbacks.size >= MAX_QUEUE) {
+      const busy = new Error("secretWorker pool saturated");
+      busy.code = "EWORKERBUSY";
+      return reject(busy);
+    }
+
     const id = ++counter;
     const { worker, index } = pickWorker();
     const timer = setTimeout(() => {
@@ -195,6 +252,7 @@ module.exports = {
   },
 
   async shutdown() {
+    shuttingDown = true; // stop the exit handler from arming cooldowns mid-teardown
     await Promise.all(
       workers.map(async (w, i) => {
         if (!w) return;
@@ -215,5 +273,9 @@ module.exports = {
     DEFAULT_ADMIN_TTL_MIN,
     DEFAULT_TIMEOUT_MS,
     POOL_SIZE,
+    MAX_QUEUE,
+    CRASH_BACKOFF_MS,
+    CRASH_WINDOW_MS,
+    CRASH_MAX_IN_WINDOW,
   },
 };
