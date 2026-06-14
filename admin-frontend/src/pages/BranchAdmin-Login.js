@@ -272,7 +272,7 @@ const finalizeLogin = async (user, customClaims) => {
   localStorage.setItem("branchName",        customClaims.branchName || "Branch Admin");
 
   // 4️⃣ Generate and store MFA Session ID for session-level MFA tracking
-  const mfaSessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const mfaSessionId = `sess_${Date.now()}_${crypto.randomUUID()}`;
   sessionStorage.setItem("mfaSessionId", mfaSessionId);
   
   // 5️⃣ Exchange for short‑lived HMAC fallback token FIRST.

@@ -1,5 +1,5 @@
 // electron-main.js
-const { app, BrowserWindow, powerSaveBlocker, ipcMain, dialog } = require("electron");
+const { app, BrowserWindow, powerSaveBlocker, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
 
 let mainWindow;
@@ -30,6 +30,26 @@ function createWindow() {
       : "https://localhost:3001");      // ← your React dev server URL
 
   mainWindow.loadURL(startURL);
+
+  // A08-1: lock navigation to the app origin and hand external links to the OS
+  // browser instead of opening them inside Electron (defense-in-depth alongside
+  // contextIsolation:true / nodeIntegration:false).
+  const appOrigin = (() => { try { return new URL(startURL).origin; } catch { return null; } })();
+  const isSameOrigin = (target) => {
+    try { return appOrigin !== null && new URL(target).origin === appOrigin; }
+    catch { return false; }
+  };
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (!isSameOrigin(url)) {
+      event.preventDefault();
+      if (/^https?:/i.test(url)) shell.openExternal(url);
+    }
+  });
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isSameOrigin(url)) return { action: "allow" };
+    if (/^https?:/i.test(url)) shell.openExternal(url);
+    return { action: "deny" };
+  });
 
   // Acquire OS‐level wake lock
   blockerId = powerSaveBlocker.start("prevent-display-sleep");

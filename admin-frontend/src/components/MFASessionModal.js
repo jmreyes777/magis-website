@@ -222,7 +222,7 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
     const existing = sessionStorage.getItem('mfaSessionId');
     if (existing) return existing;
     
-    const newId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newId = `sess_${Date.now()}_${crypto.randomUUID()}`;
     sessionStorage.setItem('mfaSessionId', newId);
     return newId;
   };

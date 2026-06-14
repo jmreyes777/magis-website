@@ -13,7 +13,7 @@
 
 ## Overall posture
 
-**Strong.** Most of OWASP 2025 is already covered by `P0–P3`. Wave 1 (A01-1/2/3, A09-1) and the A01-4 data-layer hardening are implemented (A01-4 pending emulator-test + rules deploy). The deployed Firestore rules turned out to be **well-structured**; the one real gap was **unauthenticated, non-ownership-bound access to `messages`** (now closed in `firestore.rules`). Remaining: **4 Medium, ~11 Low**, plus hygiene/roadmap. No fix weakens an existing security or performance control.
+**Strong.** Most of OWASP 2025 is already covered by `P0–P3`. **Waves 1–3 are implemented** (A01-1/2/3/4, A09-1, A03-1a/1b, A02-1/2/3, A04-1, A05-1, A08-1, A10-2): A01-4 rules are emulator-tested + published to staging, and the backend supply-chain **highs are cleared** (csurf removed). Remaining: **A06-1** (perf-sensitive rate-limit, deferred), **Wave 4** config (`MFA_FAIL_OPEN=false`, `react-router-dom`), **Wave 5** hygiene, plus deferred majors (`firebase-admin@14`, CRA→Vite) and the **CSRF-1** enforcement follow-up. No fix weakens an existing security or performance control.
 
 | ID | OWASP 2025 | Severity | Location | Status |
 |----|-----------|----------|----------|--------|
@@ -24,16 +24,16 @@
 | A03-1 | A03 Software Supply Chain | Medium | backend: 4 highs (`csurf` chain) cleared; 8 mod (`firebase-admin@14`, deferred) | ✅ Highs cleared |
 | A03-2 | A03 Software Supply Chain | Low | frontends: `react-scripts` build/test tree (runtime: `react-router`) | Confirmed |
 | CSRF-1 | A01 / CSRF | Low | `csurf` token issued but never validated server-side | New (mitigated) |
-| A02-1 | A02 Misconfiguration | Low | `backend/server.js:379` | New gap |
-| A02-2 | A02 Misconfiguration | Low | `backend/server.js:308` | New gap |
-| A02-3 | A02 Misconfiguration | Low | `backend/server.js:854,876` | New gap |
-| A04-1 | A04 Cryptographic | Low | `admin-frontend/src/pages/BranchAdmin-Login.js:275` (+2) | New gap |
-| A05-1 | A05 Injection (XSS) | Low | `user-frontend/src/components/FacebookLatestVideo.jsx:124` | New (CSP-mitigated) |
-| A06-1 | A06 Insecure Design | Low | media resolvers / `conversation-key` / `history` | New gap |
-| A08-1 | A08 Integrity | Low | `admin-frontend/electron-main.js` | New gap |
+| A02-1 | A02 Misconfiguration | Low | `backend/server.js` CSP `connectSrc` | ✅ Fixed (Wave 3) |
+| A02-2 | A02 Misconfiguration | Low | `backend/server.js` Permissions-Policy | ✅ Fixed (Wave 3) |
+| A02-3 | A02 Misconfiguration | Low | `backend/server.js` Facebook routes (5 echoes) | ✅ Fixed (Wave 3) |
+| A04-1 | A04 Cryptographic | Low | `MFASessionModal.js`, `BranchAdmin-Login.js` | ✅ Fixed (Wave 3) |
+| A05-1 | A05 Injection (XSS) | Low | `user-frontend/src/components/FacebookLatestVideo.jsx` | ✅ Fixed (Wave 3) |
+| A06-1 | A06 Insecure Design | Low | media resolvers / `conversation-key` / `history` | Deferred (perf-sensitive) |
+| A08-1 | A08 Integrity | Low | `admin-frontend/electron-main.js` | ✅ Fixed (Wave 3) |
 | A09-1 | A09 Logging | Low-Med | `backend/utils/socket.js:729` (`debugLog`) | ✅ Fixed (Wave 1) |
 | A10-1 | A10 Exceptional Conditions | Low/config | `backend/middlewares/requireMFA.js:24` | By design |
-| A10-2 | A10 Exceptional Conditions | Low | `backend/server.js:1063` | New gap |
+| A10-2 | A10 Exceptional Conditions | Low | `backend/server.js` (404 + error handler) | ✅ Fixed (Wave 3) |
 | HYG-* | Hygiene / latent | Low | dead `assign-*` routers, misplaced `api.js`, edge CRA scaffold | Hygiene |
 
 ---
@@ -72,9 +72,9 @@
 
 **Baseline (do not regress):** `helmet` with nonce-based CSP, `'unsafe-inline'`-free `scriptSrc`, `frameAncestors 'none'`, `objectSrc 'none'`, `upgradeInsecureRequests` (`server.js:327`, P3-1); helmet defaults (HSTS / nosniff / Referrer-Policy) intact; strict CORS allowlist, no wildcard-with-credentials (`server.js:193`); pinned `trust proxy` (P3-2); `/api` locked to edge via `requireEdgeAuth` (P2-2). **No secrets git-tracked** — only `.env.example` templates; root `.gitignore` flags `backend/firebase.json` as a leaked SA key to rotate.
 
-- **A02-1 (Low)** — dev origins in prod CSP `connectSrc`: `ws://localhost:5000`, `http://localhost:5000` (`server.js:379,381`). Remove for prod.
-- **A02-2 (Low)** — `Permissions-Policy` only sets `unload` (`server.js:308`); `camera`/`microphone`/`geolocation` left at browser default. Add a restrictive policy.
-- **A02-3 (Low)** — Facebook routes echo upstream error detail (`server.js:854`, `:876`). Generic-ify in prod.
+- **A02-1 (Low) — ✅ fixed (Wave 3):** the localhost dev origins in CSP `connectSrc` are gated behind `NODE_ENV !== "production"`, so they are never emitted in the production CSP (dev keeps them).
+- **A02-2 (Low) — ✅ fixed (Wave 3):** `Permissions-Policy` now denies `camera=()`, `microphone=()`, `geolocation=()` (unused by the app); the Facebook `unload` allow-list is preserved.
+- **A02-3 (Low) — ✅ fixed (Wave 3):** all 5 Facebook error responses return only a generic `error` field in production; `upstream`/`message` detail is gated to non-prod (still logged server-side).
 
 ---
 
@@ -95,7 +95,7 @@
 
 **Baseline (do not regress):** conversation keys use `aes-256-gcm` with fresh 12-byte random IVs + at-rest wrapping (`messages.js:130`, P1-1); RS256/HS256 alg policy enforced in the worker (P2-3 / P3-5, alg-confusion-safe); TOTP + 64-bit backup codes via `crypto.randomBytes` (P3-3); per-request CSP nonce via `crypto.randomBytes(16)`.
 
-- **A04-1 (Low)** — `Math.random()` builds admin `sessionId`: `admin-frontend/src/pages/BranchAdmin-Login.js:275`, `admin-frontend/src/components/MFASessionModal.js:225`, `user-frontend/src/pages/Branch-Chat-Dashboard.js:722`. Low impact (the admin JWT is still required; `sessionId` is not a standalone bearer secret), but inconsistent with `admin-frontend/src/utils/initSession.js:4` which uses `crypto.randomUUID()`. Standardize on `randomUUID()`.
+- **A04-1 (Low) — ✅ fixed (Wave 3):** `BranchAdmin-Login.js:275` and `MFASessionModal.js:225` now use `crypto.randomUUID()` (matching `initSession.js`). The third reference, `Branch-Chat-Dashboard.js:722`, had no `Math.random` session id — already clean.
 
 ---
 
@@ -103,7 +103,7 @@
 
 **Baseline (do not regress):** Firestore SDK queries are parameterized; Zod validates socket payloads (`socket.js:784`); email header injection + HTML escaping handled (P1-5); no `eval`/`child_process` in backend.
 
-- **A05-1 (Low, CSP-mitigated)** — `nodeRef.current.innerHTML = \`...data-href="${href}"...\`` (`user-frontend/src/components/FacebookLatestVideo.jsx:124`). `href` is Facebook-derived; the nonce-based CSP blocks inline script execution, so real-world XSS risk is very low. Prefer `setAttribute`/escaping.
+- **A05-1 (Low, CSP-mitigated) — ✅ fixed (Wave 3):** `nodeRef.current.innerHTML = \`...data-href="${href}"...\`` (`user-frontend/src/components/FacebookLatestVideo.jsx:124`). `href` is Facebook-derived; the nonce-based CSP blocks inline script execution, so real-world XSS risk is very low. Now built with `createElement` + `setAttribute` (`data-href` set as a literal attribute value — no HTML parsing).
 - **A05-2 (Info)** — `mongoose` runs only in a manual migration script (`backend/addSpaceIdToBranchAndMessages.js:45`); no runtime NoSQL injection surface.
 
 ---
@@ -126,7 +126,7 @@
 
 **Baseline (do not regress):** private media + short-lived signed URLs (P1-3); Electron `preload.js` is minimal/safe (`contextIsolation:true`, `nodeIntegration:false`, one-way IPC).
 
-- **A08-1 (Low)** — `admin-frontend/electron-main.js` lacks `will-navigate` / `setWindowOpenHandler` guards (an XSS or rogue link could navigate the admin window off-origin); packaged `startURL` is a placeholder (`https://admin.yoursite.com`).
+- **A08-1 (Low) — ✅ fixed (Wave 3):** `electron-main.js` now guards navigation — `will-navigate` blocks off-origin nav (opening `http(s)` links externally) and `setWindowOpenHandler` denies non-same-origin new windows. **Note:** packaged `startURL` is still a placeholder (`https://admin.yoursite.com`) — set it before the desktop build.
 - **A08-2 (Low / mostly N/A)** — no SRI, but no static external `<script src>` tags exist (SDKs load dynamically and don't support SRI).
 
 ---
@@ -145,7 +145,7 @@
 **Baseline (a standout area, do not regress):** fail-open/closed modes are explicit + configurable (`MFA_FAIL_OPEN`, `RATE_LIMIT_FAIL_CLOSED`, edge auth mode); `secretPool` crash back-off + `EWORKERBUSY` backpressure (P3-7) is textbook A10.
 
 - **A10-1 (Low / config)** — `requireMFA` fails **open** by default (`requireMFA.js:24`). Recommend `MFA_FAIL_OPEN=false` in prod for SPI. Config-only, no code change.
-- **A10-2 (Low)** — no centralized Express error handler / 404 (`server.js:1063`). Prod hides stacks via Express's default handler, so this is hygiene, not a leak.
+- **A10-2 (Low) — ✅ fixed (Wave 3):** added a central 4-arg Express error handler (logs full detail server-side, returns a generic `{ error }`) and a JSON 404 for unmatched `/api` routes (instead of the SPA `index.html`). Prod hides stacks via Express's default handler, so this is hygiene, not a leak.
 
 ---
 
@@ -203,9 +203,9 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 | 2 | A03-1a (deps) | Medium | — | — | **No-op — deps already at safe ceiling (2026-06-14)** |
 | 2 | A01-4 (`firestore.rules`) | **High** | L | None (server-side archive added) | ✅ Implemented (emulator pending) |
 | 2 | A03-1b (remove `csurf`) | Medium | S | None | ✅ Done — 4 highs cleared (native token gen) |
-| 3 | A02-1 / A02-2 / A02-3 | Low | S | None | P3-1 (CSP) |
-| 3 | A04-1 / A05-1 / A08-1 / A10-2 | Low | S | None | — |
-| 3 | A06-1 (rate-limit media/history) | Low | S-M | **Yes** (media hot path) | P1-4 |
+| 3 | A02-1 / A02-2 / A02-3 | Low | S | None | ✅ Done (Wave 3) |
+| 3 | A04-1 / A05-1 / A08-1 / A10-2 | Low | S | None | ✅ Done (Wave 3) |
+| 3 | A06-1 (rate-limit media/history) | Low | S-M | **Yes** (media hot path) | Deferred — perf-sensitive |
 | 4 | A10-1 (`MFA_FAIL_OPEN=false`) | Low/config | S | None | P0-2 (config) |
 | 4 | A03-2 (`react-router-dom` bump) | Low | S | None | — |
 | 5 | HYG-1..4 (dead code/data) | Low | S-M | None | — |
@@ -224,7 +224,7 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 - **A03-1b (✅ done 2026-06-14):** removed deprecated `csurf` (8 pkgs incl. `base64-url`/`csrf-tokens`/`uid-safe`) → **all 4 high advisories cleared, 0 high remain**. Replaced `/api/csrf-token` with a native `crypto.randomBytes` generator preserving the exact cookie + JSON contract — **zero regression** (no new dep, token-issuing behavior identical, `node --check` clean). Surfaced **CSRF-1**: the token is issued but never validated server-side (follow-up).
 
 ### Wave 3 — low-severity hardening (batch)
-A02-1/2/3 (CSP localhost, Permissions-Policy, FB error genericize) · A04-1 (`crypto.randomUUID()`) · A05-1 (`setAttribute` vs `innerHTML`) · A08-1 (Electron nav guards) · A10-2 (central error handler+404). **A06-1** is perf-sensitive — reuse Redis limiter, keep off media decode path.
+**Status: ✅ Implemented 2026-06-14** (`server.js` + `electron-main.js` pass `node --check`; the 3 React edits are statement-level). A02-1/2/3 (CSP localhost gated to non-prod, Permissions-Policy denies camera/mic/geo, FB errors genericized in prod) · A04-1 (`crypto.randomUUID()` in 2 files; the 3rd ref `Branch-Chat-Dashboard.js:722` was already clean) · A05-1 (`setAttribute`/DOM build instead of `innerHTML`) · A08-1 (Electron `will-navigate` + `setWindowOpenHandler` guards) · A10-2 (central error handler + `/api` JSON 404). **A06-1 deferred** (perf-sensitive — reuse Redis limiter, keep off media decode path).
 
 ### Wave 4 — config/ops (no app code)
 `MFA_FAIL_OPEN=false` · `npm ci`+Dependabot/SBOM · `react-router-dom` bump.

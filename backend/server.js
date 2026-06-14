@@ -292,8 +292,8 @@ if (process.env.NODE_ENV !== "production") {
 app.use((req, res, next) => {
   res.setHeader("Alt-Svc", 'h3=":443"; ma=86400');
   // Allow Facebook SDK's use of the unload event (required for FB embeds/SDK).
-  // All other Permissions-Policy features remain at browser default.
-  res.setHeader("Permissions-Policy", "unload=(self \"https://connect.facebook.net\" \"https://www.facebook.com\" \"https://staticxx.facebook.com\")");
+  // A02-2: deny camera/microphone/geolocation (unused); others stay default.
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), unload=(self \"https://connect.facebook.net\" \"https://www.facebook.com\" \"https://staticxx.facebook.com\")");
   next();
 });
 
@@ -364,9 +364,7 @@ app.use(
         connectSrc: [
           "'self'",
           BASE_URL,
-          "ws://localhost:5000",
           "wss://magis-website.firebaseapp.com",
-          "http://localhost:5000",
           "https://identitytoolkit.googleapis.com",
           "https://firestore.googleapis.com",
           "https://maps.googleapis.com",
@@ -376,6 +374,10 @@ app.use(
           "https://graph.facebook.com",
           // Cloudflare Turnstile
           "https://challenges.cloudflare.com",
+          // A02-1: local dev origins only - never emitted in the production CSP
+          ...(process.env.NODE_ENV !== "production"
+            ? ["ws://localhost:5000", "http://localhost:5000"]
+            : []),
         ],
 
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -841,8 +843,11 @@ app.get("/api/facebook/latest-video", fbLimiter, publicCache(300, 600), async (r
       console.error("[FB videos error]", { status: vids.status, body: vids.json });
       return res.status(502).json({
         error: "Facebook API error",
-        upstreamStatus: vids.status,
-        upstream: vids.json,
+        // A02-3: upstream detail is logged server-side only; not echoed in prod
+        ...(process.env.NODE_ENV !== "production" && {
+          upstreamStatus: vids.status,
+          upstream: vids.json,
+        }),
       });
     }
 
@@ -863,7 +868,9 @@ app.get("/api/facebook/latest-video", fbLimiter, publicCache(300, 600), async (r
     console.error("[FB FETCH EXCEPTION]", err);
     return res.status(500).json({
       error: "Facebook request failed",
-      message: String(err?.message || err),
+      ...(process.env.NODE_ENV !== "production" && {
+        message: String(err?.message || err),
+      }),
     });
   }
 });
@@ -909,7 +916,10 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
     const albumsJson = await albumsRes.json();
     if (!albumsRes.ok) {
       console.error("[FB latest albums error]", albumsJson);
-      return res.status(502).json({ error: "Facebook API error", upstream: albumsJson });
+      return res.status(502).json({
+        error: "Facebook API error",
+        ...(process.env.NODE_ENV !== "production" && { upstream: albumsJson }),
+      });
     }
     const albums = Array.isArray(albumsJson?.data) ? albumsJson.data : [];
     if (!albums.length) {
@@ -941,7 +951,10 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
     const photosJson = await photosRes.json();
     if (!photosRes.ok) {
       console.error("[FB latest album photos error]", photosJson);
-      return res.status(502).json({ error: "Facebook API error", upstream: photosJson });
+      return res.status(502).json({
+        error: "Facebook API error",
+        ...(process.env.NODE_ENV !== "production" && { upstream: photosJson }),
+      });
     }
 
     const norm = (Array.isArray(photosJson.data) ? photosJson.data : []).map((p) => ({
@@ -961,7 +974,10 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
     return res.json({ albumId, photos: norm });
   } catch (err) {
     console.error("[FB latest album exception]", err);
-    return res.status(500).json({ error: "Facebook request failed", message: String(err?.message || err) });
+    return res.status(500).json({
+      error: "Facebook request failed",
+      ...(process.env.NODE_ENV !== "production" && { message: String(err?.message || err) }),
+    });
   }
 });
 
@@ -1047,9 +1063,25 @@ app.get("/health", (req, res) => {
 const staticDir = path.join(__dirname, "build");
 app.use(express.static(staticDir));
 
+// A10-2: unmatched API routes return JSON 404 instead of falling through to the
+// SPA index.html, so API clients get a machine-readable error.
+app.use("/api", (req, res) => {
+  res.status(404).json({ error: "Not found" });
+});
+
 // Always return index.html for non-API routes (so client-side routing works)
 app.get("/*", (req, res) => {
   res.sendFile(path.join(staticDir, "index.html"));
+});
+
+// A10-2: central error handler. Log full detail server-side; return a generic
+// JSON body (never leak stack traces / internals). 4-arg signature is required
+// for Express to treat this as an error handler.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error("[ERROR]", err && err.stack ? err.stack : err);
+  if (res.headersSent) return next(err);
+  res.status(err.status || 500).json({ error: "Internal server error" });
 });
 
 // Start server

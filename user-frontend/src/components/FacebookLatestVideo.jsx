@@ -120,15 +120,17 @@ export default function FacebookLatestVideo() {
   useEffect(() => {
     if (!sdkReady || !href || !nodeRef.current) return;
 
-    // Clear previous render (if any)
-    nodeRef.current.innerHTML = `
-      <div class="fb-video"
-           data-href="${href}"
-           data-allowfullscreen="true"
-           data-autoplay="false"
-           data-show-text="false"
-           data-width="auto"></div>
-    `;
+    // Clear previous render, then build the embed via DOM APIs so the Facebook
+    // href is set as a literal attribute value, never parsed as HTML (A05-1).
+    nodeRef.current.replaceChildren();
+    const fbDiv = document.createElement("div");
+    fbDiv.className = "fb-video";
+    fbDiv.setAttribute("data-href", href);
+    fbDiv.setAttribute("data-allowfullscreen", "true");
+    fbDiv.setAttribute("data-autoplay", "false");
+    fbDiv.setAttribute("data-show-text", "false");
+    fbDiv.setAttribute("data-width", "auto");
+    nodeRef.current.appendChild(fbDiv);
 
     // Parse the XFBML in this container only
     window.FB.XFBML.parse(nodeRef.current, () => {
