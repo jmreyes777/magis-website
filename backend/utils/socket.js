@@ -726,7 +726,11 @@ const initializeSocket = (server) => {
       checkForStaleGuests(socket.user.branchEmail);
     });
 
-    socket.on("debugLog", (log) => console.log(`[DEBUG]`, log));
+    socket.on("debugLog", (log) => {
+      if (process.env.NODE_ENV === "production") return;
+      const safe = typeof log === "string" ? log.replace(/[\r\n]+/g, " ") : log;
+      console.log(`[DEBUG]`, safe);
+    });
 
     // NOTE: The ephemeral ECDH key-exchange relays (e2ee:guest_key /
     // e2ee:branch_key / e2ee:request_key) were removed. E2EE now uses a
@@ -801,8 +805,8 @@ const initializeSocket = (server) => {
           return;
         }
 
-        const normalizedRoom = room.replace(/^guest-guest-/, "guest-");
-        const branchEmail = socket.user?.branchEmail || payloadBranchEmail || "unknown";
+        const guestRoom = getRoomName("guest", guestId);
+        const branchEmail = socket.user?.branchEmail || "unknown";
 
         // Resend / confirmation path
         if (id) {
@@ -860,7 +864,7 @@ const initializeSocket = (server) => {
               return;
             }
 
-            socket.broadcast.to(normalizedRoom).emit("receiveMessage", relayedMessage);
+            socket.broadcast.to(guestRoom).emit("receiveMessage", relayedMessage);
           }
 
           if (typeof callback === "function") return callback({ success: true });
@@ -883,7 +887,7 @@ const initializeSocket = (server) => {
         const ref = await db.collection("messages").add(newMessage);
         const savedMessage = { id: ref.id, ...newMessage };
 
-        io.to(normalizedRoom).emit("receiveMessage", savedMessage);
+        io.to(guestRoom).emit("receiveMessage", savedMessage);
         io.to(getRoomName("admin", branchEmail)).emit("receiveMessage", savedMessage);
 
         const unreadSnap = await db
@@ -950,12 +954,27 @@ const initializeSocket = (server) => {
       }
     });
 
-    socket.on("markSeen", async ({ room, messageId }) => {
+    socket.on("markSeen", async ({ messageId }) => {
       if (!messageId) return;
       try {
-        await db.collection("messages").doc(messageId).update({ status: "seen", seenByAdmin: true });
-        io.to(room).emit("messageSeen", { messageId, seenByAdmin: true });
-      } catch {}
+        const ref = db.collection("messages").doc(messageId);
+        const snap = await ref.get();
+        if (!snap.exists) return;
+        const msg = snap.data();
+        const u = socket.user || {};
+        const isAdmin = u.role === "admin" || u.role === "branchadmin";
+        const owns = isAdmin
+          ? msg.branchEmail === (u.branchEmail || "").toLowerCase()
+          : msg.guestId === u.guestId;
+        if (!owns) {
+          console.warn(`[ACL] markSeen denied: ${u.role}/${u.branchEmail || u.guestId} on message ${messageId}`);
+          return;
+        }
+        await ref.update({ status: "seen", seenByAdmin: true });
+        io.to(getRoomName("guest", msg.guestId)).emit("messageSeen", { messageId, seenByAdmin: true });
+      } catch (err) {
+        console.error("[SOCKET] markSeen error:", err.message);
+      }
     });
 
     // typing
@@ -965,12 +984,21 @@ const initializeSocket = (server) => {
       if (now - socket.lastTyping < 1000) return;
       socket.lastTyping = now;
 
-      io.to(room).emit("typing", { room, sender, isTyping });
+      const u = socket.user || {};
+      const isAdmin = u.role === "admin" || u.role === "branchadmin";
 
-      const branchEmail = socket.user.branchEmail;
-      if (branchEmail) {
-        const adminRoom = normalizeRoomName("admin", branchEmail);
-        io.to(adminRoom).emit("typing", { sender, isTyping, guestRoom: room });
+      if (isAdmin) {
+        const guestRoom = normalizeRoomName("guest", room);
+        io.to(guestRoom).emit("typing", { room: guestRoom, sender, isTyping });
+        if (u.branchEmail) {
+          io.to(normalizeRoomName("admin", u.branchEmail)).emit("typing", { sender, isTyping, guestRoom });
+        }
+      } else if (u.branchEmail) {
+        io.to(normalizeRoomName("admin", u.branchEmail)).emit("typing", {
+          sender,
+          isTyping,
+          guestRoom: getRoomName("guest", u.guestId),
+        });
       }
     });
 

@@ -77,7 +77,7 @@ router.get("/debug", authenticateBranchAdmin, async (req, res) => {
     devLog("[ANALYTICS DEBUG] Checking messages collection");
     devLog("[ANALYTICS DEBUG] Branch email from auth:", req.branchEmail);
     
-    const snapshot = await db.collection("messages").limit(5).get();
+    const snapshot = await db.collection("messages").where("branchEmail", "==", req.branchEmail).limit(5).get();
     devLog("[ANALYTICS DEBUG] Total messages in collection:", snapshot.size);
     
     const sampleMessages = snapshot.docs.map(doc => ({
@@ -89,7 +89,7 @@ router.get("/debug", authenticateBranchAdmin, async (req, res) => {
     
     res.json({
       totalMessages: snapshot.size,
-      sampleMessages: sampleMessages,
+      sampleMessages: isDev ? sampleMessages : undefined,
       branchEmail: req.branchEmail
     });
   } catch (err) {
@@ -111,7 +111,7 @@ router.get("/message-volume", authenticateBranchAdmin, async (req, res) => {
     devLog("[ANALYTICS] Message volume request:", { startDate, endDate, branchEmail, branchEmailFromAuth: req.branchEmail });
     
     // Branch admins can only see their own branch data
-    const targetBranchEmail = branchEmail || req.branchEmail;
+    const targetBranchEmail = req.branchEmail;
     
     if (!targetBranchEmail) {
       devLog("[ANALYTICS] No branch email available");
@@ -180,7 +180,7 @@ router.get("/response-time", authenticateBranchAdmin, async (req, res) => {
     
     devLog("[ANALYTICS] Response time request");
     
-    const targetBranchEmail = branchEmail || req.branchEmail;
+    const targetBranchEmail = req.branchEmail;
     
     if (!targetBranchEmail) {
       return res.status(400).json({ error: "Branch email is required" });
@@ -280,7 +280,7 @@ router.get("/conversation-summary", authenticateBranchAdmin, async (req, res) =>
     
     devLog("[ANALYTICS] Conversation summary request");
     
-    const targetBranchEmail = branchEmail || req.branchEmail;
+    const targetBranchEmail = req.branchEmail;
     
     if (!targetBranchEmail) {
       return res.status(400).json({ error: "Branch email is required" });
