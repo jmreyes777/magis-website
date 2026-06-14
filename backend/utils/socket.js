@@ -1025,6 +1025,22 @@ const initializeSocket = (server) => {
         return;
       }
 
+      try {
+        const snap = await db
+          .collection("messages")
+          .where("guestId", "==", actualGuestId)
+          .where("branchEmail", "==", actualBranchEmail)
+          .get();
+        if (!snap.empty) {
+          const batch = db.batch();
+          snap.forEach((doc) => batch.update(doc.ref, { archived: true }));
+          await batch.commit();
+          console.log(`[SERVER] chatClosed archived ${snap.size} message(s) for ${actualGuestId}`);
+        }
+      } catch (err) {
+        console.error("[SERVER] chatClosed archive error:", err.message);
+      }
+
       const liveSet = branchGuests.get(actualBranchEmail) || new Set();
       liveSet.delete(incomingGuestId);
       if (liveSet.size) branchGuests.set(actualBranchEmail, liveSet);

@@ -13,14 +13,14 @@
 
 ## Overall posture
 
-**Strong, with one escalation.** Most of OWASP 2025 is already covered by `P0–P3`, and Wave 1 (A01-1/2/3, A09-1) is fixed. **One likely-High now stands out: A01-4** — Firestore appears to run on **open/near-open rules** (anonymous client read/write to `messages`), pending confirmation of the deployed ruleset. Otherwise: **4 Medium, ~11 Low**, plus hygiene/roadmap. No remaining fix requires weakening an existing security or performance control.
+**Strong.** Most of OWASP 2025 is already covered by `P0–P3`. Wave 1 (A01-1/2/3, A09-1) and the A01-4 data-layer hardening are implemented (A01-4 pending emulator-test + rules deploy). The deployed Firestore rules turned out to be **well-structured**; the one real gap was **unauthenticated, non-ownership-bound access to `messages`** (now closed in `firestore.rules`). Remaining: **4 Medium, ~11 Low**, plus hygiene/roadmap. No fix weakens an existing security or performance control.
 
 | ID | OWASP 2025 | Severity | Location | Status |
 |----|-----------|----------|----------|--------|
 | A01-1 | A01 Broken Access Control | **Med-High** | `backend/routes/analytics.js:114,183,283` | ✅ Fixed (Wave 1) |
 | A01-2 | A01 Broken Access Control | Medium | `backend/utils/socket.js:953` (`markSeen`) | ✅ Fixed (Wave 1) |
 | A01-3 | A01 Broken Access Control | Medium | `backend/utils/socket.js:863,886,968` | ✅ Fixed (Wave 1) |
-| A01-4 | A01 (data layer) | **High** | open/near-open Firestore rules — anon read/write to `messages` | **P1-6 (open)** |
+| A01-4 | A01 (data layer) | **High** | unauth `messages` access not ownership-bound | ✅ Fix ready (emulator-test pending) |
 | A03-1 | A03 Software Supply Chain | Medium | backend: `csurf` chain + `firebase-admin`/`@google-cloud` (4 high/8 mod) | Confirmed |
 | A03-2 | A03 Software Supply Chain | Low | frontends: `react-scripts` build/test tree (runtime: `react-router`) | Confirmed |
 | A02-1 | A02 Misconfiguration | Low | `backend/server.js:379` | New gap |
@@ -59,12 +59,11 @@
 - **Fix:** derive the target room from `socket.user` identity instead of the client `room`.
 - **Perf:** negligible. **Regression:** none.
 
-### A01-4 (**High**) — Open/near-open Firestore rules: anonymous client read/write — P1-6 (open)
-- **Where:** `firebase.json` declares only `firestore.indexes` — **no rules key, no `firestore.rules` in repo**; rules are console-managed (not version-controlled).
-- **Auth context:** admins authenticate via Firebase `signInWithEmailAndPassword` + custom claims (`role`, `branchId`); **guests use no Firebase Auth** — `user-frontend` hits Firestore as `request.auth == null`.
-- **Direct client access (inventory):** admin (authed) → `branchStatus` (write), `branches` (read/set/update/delete), `messages` (read ×4), `superAdmins` (read). guest (**anon**) → `branches` (read), `siteConfig/auction` (read + `onSnapshot`), **`messages` (read + `writeBatch`)** at `user-frontend/src/components/Guest-Chat-Box-Component.js:1646`.
-- **Impact:** since anonymous guests successfully read/write `messages`/`branches`/`siteConfig`, the deployed rules must be **permissive**. Any anonymous client can read/write `messages` **directly**, bypassing the backend API and every P0–P3 control plus the A01-1/2/3 socket ACLs. (P1-1 at-rest E2EE may keep `content` ciphertext, but `guestName`/`branchEmail`/metadata leak and arbitrary writes are possible.)
-- **Fix (NOT zero-regression — dedicated, emulator-tested track):** guests aren't Firebase-authed, so `request.auth != null` would break the guest app. Options: (a) move guest Firestore access behind the backend API; (b) add guest Anonymous Auth + per-guest scoped rules; (c) narrow rules to the specific public reads + constrain `messages` writes by shape. **Export the deployed rules as baseline first; validate all inventoried flows in the Firebase emulator before any deploy.** **Perf:** none.
+### A01-4 (**High**) — `messages` collection: unauthenticated access not ownership-bound — Fix implemented (emulator-test pending)
+- **Deployed rules reviewed:** generally **well-structured** — admin reads are branch-scoped, writes role/shape-gated, deletes denied, `siteConfig`/`branches` public-read intentional. The gap was isolated to `messages` (+ anon `guests` create): guests have no Firebase Auth identity, so the rules used `guestId.size() > 8` as a stand-in for ownership, which is a shape check, not authorization.
+- **Gaps closed:** (1) **High** — anon `read`/`list` matched ~every message ⇒ any anonymous client could read all branches' messages (metadata plaintext; content E2EE per P1-1); (2) **Med-High** — anon `create` (shape-only) ⇒ message injection into any branch, bypassing the A01-3 socket ACLs; (3) **Med-Low** — anon `archived` toggle on any message; (4) **Low** — anon `guests` create.
+- **Root cause:** the guest client used the SDK only for archive-on-close (`Guest-Chat-Box-Component.js:1646`); messages otherwise flow via the backend (socket + Admin SDK). The `chatClosed` socket handler did **not** archive (only `/api/guest/force-close` did), so the client write couldn't simply be deleted.
+- **Fix (implemented 2026-06-14, zero-regression):** (a) `socket.js` `chatClosed` now archives server-side (mirrors `force-close`); (b) removed the client archive + unused Firestore imports from `Guest-Chat-Box-Component.js`; (c) new `firestore.rules` denies all unauth `messages` read/list/create/update + anon `guests` write, keeps admin-scoped reads + public `siteConfig`/`branches`/`branchStatus`; (d) wired `firebase.json`. **Verify:** `firestore.rules.test.mjs` in the Firestore emulator, then deploy rules. **Deploy order:** backend+frontend code first, then rules. **Perf:** none.
 
 ---
 
@@ -200,7 +199,7 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 | 1 | A01-3 | Medium | S | None | P1-2 |
 | 1 | A09-1 | Low-Med | S | None | P2-4 |
 | 2 | A03-1a (deps) | Medium | — | — | **No-op — deps already at safe ceiling (2026-06-14)** |
-| 2 | A01-4 (`firestore.rules`) | **High** | L | None (server) / **breaks guest app if mis-scoped** | P1-6 |
+| 2 | A01-4 (`firestore.rules`) | **High** | L | None (server-side archive added) | ✅ Implemented (emulator pending) |
 | 2 | A03-1b (`csurf`→`csrf-csrf`) | Medium | M | None | CSRF control |
 | 3 | A02-1 / A02-2 / A02-3 | Low | S | None | P3-1 (CSP) |
 | 3 | A04-1 / A05-1 / A08-1 / A10-2 | Low | S | None | — |
@@ -219,7 +218,7 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 
 ### Wave 2 — data layer + deps
 - **A03-1a:** ✅ checked 2026-06-14 — **no change available**: backend already at `uuid@11.1.1` + `firebase-admin@13.10.0` (safe ceiling). Remaining advisories need A03-1b or a breaking `firebase-admin@14`. `render.yaml`→`npm ci` is optional hardening.
-- **A01-4 (escalated → High):** guests are unauthenticated to Firebase yet read/write `messages` directly ⇒ rules are open/near-open. Dedicated effort: inventory done; export deployed rules → choose path (API-proxy / anon-auth / narrowed rules) → emulator-test all inventoried flows before any deploy.
+- **A01-4 (High) — ✅ implemented 2026-06-14:** server-side `chatClosed` archive (`socket.js`) + removed client archive/imports (`Guest-Chat-Box-Component.js`) + new `firestore.rules` (deny unauth `messages`/`guests` writes, scope admin reads) + `firebase.json`. **Verify:** `firestore.rules.test.mjs` in the emulator, then deploy rules (code first, rules second).
 - **A03-1b:** `csurf`→`csrf-csrf` (separate PR). *Regression:* `/api/csrf-token` + protected POSTs.
 
 ### Wave 3 — low-severity hardening (batch)

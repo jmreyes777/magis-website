@@ -14,8 +14,6 @@ import {
   onConnectionStatus,
   sendMessage,
 } from "../Shared/User-Utils-socket";
-import { db } from "../firebase-config";
-import { collection, query, where, getDocs, writeBatch } from "firebase/firestore";
 import MessageItem from "../Shared/Message-Item-Component";
 import { optimizeImage } from "../Shared/Utils-imageOptimization";
 import "./Guest-Chat-Box-Component.css";
@@ -1640,29 +1638,6 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
       if (!guestId || !branchEmail) {
         console.error("[CLIENT:GUEST] ❌ Cannot close chat. guestId or branchEmail missing.");
         return;
-      }
-
-      try {
-        const messagesRef = collection(db, "messages");
-        const messageQuery = query(
-          messagesRef,
-          where("guestId", "==", guestId),
-          where("branchEmail", "==", branchEmail)
-        );
-        const snap = await getDocs(messageQuery);
-        console.log(`[CLIENT:GUEST] 📦 Found ${snap.size} messages for guestId: ${guestId}`);
-        if (!snap.empty) {
-          const batch = writeBatch(db);
-          snap.forEach((doc) => {
-            batch.update(doc.ref, { archived: true });
-          });
-          await batch.commit();
-          console.log(`[CLIENT:GUEST] ✅ Archived ${snap.size} messages for guestId: ${guestId}`);
-        } else {
-          console.log(`[CLIENT:GUEST] ℹ️ No messages to archive for guestId: ${guestId}`);
-        }
-      } catch (e) {
-        console.error("[CLIENT:GUEST] ❌ Archive error:", e.message);
       }
 
       const token =

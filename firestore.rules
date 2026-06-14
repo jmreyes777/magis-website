@@ -1,0 +1,157 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─────────────────────────────────────────────────────────────
+    // Public CMS-style config for home page countdown, etc.
+    // Marketing can edit without a deploy.
+    // ─────────────────────────────────────────────────────────────
+    match /siteConfig/{docId} {
+      // Anyone can read (home page needs to read auction date)
+      allow read: if true;
+
+      // Only authenticated admins/superadmins can change
+      allow write: if request.auth != null
+                   && (request.auth.token.role == 'superadmin'
+                       || request.auth.token.role == 'admin');
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Branches
+    // ─────────────────────────────────────────────────────────────
+    match /branches/{branchId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.auth.token.role == 'superadmin';
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Guests
+    // ─────────────────────────────────────────────────────────────
+    match /guests/{guestId} {
+      // Branch admins can read guests that belong to their branch
+      allow read: if request.auth != null
+                  && request.auth.token.role == 'branchadmin'
+                  && request.auth.token.branchId == resource.data.branchId;
+
+      // A01-4: guest registration is performed server-side via the Admin SDK
+      // (POST /api/guest/init), which bypasses these rules. No client write.
+      allow write: if false;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Messages
+    // A01-4: the message read/send lifecycle runs through the backend
+    // (Socket.IO + REST, Admin SDK), which bypasses these rules. Direct
+    // client access is therefore limited to branch-admin dashboard reads.
+    // Unauthenticated client access is denied (was: anon read/create/update
+    // keyed only on guestId length, which was not an ownership check).
+    // ─────────────────────────────────────────────────────────────
+    match /messages/{messageId} {
+
+      // Branch admins can read messages only for their branch
+      allow read: if request.auth != null
+                  && request.auth.token.role == 'branchadmin'
+                  && resource.data.branchEmail == request.auth.token.email;
+
+      // Branch-admin create only (validated). Guest sends and all other writes
+      // (status/seen, archive-on-close) are performed by the backend Admin SDK.
+      allow create: if request.auth != null
+                    && request.auth.token.role == 'branchadmin'
+                    && validateMessageData();
+
+      // No client-side updates; archiving + seen are server-side. No deletes.
+      allow update, delete: if false;
+
+      function validateMessageData() {
+        // Minimal required fields
+        // (timestamp may be ISO string or Firestore timestamp to match your server)
+        return request.resource.data.keys().hasAll([
+          'guestId',
+          'branchId',
+          'branchEmail',
+          'sender',
+          'timestamp',
+          'archived'
+        ])
+        && request.resource.data.guestId is string
+        && request.resource.data.branchId is string
+        && request.resource.data.branchEmail is string
+        && request.resource.data.sender in ['guest', 'branch']
+        && (
+             request.resource.data.timestamp is timestamp
+          || request.resource.data.timestamp is string
+        )
+        && request.resource.data.archived is bool
+
+        // content may be null/empty when sending a pure media message
+        && (
+             !('content' in request.resource.data)
+          || request.resource.data.content is string
+          || request.resource.data.content == null
+        )
+
+        // Optional fields allowed by your server/client
+        && (
+             !('status' in request.resource.data)
+          || request.resource.data.status in ['sent','delivered','seen']
+        )
+        && (
+             !('media' in request.resource.data)
+          || request.resource.data.media == null
+          || request.resource.data.media is map
+        )
+        && (
+             !('tempId' in request.resource.data)
+          || request.resource.data.tempId is string
+        )
+        && (
+             !('clientMessageId' in request.resource.data)
+          || request.resource.data.clientMessageId is string
+        );
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Super Admins
+    // ─────────────────────────────────────────────────────────────
+    match /superAdmins/{superAdminId} {
+      allow read, write: if request.auth != null
+                         && request.auth.token.role == 'superadmin';
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Branch Admins
+    // ─────────────────────────────────────────────────────────────
+    match /branchAdmins/{branchAdminId} {
+      // Superadmin full access
+      allow read, write: if request.auth != null
+                         && request.auth.token.role == 'superadmin';
+
+      // Branch admin can read their own admin record
+      allow read: if request.auth != null
+                  && request.auth.token.role == 'branchadmin'
+                  && branchAdminId == request.auth.token.id;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // Branch Status (Presence)
+    // ─────────────────────────────────────────────────────────────
+    match /branchStatus/{branchEmail} {
+      // Public read (guest widgets poll this) OR branch admins
+      allow read: if request.auth == null
+                  || (request.auth != null
+                      && request.auth.token.role == 'branchadmin');
+
+      // Only the owning branch admin updates their own presence doc
+      allow create, update: if request.auth != null
+                            && request.auth.token.role == 'branchadmin'
+                            && request.auth.token.email == resource.id;
+
+      // Superadmin override
+      allow read, write: if request.auth != null
+                         && request.auth.token.role == 'superadmin';
+    }
+  }
+}
