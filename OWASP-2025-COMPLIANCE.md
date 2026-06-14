@@ -13,7 +13,7 @@
 
 ## Overall posture
 
-**Strong.** Most of OWASP 2025 is already covered by `P0–P3`. **Waves 1–4 are implemented** (A01-1/2/3/4, A09-1, A03-1a/1b, A02-1/2/3, A04-1, A05-1, A08-1, A10-2, A10-1, A03-2): A01-4 rules are emulator-tested + published to staging, and the backend supply-chain **highs are cleared** (csurf removed). Remaining: **A06-1** (perf-sensitive rate-limit, deferred), the one-time **A10-1 dashboard flip** (`MFA_FAIL_OPEN=false`), **Wave 5** hygiene, plus deferred majors (`firebase-admin@14`, CRA→Vite) and the **CSRF-1** enforcement follow-up. No fix weakens an existing security or performance control.
+**Strong.** Most of OWASP 2025 is already covered by `P0–P3`. **Waves 1–5 are implemented** (A01-1/2/3/4, A09-1, A03-1a/1b, A02-1/2/3, A04-1, A05-1, A08-1, A10-2, A10-1, A03-2, HYG-1..4): A01-4 rules are emulator-tested + published to staging, and the backend supply-chain **highs are cleared** (csurf removed). Remaining: **A06-1** (perf-sensitive rate-limit, deferred), the one-time **A10-1 dashboard flip** (`MFA_FAIL_OPEN=false`) + the operator-run `branchAdmins` password-hash purge (script provided), plus deferred majors (`firebase-admin@14`, CRA→Vite) and the **CSRF-1** enforcement follow-up. No fix weakens an existing security or performance control.
 
 | ID | OWASP 2025 | Severity | Location | Status |
 |----|-----------|----------|----------|--------|
@@ -34,7 +34,7 @@
 | A09-1 | A09 Logging | Low-Med | `backend/utils/socket.js:729` (`debugLog`) | ✅ Fixed (Wave 1) |
 | A10-1 | A10 Exceptional Conditions | Low/config | `backend/middlewares/requireMFA.js:24` | ✅ Config wired (Wave 4) |
 | A10-2 | A10 Exceptional Conditions | Low | `backend/server.js` (404 + error handler) | ✅ Fixed (Wave 3) |
-| HYG-* | Hygiene / latent | Low | dead `assign-*` routers, misplaced `api.js`, edge CRA scaffold | Hygiene |
+| HYG-* | Hygiene / latent | Low | dead `assign-*` routers, misplaced `api.js`, edge CRA scaffold | ✅ Cleaned (Wave 5) |
 
 ---
 
@@ -151,10 +151,10 @@
 
 ## Hygiene / latent risk
 
-- **HYG-1** — Dead, unmounted routers with unauthenticated `/assign-*`: `routes/superadminauth.js:104`, `routes/branchadminauth.js:226`. Not imported by `server.js` (confirmed at `server.js:421-424`) → not live. Delete to prevent a future accidental mount becoming privilege escalation.
-- **HYG-2** — Misplaced frontend code in backend: `backend/middlewares/api.js` uses `export`/`process.env.REACT_APP_API_URL` (dead in a CommonJS backend).
-- **HYG-3** — CRA scaffolding inside the edge worker: `magis-edge-worker/src/*` React components are stray.
-- **HYG-4** — Stale bcrypt login model: dead `branchadminauth.js` references `bcrypt.compare(password, adminData.password)`; if `branchAdmins` docs still hold password hashes, purge them.
+- **HYG-1 — ✅ deleted (Wave 5):** `routes/superadminauth.js` + `routes/branchadminauth.js` (dead, unmounted routers with unauthenticated `/assign-*`). Verified zero `require`/`app.use` repo-wide (no `readdirSync` auto-mount) before removal; `branchadminauth.js` also `require("bcrypt")` — not an installed dep (only `bcryptjs`) — so it could never load.
+- **HYG-2 — ✅ deleted (Wave 5):** `backend/middlewares/api.js` (frontend `export`/`process.env.REACT_APP_API_URL` code, dead in a CommonJS backend; zero requires — ESM syntax would crash a CJS `require` anyway).
+- **HYG-3 — ✅ deleted (Wave 5):** the stray CRA scaffold inside the edge worker — `magis-edge-worker/src/` (42 files), `public/` (5), and the `craco`/`postcss`/`tailwind` configs. The deployed worker (`index.js`, the `wrangler.toml` `main`) is a self-contained proxy that never imported them, and there is no `[site]`/asset binding.
+- **HYG-4 — ✅ addressed (Wave 5):** confirmed **no surviving code** reads `.password` or uses `bcrypt` (the sole consumer was the deleted `branchadminauth.js`), so any `password` hash on a `branchAdmins` doc is stale. Added an operator-run purge script `backend/scripts/purge-branchadmin-passwords.js` (**dry-run by default**, `--apply` to delete the field). **Side effect:** `bcryptjs` is now an orphaned backend dependency (safe to drop in a follow-up).
 
 ---
 
@@ -208,7 +208,7 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 | 3 | A06-1 (rate-limit media/history) | Low | S-M | **Yes** (media hot path) | Deferred — perf-sensitive |
 | 4 | A10-1 (`MFA_FAIL_OPEN=false`) | Low/config | S | None | ✅ Wired (Wave 4) — dashboard flip |
 | 4 | A03-2 (`react-router-dom` bump) | Low | S | None | ✅ Done (Wave 4) — 6.30.4 |
-| 5 | HYG-1..4 (dead code/data) | Low | S-M | None | — |
+| 5 | HYG-1..4 (dead code/data) | Low | S-M | None | ✅ Done (Wave 5) |
 
 ### Wave 1 (one PR — do first)
 **Status: ✅ Implemented 2026-06-14** — `analytics.js` + `socket.js`; both pass `node --check`. Full socket smoke/regression still recommended before deploy.
@@ -230,4 +230,4 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 **Status: ✅ Implemented 2026-06-14.** **A10-1:** `MFA_FAIL_OPEN` documented in `backend.env.example` + added to `render.yaml` (`value:"false"`); **activate by setting `MFA_FAIL_OPEN=false` in the Render dashboard** (running service is dashboard-configured; render.yaml only applies on Blueprint sync). **A03-2:** `user-frontend` `react-router-dom` `6.30.3 → 6.30.4` (clears GHSA-2j2x-hqr9-3h42 protocol-relative open redirect; `admin-frontend` already on 7.15.1, clean). The lockfile re-resolve also healed pre-existing drift by adding optional `@tailwindcss/oxide-wasm32-wasi` deps (platform-optional, no build/runtime impact). Remaining frontend audit items are the `react-scripts` build/test tree (not shipped runtime; durable fix CRA→Vite, deferred); `npm ci`+Dependabot/SBOM still roadmap.
 
 ### Wave 5 — hygiene
-Delete dead `superadminauth.js`/`branchadminauth.js` (**verify no `require` first**), misplaced `backend/middlewares/api.js`, edge CRA scaffold; purge stale `password` hashes.
+**Status: ✅ Implemented 2026-06-14** — 53 files removed via `git rm`; survivors (`server.js`, edge `index.js`/`dev-server.js`) pass `node --check`; a post-deletion grep confirms zero dangling refs. **HYG-1/2/3:** deleted `routes/superadminauth.js`, `routes/branchadminauth.js`, `middlewares/api.js`, and the edge `src/`+`public/`+CRA configs. **HYG-4:** confirmed no live `bcrypt`/`.password` usage and added `backend/scripts/purge-branchadmin-passwords.js` (dry-run default) for the operator to purge stale `branchAdmins.password` hashes against the live DB. **Notes:** `bcryptjs` is now an orphaned backend dep (removable later); `magis-edge-worker-temp/` is untracked, so left as-is.
