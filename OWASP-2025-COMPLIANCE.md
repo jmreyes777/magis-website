@@ -13,14 +13,14 @@
 
 ## Overall posture
 
-**Strong.** The majority of OWASP 2025 is already covered by `P0–P3`. **No confirmed Critical/High live vulnerabilities.** Confirmed: **1 Med-High, 4 Medium, ~11 Low**, plus hygiene/roadmap items. None of the fixes require weakening an existing security or performance control.
+**Strong, with one escalation.** Most of OWASP 2025 is already covered by `P0–P3`, and Wave 1 (A01-1/2/3, A09-1) is fixed. **One likely-High now stands out: A01-4** — Firestore appears to run on **open/near-open rules** (anonymous client read/write to `messages`), pending confirmation of the deployed ruleset. Otherwise: **4 Medium, ~11 Low**, plus hygiene/roadmap. No remaining fix requires weakening an existing security or performance control.
 
 | ID | OWASP 2025 | Severity | Location | Status |
 |----|-----------|----------|----------|--------|
 | A01-1 | A01 Broken Access Control | **Med-High** | `backend/routes/analytics.js:114,183,283` | ✅ Fixed (Wave 1) |
 | A01-2 | A01 Broken Access Control | Medium | `backend/utils/socket.js:953` (`markSeen`) | ✅ Fixed (Wave 1) |
 | A01-3 | A01 Broken Access Control | Medium | `backend/utils/socket.js:863,886,968` | ✅ Fixed (Wave 1) |
-| A01-4 | A01 (data layer) | Medium | missing `firestore.rules` | **P1-6 (open)** |
+| A01-4 | A01 (data layer) | **High** | open/near-open Firestore rules — anon read/write to `messages` | **P1-6 (open)** |
 | A03-1 | A03 Software Supply Chain | Medium | backend: `csurf` chain + `firebase-admin`/`@google-cloud` (4 high/8 mod) | Confirmed |
 | A03-2 | A03 Software Supply Chain | Low | frontends: `react-scripts` build/test tree (runtime: `react-router`) | Confirmed |
 | A02-1 | A02 Misconfiguration | Low | `backend/server.js:379` | New gap |
@@ -59,10 +59,12 @@
 - **Fix:** derive the target room from `socket.user` identity instead of the client `room`.
 - **Perf:** negligible. **Regression:** none.
 
-### A01-4 (Medium) — `firestore.rules` absent — P1-6 (open)
-- **Where:** `firebase.json` references only indexes; no `firestore.rules` in repo.
-- **Impact:** admin SDK bypasses rules, but the admin-frontend reads Firestore **directly** via the client SDK, governed only by console-managed rules that aren't in version control / reviewed.
-- **Fix:** add a least-privilege `firestore.rules` to the repo + `firebase.json`. **Perf:** none.
+### A01-4 (**High**) — Open/near-open Firestore rules: anonymous client read/write — P1-6 (open)
+- **Where:** `firebase.json` declares only `firestore.indexes` — **no rules key, no `firestore.rules` in repo**; rules are console-managed (not version-controlled).
+- **Auth context:** admins authenticate via Firebase `signInWithEmailAndPassword` + custom claims (`role`, `branchId`); **guests use no Firebase Auth** — `user-frontend` hits Firestore as `request.auth == null`.
+- **Direct client access (inventory):** admin (authed) → `branchStatus` (write), `branches` (read/set/update/delete), `messages` (read ×4), `superAdmins` (read). guest (**anon**) → `branches` (read), `siteConfig/auction` (read + `onSnapshot`), **`messages` (read + `writeBatch`)** at `user-frontend/src/components/Guest-Chat-Box-Component.js:1646`.
+- **Impact:** since anonymous guests successfully read/write `messages`/`branches`/`siteConfig`, the deployed rules must be **permissive**. Any anonymous client can read/write `messages` **directly**, bypassing the backend API and every P0–P3 control plus the A01-1/2/3 socket ACLs. (P1-1 at-rest E2EE may keep `content` ciphertext, but `guestName`/`branchEmail`/metadata leak and arbitrary writes are possible.)
+- **Fix (NOT zero-regression — dedicated, emulator-tested track):** guests aren't Firebase-authed, so `request.auth != null` would break the guest app. Options: (a) move guest Firestore access behind the backend API; (b) add guest Anonymous Auth + per-guest scoped rules; (c) narrow rules to the specific public reads + constrain `messages` writes by shape. **Export the deployed rules as baseline first; validate all inventoried flows in the Firebase emulator before any deploy.** **Perf:** none.
 
 ---
 
@@ -80,8 +82,8 @@
 
 > **Dynamic step complete** — `npm audit --omit=dev` run 2026-06-14 across all four packages (see results table below).
 
-- **A03-1 (Medium, confirmed)** — backend has **12 advisories (4 high / 8 moderate, 0 critical)** concentrated in two runtime clusters: the **deprecated `csurf` chain** (`csurf → csrf-tokens → uid-safe → base64-url`) and the **`firebase-admin` / `@google-cloud` transitive tree** (`gaxios`, `google-gax`, `teeny-request`, `retry-request`), plus a moderate `uuid`. `render.yaml:32` uses `npm install` (not `npm ci`), so builds don't strictly honor the lockfile. No SBOM/Dependabot (roadmap).
-  - **Fix (zero-compromise):** bump `firebase-admin` to latest (clears the GCP chain) + bump `uuid`; replace `csurf` with a maintained double-submit CSRF lib (`csrf-csrf`) — but CSRF is a live security control, so route this through triage with a regression check. **Do NOT** apply the frontend `npm audit fix --force` (it downgrades to `react-scripts@0.0.0` — breaking).
+- **A03-1 (Medium, confirmed)** — backend has **12 advisories (4 high / 8 moderate, 0 critical)**, all transitive: the **deprecated `csurf` chain** (`csurf → csrf-tokens → uid-safe → base64-url`, the 4 highs) and **`uuid` vendored inside `firebase-admin`'s `@google-cloud/*`/`gaxios` tree** (the moderates). The backend's *direct* deps are already at the **safe ceiling** — `uuid@11.1.1`, `firebase-admin@13.10.0` (latest non-breaking, verified 2026-06-14). **No zero-regression dep bump remains:** the highs need the `csurf` replacement (A03-1b); the moderates need a breaking `firebase-admin@14` (deferred — and the vendored `uuid` is used for `v4`, not the vulnerable `v3/v5/v6`-with-`buf` path). `render.yaml:32` uses `npm install`; `npm ci` is optional hardening (applies only on Blueprint sync). No SBOM/Dependabot (roadmap).
+  - **Do NOT** run `npm audit fix --force` (forces `firebase-admin@14` here and `react-scripts@0.0.0` on the frontends — both breaking).
 - **A03-2 (Low) — frontend counts are build/test-time, not shipped runtime.** admin-frontend **30** and user-frontend **31** advisories are almost entirely the `react-scripts` build/test tree (`shell-quote` critical = build CLI, `webpack-dev-server`, `jest`/`jsdom`, `nth-check`/`postcss`/`svgo`/`serialize-javascript`/`terser` = build). The only runtime-relevant item is **`react-router` open redirect (moderate)** — bump `react-router-dom`. Real production-runtime browser risk is **Low**; durable fix is migrating CRA → Vite (larger effort).
 - **`magis-edge-worker`: 0 advisories** (clean — `jose`/`jsonschema`/`dotenv`).
 - **Lockfiles:** `backend/package-lock.json` present; verify lockfiles exist + are committed for all four packages, then switch CI to `npm ci`.
@@ -197,8 +199,8 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 | 1 | A01-2 | Medium | S-M | Low (+1 Firestore read on `markSeen`) | P1-2 |
 | 1 | A01-3 | Medium | S | None | P1-2 |
 | 1 | A09-1 | Low-Med | S | None | P2-4 |
-| 2 | A03-1a (`firebase-admin`/`uuid` bump + `npm ci`) | Medium | S-M | Neutral | build/IaC |
-| 2 | A01-4 (`firestore.rules`) | Medium | M-L | None | P1-6 |
+| 2 | A03-1a (deps) | Medium | — | — | **No-op — deps already at safe ceiling (2026-06-14)** |
+| 2 | A01-4 (`firestore.rules`) | **High** | L | None (server) / **breaks guest app if mis-scoped** | P1-6 |
 | 2 | A03-1b (`csurf`→`csrf-csrf`) | Medium | M | None | CSRF control |
 | 3 | A02-1 / A02-2 / A02-3 | Low | S | None | P3-1 (CSP) |
 | 3 | A04-1 / A05-1 / A08-1 / A10-2 | Low | S | None | — |
@@ -216,8 +218,8 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 - **A09-1** — `socket.js:729 debugLog`: gate behind non-prod + strip CRLF. *Regression:* none.
 
 ### Wave 2 — data layer + deps
-- **A03-1a:** bump `firebase-admin`+`uuid`, commit lockfile, `render.yaml:32`→`npm ci`. *Regression:* smoke token-verify / message write / signed-URL.
-- **A01-4:** author least-privilege `firestore.rules`+`firebase.json`. *Regression:* admin-frontend client-SDK reads (P1-6) — rules test before deploy.
+- **A03-1a:** ✅ checked 2026-06-14 — **no change available**: backend already at `uuid@11.1.1` + `firebase-admin@13.10.0` (safe ceiling). Remaining advisories need A03-1b or a breaking `firebase-admin@14`. `render.yaml`→`npm ci` is optional hardening.
+- **A01-4 (escalated → High):** guests are unauthenticated to Firebase yet read/write `messages` directly ⇒ rules are open/near-open. Dedicated effort: inventory done; export deployed rules → choose path (API-proxy / anon-auth / narrowed rules) → emulator-test all inventoried flows before any deploy.
 - **A03-1b:** `csurf`→`csrf-csrf` (separate PR). *Regression:* `/api/csrf-token` + protected POSTs.
 
 ### Wave 3 — low-severity hardening (batch)
