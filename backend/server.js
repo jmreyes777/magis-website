@@ -16,7 +16,6 @@ const http = require("http");
 const rateLimit = require("express-rate-limit");
 const crypto = require("crypto");               // ← crypto for CSP nonces
 const cookieParser = require('cookie-parser');
-const csurf = require('csurf');
 const { signJWT, revokeJWT, verifyAllowExpired } = require("./utils/secretPool");
 
 // ⏱️ Align JWT skew + tighten lifetimes (defaults if not set in env)
@@ -206,10 +205,9 @@ app.use(cors(corsOptionsDelegate));
 // ── PERF1-1: response compression (gzip/br) ────────────────────────────────
 // Compresses API JSON + static assets at the origin, cutting payload size and
 // the origin→edge transfer. Mounted early so it wraps all downstream responses.
-// BREACH hardening: csurf already salts its token per request, but we still
-// never compress the CSRF-token response (the token sits in the body), and we
-// honor an `x-no-compression` opt-out for any future secret-bearing route that
-// also reflects request input.
+// BREACH hardening: we never compress the CSRF-token response (the token sits
+// in the body), and we honor an `x-no-compression` opt-out for any future
+// secret-bearing route that also reflects request input.
 app.use(
   compression({
     threshold: 1024, // skip tiny payloads where overhead outweighs the benefit
@@ -247,37 +245,27 @@ app.use(cookieParser());
 app.use("/api", requireEdgeAuth);
 
 // ── INSERT HERE ────────────────────────────────────────────────────────────
-// Create a standalone GET /api/csrf-token that _only_ runs through its own csurf
-const csrfProtection = csurf({
-  cookie: {
-    key:      'csrfToken',
-    httpOnly: false,
-    secure:   process.env.NODE_ENV === 'production',
-    sameSite: 'Strict',
-    maxAge:   60 * 60 * 1000,
-  }
+// Standalone GET /api/csrf-token: issues a per-request random token, sets it as
+// a readable cookie AND returns it in JSON (the client echoes it via the
+// X-CSRF-Token header). A03-1b: replaced deprecated `csurf` with a native token
+// generator. The client contract is identical; no validation behavior changed
+// (csurf was mounted only here, never on mutating routes).
+app.get('/api/csrf-token', (req, res) => {
+  const csrfToken = crypto.randomBytes(32).toString('hex');
+  res
+    .cookie('csrfToken', csrfToken, {
+      httpOnly: false,
+      secure:   process.env.NODE_ENV === 'production',
+      sameSite: 'Strict',
+      maxAge:   60 * 60 * 1000,
+    })
+    // PERF1-3: the CSRF token lives in this response body, so it must never
+    // be stored by the browser or a shared/edge cache (also excluded from
+    // compression above for BREACH). Phase 5 will start honoring cache hints
+    // on public GETs — pin this one closed first.
+    .set("Cache-Control", "no-store")
+    .json({ csrfToken });
 });
-
-app.get(
-  '/api/csrf-token',
-  csrfProtection,
-  (req, res) => {
-    // sets a readable cookie _and_ returns the token in JSON
-    res
-      .cookie('csrfToken', req.csrfToken(), {
-        httpOnly: false,
-        secure:   process.env.NODE_ENV === 'production',
-        sameSite: 'Strict',
-        maxAge:   60 * 60 * 1000,
-      })
-      // PERF1-3: the CSRF token lives in this response body, so it must never
-      // be stored by the browser or a shared/edge cache (also excluded from
-      // compression above for BREACH). Phase 5 will start honoring cache hints
-      // on public GETs — pin this one closed first.
-      .set("Cache-Control", "no-store")
-      .json({ csrfToken: req.csrfToken() });
-  }
-);
 
 // ── PERF1-2: environment-gated HTTP request logging ─────────────────────────
 // The verbose `dev` logger (per-request string building + stdout I/O on every

@@ -21,8 +21,9 @@
 | A01-2 | A01 Broken Access Control | Medium | `backend/utils/socket.js:953` (`markSeen`) | ✅ Fixed (Wave 1) |
 | A01-3 | A01 Broken Access Control | Medium | `backend/utils/socket.js:863,886,968` | ✅ Fixed (Wave 1) |
 | A01-4 | A01 (data layer) | **High** | unauth `messages` access not ownership-bound | ✅ Fix ready (emulator-test pending) |
-| A03-1 | A03 Software Supply Chain | Medium | backend: `csurf` chain + `firebase-admin`/`@google-cloud` (4 high/8 mod) | Confirmed |
+| A03-1 | A03 Software Supply Chain | Medium | backend: 4 highs (`csurf` chain) cleared; 8 mod (`firebase-admin@14`, deferred) | ✅ Highs cleared |
 | A03-2 | A03 Software Supply Chain | Low | frontends: `react-scripts` build/test tree (runtime: `react-router`) | Confirmed |
+| CSRF-1 | A01 / CSRF | Low | `csurf` token issued but never validated server-side | New (mitigated) |
 | A02-1 | A02 Misconfiguration | Low | `backend/server.js:379` | New gap |
 | A02-2 | A02 Misconfiguration | Low | `backend/server.js:308` | New gap |
 | A02-3 | A02 Misconfiguration | Low | `backend/server.js:854,876` | New gap |
@@ -81,11 +82,12 @@
 
 > **Dynamic step complete** — `npm audit --omit=dev` run 2026-06-14 across all four packages (see results table below).
 
-- **A03-1 (Medium, confirmed)** — backend has **12 advisories (4 high / 8 moderate, 0 critical)**, all transitive: the **deprecated `csurf` chain** (`csurf → csrf-tokens → uid-safe → base64-url`, the 4 highs) and **`uuid` vendored inside `firebase-admin`'s `@google-cloud/*`/`gaxios` tree** (the moderates). The backend's *direct* deps are already at the **safe ceiling** — `uuid@11.1.1`, `firebase-admin@13.10.0` (latest non-breaking, verified 2026-06-14). **No zero-regression dep bump remains:** the highs need the `csurf` replacement (A03-1b); the moderates need a breaking `firebase-admin@14` (deferred — and the vendored `uuid` is used for `v4`, not the vulnerable `v3/v5/v6`-with-`buf` path). `render.yaml:32` uses `npm install`; `npm ci` is optional hardening (applies only on Blueprint sync). No SBOM/Dependabot (roadmap).
+- **A03-1 (Medium → ✅ highs cleared 2026-06-14)** — backend started at **12 advisories (4 high / 8 moderate)**. The **4 highs** (deprecated `csurf → csrf-tokens → uid-safe → base64-url` chain) are **eliminated** (A03-1b removed `csurf`). The remaining **8 moderate** are `uuid` vendored inside `firebase-admin`'s `@google-cloud/*`/`gaxios` tree — fixable only by a breaking `firebase-admin@14` (deferred; that `uuid` is used for `v4`, not the vulnerable `v3/v5/v6`-with-`buf` path, so effectively non-exploitable). Direct deps at safe ceiling (`uuid@11.1.1`, `firebase-admin@13.10.0`). `render.yaml:32` `npm install`→`npm ci` optional. No SBOM/Dependabot (roadmap).
   - **Do NOT** run `npm audit fix --force` (forces `firebase-admin@14` here and `react-scripts@0.0.0` on the frontends — both breaking).
 - **A03-2 (Low) — frontend counts are build/test-time, not shipped runtime.** admin-frontend **30** and user-frontend **31** advisories are almost entirely the `react-scripts` build/test tree (`shell-quote` critical = build CLI, `webpack-dev-server`, `jest`/`jsdom`, `nth-check`/`postcss`/`svgo`/`serialize-javascript`/`terser` = build). The only runtime-relevant item is **`react-router` open redirect (moderate)** — bump `react-router-dom`. Real production-runtime browser risk is **Low**; durable fix is migrating CRA → Vite (larger effort).
 - **`magis-edge-worker`: 0 advisories** (clean — `jose`/`jsonschema`/`dotenv`).
 - **Lockfiles:** `backend/package-lock.json` present; verify lockfiles exist + are committed for all four packages, then switch CI to `npm ci`.
+- **CSRF-1 (Low, new finding) — the CSRF token is decorative.** `GET /api/csrf-token` issues a token and the client sends `X-CSRF-Token`, but **no route validates it** (`csurf` was mounted only on the token endpoint, never on mutating routes; A03-1b preserved this behavior). Structurally mitigated today: API auth is Bearer-JWT in the `Authorization` header (not forgeable cross-site), cookies are `sameSite=Strict`, and `/api` is edge-locked (P2-2). **Follow-up (separate, tested PR):** either enforce double-submit validation on any cookie-authed mutating route, or formally adopt header-auth as the CSRF control and drop the decorative token. *Do NOT enable enforcement without testing — it would 403 any mutating request lacking the header.*
 
 ---
 
@@ -200,7 +202,7 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 | 1 | A09-1 | Low-Med | S | None | P2-4 |
 | 2 | A03-1a (deps) | Medium | — | — | **No-op — deps already at safe ceiling (2026-06-14)** |
 | 2 | A01-4 (`firestore.rules`) | **High** | L | None (server-side archive added) | ✅ Implemented (emulator pending) |
-| 2 | A03-1b (`csurf`→`csrf-csrf`) | Medium | M | None | CSRF control |
+| 2 | A03-1b (remove `csurf`) | Medium | S | None | ✅ Done — 4 highs cleared (native token gen) |
 | 3 | A02-1 / A02-2 / A02-3 | Low | S | None | P3-1 (CSP) |
 | 3 | A04-1 / A05-1 / A08-1 / A10-2 | Low | S | None | — |
 | 3 | A06-1 (rate-limit media/history) | Low | S-M | **Yes** (media hot path) | P1-4 |
@@ -219,7 +221,7 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 ### Wave 2 — data layer + deps
 - **A03-1a:** ✅ checked 2026-06-14 — **no change available**: backend already at `uuid@11.1.1` + `firebase-admin@13.10.0` (safe ceiling). Remaining advisories need A03-1b or a breaking `firebase-admin@14`. `render.yaml`→`npm ci` is optional hardening.
 - **A01-4 (High) — ✅ implemented 2026-06-14:** server-side `chatClosed` archive (`socket.js`) + removed client archive/imports (`Guest-Chat-Box-Component.js`) + new `firestore.rules` (deny unauth `messages`/`guests` writes, scope admin reads) + `firebase.json`. **Verify:** `firestore.rules.test.mjs` in the emulator, then deploy rules (code first, rules second).
-- **A03-1b:** `csurf`→`csrf-csrf` (separate PR). *Regression:* `/api/csrf-token` + protected POSTs.
+- **A03-1b (✅ done 2026-06-14):** removed deprecated `csurf` (8 pkgs incl. `base64-url`/`csrf-tokens`/`uid-safe`) → **all 4 high advisories cleared, 0 high remain**. Replaced `/api/csrf-token` with a native `crypto.randomBytes` generator preserving the exact cookie + JSON contract — **zero regression** (no new dep, token-issuing behavior identical, `node --check` clean). Surfaced **CSRF-1**: the token is issued but never validated server-side (follow-up).
 
 ### Wave 3 — low-severity hardening (batch)
 A02-1/2/3 (CSP localhost, Permissions-Policy, FB error genericize) · A04-1 (`crypto.randomUUID()`) · A05-1 (`setAttribute` vs `innerHTML`) · A08-1 (Electron nav guards) · A10-2 (central error handler+404). **A06-1** is perf-sensitive — reuse Redis limiter, keep off media decode path.
