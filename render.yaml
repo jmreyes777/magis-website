@@ -44,6 +44,11 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # A10-1: fail CLOSED on transient MFA-check errors (return 503 instead of
+      # passing the request). Stricter for SPI endpoints; recommended in prod
+      # once MFA is stable. Omit or "true" keeps the legacy fail-OPEN behavior.
+      - key: MFA_FAIL_OPEN
+        value: "false"
       # ── STRONGLY RECOMMENDED for multi-instance ──────────────────────────────
       # REQUIRE_REDIS=true makes the server refuse to start without REDIS_URL, so
       # rate-limiting + JWT revocation can never silently degrade to per-instance.

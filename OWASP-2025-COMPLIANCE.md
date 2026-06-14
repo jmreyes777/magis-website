@@ -13,7 +13,7 @@
 
 ## Overall posture
 
-**Strong.** Most of OWASP 2025 is already covered by `P0–P3`. **Waves 1–3 are implemented** (A01-1/2/3/4, A09-1, A03-1a/1b, A02-1/2/3, A04-1, A05-1, A08-1, A10-2): A01-4 rules are emulator-tested + published to staging, and the backend supply-chain **highs are cleared** (csurf removed). Remaining: **A06-1** (perf-sensitive rate-limit, deferred), **Wave 4** config (`MFA_FAIL_OPEN=false`, `react-router-dom`), **Wave 5** hygiene, plus deferred majors (`firebase-admin@14`, CRA→Vite) and the **CSRF-1** enforcement follow-up. No fix weakens an existing security or performance control.
+**Strong.** Most of OWASP 2025 is already covered by `P0–P3`. **Waves 1–4 are implemented** (A01-1/2/3/4, A09-1, A03-1a/1b, A02-1/2/3, A04-1, A05-1, A08-1, A10-2, A10-1, A03-2): A01-4 rules are emulator-tested + published to staging, and the backend supply-chain **highs are cleared** (csurf removed). Remaining: **A06-1** (perf-sensitive rate-limit, deferred), the one-time **A10-1 dashboard flip** (`MFA_FAIL_OPEN=false`), **Wave 5** hygiene, plus deferred majors (`firebase-admin@14`, CRA→Vite) and the **CSRF-1** enforcement follow-up. No fix weakens an existing security or performance control.
 
 | ID | OWASP 2025 | Severity | Location | Status |
 |----|-----------|----------|----------|--------|
@@ -22,7 +22,7 @@
 | A01-3 | A01 Broken Access Control | Medium | `backend/utils/socket.js:863,886,968` | ✅ Fixed (Wave 1) |
 | A01-4 | A01 (data layer) | **High** | unauth `messages` access not ownership-bound | ✅ Fix ready (emulator-test pending) |
 | A03-1 | A03 Software Supply Chain | Medium | backend: 4 highs (`csurf` chain) cleared; 8 mod (`firebase-admin@14`, deferred) | ✅ Highs cleared |
-| A03-2 | A03 Software Supply Chain | Low | frontends: `react-scripts` build/test tree (runtime: `react-router`) | Confirmed |
+| A03-2 | A03 Software Supply Chain | Low | frontends: `react-scripts` build/test tree (runtime: `react-router`) | ✅ Runtime item fixed (Wave 4) |
 | CSRF-1 | A01 / CSRF | Low | `csurf` token issued but never validated server-side | New (mitigated) |
 | A02-1 | A02 Misconfiguration | Low | `backend/server.js` CSP `connectSrc` | ✅ Fixed (Wave 3) |
 | A02-2 | A02 Misconfiguration | Low | `backend/server.js` Permissions-Policy | ✅ Fixed (Wave 3) |
@@ -32,7 +32,7 @@
 | A06-1 | A06 Insecure Design | Low | media resolvers / `conversation-key` / `history` | Deferred (perf-sensitive) |
 | A08-1 | A08 Integrity | Low | `admin-frontend/electron-main.js` | ✅ Fixed (Wave 3) |
 | A09-1 | A09 Logging | Low-Med | `backend/utils/socket.js:729` (`debugLog`) | ✅ Fixed (Wave 1) |
-| A10-1 | A10 Exceptional Conditions | Low/config | `backend/middlewares/requireMFA.js:24` | By design |
+| A10-1 | A10 Exceptional Conditions | Low/config | `backend/middlewares/requireMFA.js:24` | ✅ Config wired (Wave 4) |
 | A10-2 | A10 Exceptional Conditions | Low | `backend/server.js` (404 + error handler) | ✅ Fixed (Wave 3) |
 | HYG-* | Hygiene / latent | Low | dead `assign-*` routers, misplaced `api.js`, edge CRA scaffold | Hygiene |
 
@@ -84,7 +84,7 @@
 
 - **A03-1 (Medium → ✅ highs cleared 2026-06-14)** — backend started at **12 advisories (4 high / 8 moderate)**. The **4 highs** (deprecated `csurf → csrf-tokens → uid-safe → base64-url` chain) are **eliminated** (A03-1b removed `csurf`). The remaining **8 moderate** are `uuid` vendored inside `firebase-admin`'s `@google-cloud/*`/`gaxios` tree — fixable only by a breaking `firebase-admin@14` (deferred; that `uuid` is used for `v4`, not the vulnerable `v3/v5/v6`-with-`buf` path, so effectively non-exploitable). Direct deps at safe ceiling (`uuid@11.1.1`, `firebase-admin@13.10.0`). `render.yaml:32` `npm install`→`npm ci` optional. No SBOM/Dependabot (roadmap).
   - **Do NOT** run `npm audit fix --force` (forces `firebase-admin@14` here and `react-scripts@0.0.0` on the frontends — both breaking).
-- **A03-2 (Low) — frontend counts are build/test-time, not shipped runtime.** admin-frontend **30** and user-frontend **31** advisories are almost entirely the `react-scripts` build/test tree (`shell-quote` critical = build CLI, `webpack-dev-server`, `jest`/`jsdom`, `nth-check`/`postcss`/`svgo`/`serialize-javascript`/`terser` = build). The only runtime-relevant item is **`react-router` open redirect (moderate)** — bump `react-router-dom`. Real production-runtime browser risk is **Low**; durable fix is migrating CRA → Vite (larger effort).
+- **A03-2 (Low) — frontend counts are build/test-time, not shipped runtime.** admin-frontend **30** and user-frontend **31** advisories are almost entirely the `react-scripts` build/test tree (`shell-quote` critical = build CLI, `webpack-dev-server`, `jest`/`jsdom`, `nth-check`/`postcss`/`svgo`/`serialize-javascript`/`terser` = build). **✅ fixed (Wave 4):** the one runtime-relevant item — `react-router` protocol-relative open redirect (GHSA-2j2x-hqr9-3h42) — is resolved by bumping `user-frontend` to `react-router-dom@6.30.4` (a non-breaking 6.30.3→6.30.4 patch; `admin-frontend` is already on 7.15.1 and clean). The remaining counts are the `react-scripts` build/test tree (not shipped runtime); durable fix is migrating CRA → Vite (deferred).
 - **`magis-edge-worker`: 0 advisories** (clean — `jose`/`jsonschema`/`dotenv`).
 - **Lockfiles:** `backend/package-lock.json` present; verify lockfiles exist + are committed for all four packages, then switch CI to `npm ci`.
 - **CSRF-1 (Low, new finding) — the CSRF token is decorative.** `GET /api/csrf-token` issues a token and the client sends `X-CSRF-Token`, but **no route validates it** (`csurf` was mounted only on the token endpoint, never on mutating routes; A03-1b preserved this behavior). Structurally mitigated today: API auth is Bearer-JWT in the `Authorization` header (not forgeable cross-site), cookies are `sameSite=Strict`, and `/api` is edge-locked (P2-2). **Follow-up (separate, tested PR):** either enforce double-submit validation on any cookie-authed mutating route, or formally adopt header-auth as the CSRF control and drop the decorative token. *Do NOT enable enforcement without testing — it would 403 any mutating request lacking the header.*
@@ -144,7 +144,7 @@
 
 **Baseline (a standout area, do not regress):** fail-open/closed modes are explicit + configurable (`MFA_FAIL_OPEN`, `RATE_LIMIT_FAIL_CLOSED`, edge auth mode); `secretPool` crash back-off + `EWORKERBUSY` backpressure (P3-7) is textbook A10.
 
-- **A10-1 (Low / config)** — `requireMFA` fails **open** by default (`requireMFA.js:24`). Recommend `MFA_FAIL_OPEN=false` in prod for SPI. Config-only, no code change.
+- **A10-1 (Low / config) — ✅ wired (Wave 4):** `requireMFA` fails **open** only inside the `catch` (a transient Firestore error) by default (`requireMFA.js:24`). `MFA_FAIL_OPEN` is now documented in `backend.env.example` and set in `render.yaml` (`value:"false"`). **Activate by setting `MFA_FAIL_OPEN=false` in the Render dashboard** (the running service is dashboard-configured; `render.yaml` only applies on a Blueprint sync) — fail-closed returns 503 (retry) on a transient error instead of passing the SPI request.
 - **A10-2 (Low) — ✅ fixed (Wave 3):** added a central 4-arg Express error handler (logs full detail server-side, returns a generic `{ error }`) and a JSON 404 for unmatched `/api` routes (instead of the SPA `index.html`). Prod hides stacks via Express's default handler, so this is hygiene, not a leak.
 
 ---
@@ -206,8 +206,8 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 | 3 | A02-1 / A02-2 / A02-3 | Low | S | None | ✅ Done (Wave 3) |
 | 3 | A04-1 / A05-1 / A08-1 / A10-2 | Low | S | None | ✅ Done (Wave 3) |
 | 3 | A06-1 (rate-limit media/history) | Low | S-M | **Yes** (media hot path) | Deferred — perf-sensitive |
-| 4 | A10-1 (`MFA_FAIL_OPEN=false`) | Low/config | S | None | P0-2 (config) |
-| 4 | A03-2 (`react-router-dom` bump) | Low | S | None | — |
+| 4 | A10-1 (`MFA_FAIL_OPEN=false`) | Low/config | S | None | ✅ Wired (Wave 4) — dashboard flip |
+| 4 | A03-2 (`react-router-dom` bump) | Low | S | None | ✅ Done (Wave 4) — 6.30.4 |
 | 5 | HYG-1..4 (dead code/data) | Low | S-M | None | — |
 
 ### Wave 1 (one PR — do first)
@@ -226,8 +226,8 @@ Effort: `S` ≤10 lines/1 file · `M` multi-file/new logic · `L` new artifact/d
 ### Wave 3 — low-severity hardening (batch)
 **Status: ✅ Implemented 2026-06-14** (`server.js` + `electron-main.js` pass `node --check`; the 3 React edits are statement-level). A02-1/2/3 (CSP localhost gated to non-prod, Permissions-Policy denies camera/mic/geo, FB errors genericized in prod) · A04-1 (`crypto.randomUUID()` in 2 files; the 3rd ref `Branch-Chat-Dashboard.js:722` was already clean) · A05-1 (`setAttribute`/DOM build instead of `innerHTML`) · A08-1 (Electron `will-navigate` + `setWindowOpenHandler` guards) · A10-2 (central error handler + `/api` JSON 404). **A06-1 deferred** (perf-sensitive — reuse Redis limiter, keep off media decode path).
 
-### Wave 4 — config/ops (no app code)
-`MFA_FAIL_OPEN=false` · `npm ci`+Dependabot/SBOM · `react-router-dom` bump.
+### Wave 4 — config/ops
+**Status: ✅ Implemented 2026-06-14.** **A10-1:** `MFA_FAIL_OPEN` documented in `backend.env.example` + added to `render.yaml` (`value:"false"`); **activate by setting `MFA_FAIL_OPEN=false` in the Render dashboard** (running service is dashboard-configured; render.yaml only applies on Blueprint sync). **A03-2:** `user-frontend` `react-router-dom` `6.30.3 → 6.30.4` (clears GHSA-2j2x-hqr9-3h42 protocol-relative open redirect; `admin-frontend` already on 7.15.1, clean). The lockfile re-resolve also healed pre-existing drift by adding optional `@tailwindcss/oxide-wasm32-wasi` deps (platform-optional, no build/runtime impact). Remaining frontend audit items are the `react-scripts` build/test tree (not shipped runtime; durable fix CRA→Vite, deferred); `npm ci`+Dependabot/SBOM still roadmap.
 
 ### Wave 5 — hygiene
 Delete dead `superadminauth.js`/`branchadminauth.js` (**verify no `require` first**), misplaced `backend/middlewares/api.js`, edge CRA scaffold; purge stale `password` hashes.
