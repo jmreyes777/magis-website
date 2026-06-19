@@ -34,6 +34,81 @@
     />
     <meta name="twitter:image" content="https://www.magispawnshop.com/logo512.png" />
 
+    <!-- 🔎 Structured data (JSON-LD, Wave 2). NON-executable data block:
+         type="application/ld+json" is NOT gated by the nonce CSP (script-src),
+         so this is CSP-safe AND visible to non-JS crawlers. Per-page
+         BreadcrumbList/FAQPage are injected at runtime by <Seo> (react-helmet-async). -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://www.magispawnshop.com/#organization",
+          "name": "Magis Gold & Gems Pawnshop & Jewelry",
+          "alternateName": "Magis Pawnshop",
+          "url": "https://www.magispawnshop.com/",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://www.magispawnshop.com/logo512.png",
+            "width": 512,
+            "height": 512
+          },
+          "image": "https://www.magispawnshop.com/logo512.png",
+          "foundingDate": "1996",
+          "email": "magisgoldandgems.pawnshop@gmail.com",
+          "telephone": "+639620618672",
+          "sameAs": [
+            "https://www.facebook.com/magispawnshop/",
+            "https://www.instagram.com/magisgoldandgems/"
+          ],
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "3rd Floor, LVNG Building, Aniceto Gueco Street, Barangay Balibago",
+            "addressLocality": "Angeles City",
+            "addressRegion": "Pampanga",
+            "postalCode": "2009",
+            "addressCountry": "PH"
+          }
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://www.magispawnshop.com/#website",
+          "url": "https://www.magispawnshop.com/",
+          "name": "Magis Gold & Gems Pawnshop & Jewelry",
+          "inLanguage": "en",
+          "publisher": { "@id": "https://www.magispawnshop.com/#organization" }
+        },
+        {
+          "@type": ["PawnShop", "LocalBusiness"],
+          "@id": "https://www.magispawnshop.com/#headoffice",
+          "name": "Magis Gold & Gems Pawnshop & Jewelry — Head Office",
+          "url": "https://www.magispawnshop.com/",
+          "parentOrganization": { "@id": "https://www.magispawnshop.com/#organization" },
+          "image": "https://www.magispawnshop.com/logo512.png",
+          "logo": "https://www.magispawnshop.com/logo512.png",
+          "email": "magisgoldandgems.pawnshop@gmail.com",
+          "telephone": "+639620618672",
+          "currenciesAccepted": "PHP",
+          "areaServed": "PH",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "3rd Floor, LVNG Building, Aniceto Gueco Street, Barangay Balibago",
+            "addressLocality": "Angeles City",
+            "addressRegion": "Pampanga",
+            "postalCode": "2009",
+            "addressCountry": "PH"
+          },
+          "hasMap": "https://maps.app.goo.gl/NhG7VPhPPXv7zeWR6",
+          "sameAs": [
+            "https://www.facebook.com/magispawnshop/",
+            "https://www.instagram.com/magisgoldandgems/"
+          ]
+        }
+      ]
+    }
+    </script>
+
     <!-- ▶️ Resource Hints -->
     <link rel="dns-prefetch" href="//maps.googleapis.com" />
     <link rel="preconnect" href="https://maps.googleapis.com" crossorigin />

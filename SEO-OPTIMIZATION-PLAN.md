@@ -53,13 +53,15 @@
 - **Verify:** `npm run build` clean; view-source each route in dev; confirm CSP unaffected (no console CSP violations); Home meta unchanged.
 
 ## Wave 2 — Structured data (JSON-LD)  *(Severity High · Effort M · Risk Low-Med · reach: Google; +social via W4)*
-**Status: Planned**
+**Status: ✅ Implemented 2026-06-19** — JSON-LD parses VALID in both `public/` and `build/` output; production build clean (no new eslint warnings); CSP intact (`'nonce-xyz123'` ×2, **0** `unsafe-inline` in `script-src`). `ld+json` is a non-executable **data block**, so `script-src` does not gate it.
 
-- **Sitewide** `Organization` + `WebSite` + `LocalBusiness`/`PawnShop` (name "Magis Gold & Gems Pawnshop & Jewelry", founded 1996) — **static in `index.html`** so even non-JS crawlers see it.
-- **`FAQPage`** on `/faqs`: extract the 25 hardcoded Q&As into a **single data array**, render both the existing JSX *and* the JSON-LD from it (one source of truth — **identical visible output**, zero content regression).
-- **`BreadcrumbList`** per page.
-- *(Optional)* per-branch `PawnShop` from the Firestore `branches` collection (name/address/hours/phone) — client-rendered (Google-visible).
-- **Verify:** Google Rich Results Test on built HTML; CSP/in-browser check for `ld+json`; FAQ page visually identical pre/post refactor.
+- **Sitewide** `Organization` + `WebSite` + `["PawnShop","LocalBusiness"]` `@graph` — **static in `index.html`** so even non-JS crawlers see it. Real NAP/socials sourced from the footer (Facebook, Instagram, head-office address, `+639620618672`, email).
+- **`<Seo>` extended** with `breadcrumbs` + `jsonLd` props → emits one combined `@context`/`@graph` block via Helmet (client-rendered, Google-visible). `"<"` is escaped so data can't break out of `<script>`.
+- **`FAQPage`** on `/faqs`: 25 Q&As extracted into `COMPANY_FAQS`/`REGULATORY_FAQS` — **single source** driving both the visible JSX *and* the JSON-LD. `git diff` confirms hero/intro/CTAs/footer **byte-identical** (only the two list bodies + `<Seo>` changed).
+- **`BreadcrumbList`** added to all 7 sub-pages (Home omitted as root).
+- *(Optional, deferred)* per-branch `PawnShop` from the Firestore `branches` collection — client-rendered.
+- **Operator note:** keep the `index.html` NAP (address/phone) in sync with the footer and the official Google Business Profile for local-SEO consistency.
+- **Verify (done):** JSON validated programmatically; CSP/`ld+json` checked in built HTML; FAQ diff confirms identical visible output. **Still recommended:** Google Rich Results Test once the domain serves over HTTPS.
 
 ## Wave 3 — Crawl infrastructure  *(Severity Med · Effort S · Risk None/Low)*
 **Status: Planned**

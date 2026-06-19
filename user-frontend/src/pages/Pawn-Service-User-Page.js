@@ -102,6 +102,10 @@ const todayLocal = () => {
         title="Pawning | Magis Gold & Gems"
         description="How to pawn, accepted items, renewal and redemption steps, and key terms & conditions. BSP-regulated and AMLA-compliant."
         path="/pawning"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Pawning", path: "/pawning" },
+        ]}
       />
 
       <main className="flex-1">

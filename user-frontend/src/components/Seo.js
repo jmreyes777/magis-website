@@ -1,9 +1,12 @@
 // src/components/Seo.js
-// Centralized SEO/meta helper (Wave 1 — SEO-OPTIMIZATION-PLAN.md).
+// Centralized SEO/meta helper (Waves 1-2 — SEO-OPTIMIZATION-PLAN.md).
 // Renders per-page <title>, description, canonical, Open Graph & Twitter tags
-// through react-helmet-async. It adds NO executable <script>, so the nonce-based
-// CSP (P3-1) is unaffected. Canonical/OG URLs come from a single SITE_ORIGIN so
-// they never vary by host (fixes SEO-5).
+// (Wave 1) plus optional JSON-LD structured data — BreadcrumbList and any page
+// schema such as FAQPage (Wave 2) — through react-helmet-async.
+// JSON-LD ships as a <script type="application/ld+json"> DATA block: it is NOT
+// executable, so the nonce-based CSP (P3-1, script-src) does not gate it and is
+// unaffected. Canonical/OG URLs come from a single SITE_ORIGIN so they never
+// vary by host (fixes SEO-5).
 import React from "react";
 import { Helmet } from "react-helmet-async";
 
@@ -17,12 +20,28 @@ export const SITE_NAME = "Magis Gold & Gems Pawnshop & Jewelry";
 
 const DEFAULT_OG_IMAGE = "/logo512.png";
 
+const normalizePath = (p) =>
+  p === "/" ? "/" : p.startsWith("/") ? p : `/${p}`;
+
 const toAbsolute = (value) => {
   if (!value) return undefined;
   return /^https?:\/\//i.test(value)
     ? value
     : `${SITE_ORIGIN}${value.startsWith("/") ? "" : "/"}${value}`;
 };
+
+// Escape "<" so structured-data strings can never break out of the <script>.
+const toJsonLd = (data) => JSON.stringify(data).replace(/</g, "\\u003c");
+
+const buildBreadcrumb = (items) => ({
+  "@type": "BreadcrumbList",
+  itemListElement: items.map((item, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: item.name,
+    item: `${SITE_ORIGIN}${normalizePath(item.path)}`,
+  })),
+});
 
 export default function Seo({
   title,
@@ -31,11 +50,19 @@ export default function Seo({
   image,
   type = "website",
   noindex = false,
+  breadcrumbs,
+  jsonLd,
 }) {
-  const normalizedPath =
-    path === "/" ? "/" : path.startsWith("/") ? path : `/${path}`;
-  const url = `${SITE_ORIGIN}${normalizedPath}`;
+  const url = `${SITE_ORIGIN}${normalizePath(path)}`;
   const ogImage = toAbsolute(image || DEFAULT_OG_IMAGE);
+
+  const graph = [];
+  if (Array.isArray(breadcrumbs) && breadcrumbs.length > 0) {
+    graph.push(buildBreadcrumb(breadcrumbs));
+  }
+  if (jsonLd) {
+    graph.push(...(Array.isArray(jsonLd) ? jsonLd : [jsonLd]));
+  }
 
   return (
     <Helmet>
@@ -59,6 +86,12 @@ export default function Seo({
         <meta name="twitter:description" content={description} />
       ) : null}
       {ogImage ? <meta name="twitter:image" content={ogImage} /> : null}
+
+      {graph.length > 0 ? (
+        <script type="application/ld+json">
+          {toJsonLd({ "@context": "https://schema.org", "@graph": graph })}
+        </script>
+      ) : null}
     </Helmet>
   );
 }

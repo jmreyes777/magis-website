@@ -16,6 +16,10 @@ function PrivacyPolicy() {
         title="Privacy Policy | Magis Gold & Gems Pawnshop"
         description="How Magis Gold & Gems collects, uses, and protects your personal data under the Philippine Data Privacy Act (RA 10173), including your data subject rights."
         path="/privacy-policy"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Privacy Policy", path: "/privacy-policy" },
+        ]}
       />
       {/* Hero */}
       <section

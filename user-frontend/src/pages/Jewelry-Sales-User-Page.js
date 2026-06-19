@@ -234,6 +234,10 @@ export default function JewelrySales() {
         title="Jewelry Sales | Magis Gold & Gems"
         description="Fine gold jewelry at fair prices — rings, earrings, bracelets, chains, bangles, and pendants. Learn about layaway options and FAQs."
         path="/jewelry-sales"
+        breadcrumbs={[
+          { name: "Home", path: "/" },
+          { name: "Jewelry Sales", path: "/jewelry-sales" },
+        ]}
       />
 
       <main className="flex-1">
