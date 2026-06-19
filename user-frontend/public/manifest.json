@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Magis Pawnshop",
+  "name": "Magis Gold & Gems Pawnshop & Jewelry",
+  "description": "BSP-regulated pawnshop and gold jewelry store in Angeles City, Pampanga — pawning, auctions, and fine jewelry since 1996.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -19,7 +20,11 @@
     }
   ],
   "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "background_color": "#ffffff",
+  "lang": "en-PH",
+  "dir": "ltr",
+  "categories": ["business", "finance", "shopping"]
 }

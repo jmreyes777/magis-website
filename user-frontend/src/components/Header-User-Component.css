@@ -370,6 +370,7 @@ body.menu-open .site-content { margin-left: 16px; }
     border-radius: 9999px;
     display: inline-flex; align-items: center; justify-content: center;
     background: #161616; color: #fff;
+    border: none; padding: 0; box-sizing: border-box; cursor: pointer;
     transition: background .15s ease, transform .15s ease;
     outline: none;
   }

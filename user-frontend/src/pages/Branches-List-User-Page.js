@@ -417,6 +417,7 @@ function BranchesMapView() {
           { name: "Find a Branch", path: "/branches" },
         ]}
       />
+      <h1 className="sr-only">Find a Magis Gold &amp; Gems Pawnshop Branch</h1>
       <div className="w-full max-w-5xl mx-auto h-[700px] bg-white rounded-lg shadow-md border flex flex-col items-stretch">
         {/* 🌍 Google Map */}
         <div

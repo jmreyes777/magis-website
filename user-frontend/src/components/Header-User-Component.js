@@ -257,7 +257,7 @@ function Header() {
           />
           <img
             src="/images/686421984_954054894279692_2045884033687314189_n.png"
-            alt="Magis Gold & Gems Pawnshop & Jewellery"
+            alt="Magis Gold & Gems Pawnshop & Jewelry"
             className="header-logo"
           />
         </picture>
@@ -640,14 +640,14 @@ function Header() {
             </a>
 
             {/* 📧 Email icon -> open minimal popup chooser */}
-            <a
-              href="#"
+            <button
+              type="button"
               onClick={handleEmailIconClick}
               aria-label="Email us"
               className="drawer-social-btn"
             >
               <MdEmail className="drawer-social-icon" aria-hidden="true" />
-            </a>
+            </button>
           </li>
         )}
       </ul>

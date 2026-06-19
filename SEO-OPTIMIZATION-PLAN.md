@@ -27,7 +27,7 @@
 | SEO-5 | **Canonical uses `window.location.host`** → diverges across hosts (`*.workers.dev`, `*.onrender.com`, custom domain) | Med | `src/pages/Home-User-Page.js:177-182` + new `<Seo>` | 1 | ✅ Done (W1) |
 | SEO-6 | **Soft-404:** `*` route does `<Navigate to="/">` instead of a real 404 (search engines see soft-404s) | Low-Med | `src/App.js:51` | 3 | ✅ Done (W3) |
 | SEO-7 | **CSR render model:** per-page meta/JSON-LD injected client-side → invisible to non-JS crawlers/social (Google renders JS, so it's OK there) | Med | architecture | 4 | **Decision** |
-| SEO-8 | Semantic/a11y polish: image `alt` audit, heading order, descriptive link text, `manifest.json` completeness | Low | `src/**`, `public/manifest.json` | 5 | Planned |
+| SEO-8 | Semantic/a11y polish: image `alt` audit, heading order, descriptive link text, `manifest.json` completeness | Low | `src/**`, `public/manifest.json` | 5 | ✅ Done (W5) |
 
 ## Zero-regression baseline (do not break)
 
@@ -82,11 +82,14 @@
 - **Verify:** `curl` each route as a bot UA → confirm correct static `<title>`/OG; real-user SPA path unchanged; CSP intact.
 
 ## Wave 5 — Semantic & a11y polish  *(Severity Low · Effort S-M · Risk Low)*
-**Status: Planned**
+**Status: ✅ Implemented 2026-06-19** — audit found the codebase already in good shape (every `<img>` had `alt`; social links had `aria-label`s; icons `aria-hidden`). Production build clean (no new eslint warnings) and the pre-existing `anchor-is-valid` warning is now resolved.
 
-- Image `alt` audit (decorative → `alt=""`, meaningful → descriptive); verify one `<h1>`/page + ordered headings; descriptive link text; `lang` correct.
-- Complete `manifest.json` (name/short_name/description/theme) for mobile/PWA signals.
-- **Re-check Core Web Vitals** (Lighthouse) to confirm no regression from Waves 1-4.
+- **`manifest.json`** rebranded from the CRA stub ("React App") → real `name`/`short_name`/`description` + `lang: en-PH`, `scope`, `categories`. Validated as JSON in `build/`.
+- **`alt` audit:** all 14 `<img>`s already had `alt`; fixed brand spelling **"Jewellery" → "Jewelry"** in the Header + Footer logo `alt`.
+- **Headings:** every page had exactly one `<h1>` **except `/branches`** — added a visually-hidden `<h1 className="sr-only">` (confirmed Tailwind emits `.sr-only` in the built CSS, so zero visual change).
+- **A11y (linter):** converted the email **`<a href="#">` → `<button type="button">`** (Header drawer) — resolves `jsx-a11y/anchor-is-valid`; added safe `border/padding/box-sizing/cursor` resets to `.drawer-social-btn` (no-ops for the sibling `<a>` links).
+- **Deferred:** Lighthouse Core Web Vitals re-check (needs the live HTTPS domain).
+- **Verify (done):** production build clean; `manifest.json` valid JSON with brand name; `.sr-only` present in built CSS; `anchor-is-valid` warning gone.
 
 ---
 

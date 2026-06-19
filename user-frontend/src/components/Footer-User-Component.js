@@ -173,7 +173,7 @@ function Footer() {
               />
               <img
                 src="/images/686421984_954054894279692_2045884033687314189_n.png"
-                alt="Magis Gold & Gems Pawnshop & Jewellery logo"
+                alt="Magis Gold & Gems Pawnshop & Jewelry logo"
                 className="footer-logo"
                 loading="lazy"
               />
