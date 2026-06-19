@@ -228,6 +228,17 @@ export default function JewelrySales() {
     },
   ];
 
+  // FAQPage schema built from the same `faqs` array that renders below, so the
+  // structured data always matches the visible accordion (Wave 2 — SEO plan).
+  const faqSchema = {
+    "@type": "FAQPage",
+    mainEntity: faqs.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+
   return (
     <div className="flex flex-col min-h-screen bg-white text-gray-800">
       <Seo
@@ -238,6 +249,7 @@ export default function JewelrySales() {
           { name: "Home", path: "/" },
           { name: "Jewelry Sales", path: "/jewelry-sales" },
         ]}
+        jsonLd={faqSchema}
       />
 
       <main className="flex-1">
