@@ -27,8 +27,8 @@ function Terms() {
   return (
     <div className="flex flex-col min-h-screen">
       <Seo
-        title="Terms & Conditions | Magis Gold & Gem Pawnshop"
-        description="Terms governing use of the Magis Gold & Gem website, branch finder, and live chat, including BSP, AMLA, and Data Privacy Act (RA 10173) notices."
+        title="Terms & Conditions | Magis Gold & Gems Pawnshop"
+        description="Terms governing use of the Magis Gold & Gems website, branch finder, and live chat, including BSP, AMLA, and Data Privacy Act (RA 10173) notices."
         path="/terms"
       />
       {/* Hero */}

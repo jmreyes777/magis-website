@@ -55,7 +55,7 @@
 ## Wave 2 — Structured data (JSON-LD)  *(Severity High · Effort M · Risk Low-Med · reach: Google; +social via W4)*
 **Status: Planned**
 
-- **Sitewide** `Organization` + `WebSite` + `LocalBusiness`/`PawnShop` (name "Magis Gold & Gem Pawnshop & Jewelry", founded 1996) — **static in `index.html`** so even non-JS crawlers see it.
+- **Sitewide** `Organization` + `WebSite` + `LocalBusiness`/`PawnShop` (name "Magis Gold & Gems Pawnshop & Jewelry", founded 1996) — **static in `index.html`** so even non-JS crawlers see it.
 - **`FAQPage`** on `/faqs`: extract the 25 hardcoded Q&As into a **single data array**, render both the existing JSX *and* the JSON-LD from it (one source of truth — **identical visible output**, zero content regression).
 - **`BreadcrumbList`** per page.
 - *(Optional)* per-branch `PawnShop` from the Firestore `branches` collection (name/address/hours/phone) — client-rendered (Google-visible).

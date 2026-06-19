@@ -13,7 +13,7 @@ function FAQsUserPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Seo
-        title="FAQs | Magis Gold & Gem Pawnshop"
+        title="FAQs | Magis Gold & Gems Pawnshop"
         description="Answers about pawning, pawn tickets, appraisal, IDs, redemption, renewal, fees, and Philippine pawnshop regulations (BSP, AMLA)."
         path="/faqs"
       />

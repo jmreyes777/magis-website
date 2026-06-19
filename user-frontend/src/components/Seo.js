@@ -13,7 +13,7 @@ export const SITE_ORIGIN = (
   process.env.REACT_APP_SITE_URL || "https://www.magispawnshop.com"
 ).replace(/\/+$/, "");
 
-export const SITE_NAME = "Magis Gold & Gem Pawnshop & Jewelry";
+export const SITE_NAME = "Magis Gold & Gems Pawnshop & Jewelry";
 
 const DEFAULT_OG_IMAGE = "/logo512.png";
 

@@ -99,7 +99,7 @@ const todayLocal = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800">
       <Seo
-        title="Pawning | Magis Gold & Gem"
+        title="Pawning | Magis Gold & Gems"
         description="How to pawn, accepted items, renewal and redemption steps, and key terms & conditions. BSP-regulated and AMLA-compliant."
         path="/pawning"
       />

@@ -257,7 +257,7 @@ function Home() {
         {/* Value Proposition */}
         <section className="section section-alt">
           <div className="section-header">
-            <h2 className="section-title">Why Choose Magis Gold & Gem?</h2>
+            <h2 className="section-title">Why Choose Magis Gold & Gems?</h2>
             <p className="section-subtitle">
               Trusted by Filipinos since 1996 for fair appraisals, low rates, and fast service
             </p>

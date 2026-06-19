@@ -13,8 +13,8 @@ function PrivacyPolicy() {
   return (
     <div className="flex flex-col min-h-screen">
       <Seo
-        title="Privacy Policy | Magis Gold & Gem Pawnshop"
-        description="How Magis Gold & Gem collects, uses, and protects your personal data under the Philippine Data Privacy Act (RA 10173), including your data subject rights."
+        title="Privacy Policy | Magis Gold & Gems Pawnshop"
+        description="How Magis Gold & Gems collects, uses, and protects your personal data under the Philippine Data Privacy Act (RA 10173), including your data subject rights."
         path="/privacy-policy"
       />
       {/* Hero */}

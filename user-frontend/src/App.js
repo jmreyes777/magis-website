@@ -28,7 +28,7 @@ function App() {
         <ScrollToTop />
 
         {/* Default document title (overridden per-page by <Seo>) */}
-        <Helmet defaultTitle="Magis Gold & Gem Pawnshop & Jewelry" />
+        <Helmet defaultTitle="Magis Gold & Gems Pawnshop & Jewelry" />
 
         {/* Main Content (pushes & dims when mobile drawer is open) */}
         <main className="content site-content">

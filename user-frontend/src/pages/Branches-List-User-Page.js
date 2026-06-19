@@ -409,8 +409,8 @@ function BranchesMapView() {
   return (
     <div className="flex flex-col min-h-screen ">
       <Seo
-        title="Find a Branch | Magis Gold & Gem Pawnshop"
-        description="Locate Magis Gold & Gem pawnshop and jewelry branches near you — addresses, opening hours, contact numbers, and directions. Live chat is available per branch."
+        title="Find a Branch | Magis Gold & Gems Pawnshop"
+        description="Locate Magis Gold & Gems pawnshop and jewelry branches near you — addresses, opening hours, contact numbers, and directions. Live chat is available per branch."
         path="/branches"
       />
       <div className="w-full max-w-5xl mx-auto h-[700px] bg-white rounded-lg shadow-md border flex flex-col items-stretch">
