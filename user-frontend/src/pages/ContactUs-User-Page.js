@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import GuestChatBox from '../components/Guest-Chat-Box-Component'; // Ensure GuestChatBox is imported
+import Seo from '../components/Seo';
 import './ContactUs-User-Page.css'; // Ensure this file exists
 
 function ContactUs() {
@@ -62,6 +63,11 @@ function ContactUs() {
 
   return (
     <div className="contact-page">
+      <Seo
+        title="Contact Us | Magis Gold & Gem Pawnshop"
+        description="Get in touch with Magis Gold & Gem — send a message or chat with support about pawning, jewelry sales, and branch services."
+        path="/contact-us"
+      />
       <div className="contact-card">
         <h1 className="contact-header">Contact Us</h1>
 

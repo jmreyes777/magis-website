@@ -27,10 +27,8 @@ function App() {
         {/* Scroll Restoration */}
         <ScrollToTop />
 
-        {/* Helmet for Document Title */}
-        <Helmet>
-          <title>Magis Website</title>
-        </Helmet>
+        {/* Default document title (overridden per-page by <Seo>) */}
+        <Helmet defaultTitle="Magis Gold & Gem Pawnshop & Jewelry" />
 
         {/* Main Content (pushes & dims when mobile drawer is open) */}
         <main className="content site-content">

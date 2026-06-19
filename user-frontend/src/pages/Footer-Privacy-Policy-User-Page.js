@@ -1,6 +1,7 @@
 import React from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
+import Seo from "../components/Seo";
 
 function PrivacyPolicy() {
   const lastUpdated = new Date().toLocaleDateString("en-PH", {
@@ -11,6 +12,11 @@ function PrivacyPolicy() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <Seo
+        title="Privacy Policy | Magis Gold & Gem Pawnshop"
+        description="How Magis Gold & Gem collects, uses, and protects your personal data under the Philippine Data Privacy Act (RA 10173), including your data subject rights."
+        path="/privacy-policy"
+      />
       {/* Hero */}
       <section
         className="relative h-64 bg-cover bg-center"

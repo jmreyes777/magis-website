@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
+import Seo from "../components/Seo";
 
 function Terms() {
   const [showPawnTerms, setShowPawnTerms] = useState(false);
@@ -25,6 +26,11 @@ function Terms() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <Seo
+        title="Terms & Conditions | Magis Gold & Gem Pawnshop"
+        description="Terms governing use of the Magis Gold & Gem website, branch finder, and live chat, including BSP, AMLA, and Data Privacy Act (RA 10173) notices."
+        path="/terms"
+      />
       {/* Hero */}
       <section
         className="relative h-64 bg-cover bg-center"

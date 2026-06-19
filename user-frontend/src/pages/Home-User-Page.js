@@ -12,7 +12,7 @@ import {
   FaComments
 } from 'react-icons/fa';
 import { Link } from "react-router-dom";
-import { Helmet } from 'react-helmet-async';
+import Seo from '../components/Seo';
 import './Home-User-Page.css';
 
 // 🔗 Firestore (client SDK)
@@ -173,34 +173,14 @@ function Home() {
     return () => clearInterval(timer);
   }, [nextAuctionDate]);
 
-  // Meta tags
-  const origin =
-    typeof window !== 'undefined'
-      ? `${window.location.protocol}//${window.location.host}`
-      : '';
-  const pageUrl = `${origin}/`;
-  const ogImage = `${origin}/images/og-home.jpg`;
-
   return (
     <div className="flex flex-col min-h-screen">
-      <Helmet>
-        <title>Magis Pawnshop &amp; Jewelry | Instant Cash for Your Gold</title>
-        <meta
-          name="description"
-          content="Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing."
-        />
-        <link rel="canonical" href={pageUrl} />
-        <meta property="og:title" content="Magis Pawnshop &amp; Jewelry | Instant Cash for Your Gold" />
-        <meta property="og:description" content="Trusted pawning, auctions, and jewelry sales since 1996." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={pageUrl} />
-        <meta property="og:image" content={ogImage} />
-        <meta property="og:site_name" content="Magis Gold & Gem Pawnshop & Jewelry" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="Magis Pawnshop & Jewelry | Instant Cash for Your Gold" />
-        <meta name="twitter:description" content="Trusted pawning, auctions, and jewelry sales since 1996." />
-        <meta name="twitter:image" content={ogImage} />
-      </Helmet>
+      <Seo
+        title="Magis Pawnshop & Jewelry | Instant Cash for Your Gold"
+        description="Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing."
+        path="/"
+        image="/images/og-home.jpg"
+      />
 
       {/* Hero Section */}
       <section className="hero-section">

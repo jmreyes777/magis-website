@@ -1,6 +1,7 @@
 import React from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
+import Seo from "../components/Seo";
 
 function FAQsUserPage() {
   const lastUpdated = new Date().toLocaleDateString("en-PH", {
@@ -11,6 +12,11 @@ function FAQsUserPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
+      <Seo
+        title="FAQs | Magis Gold & Gem Pawnshop"
+        description="Answers about pawning, pawn tickets, appraisal, IDs, redemption, renewal, fees, and Philippine pawnshop regulations (BSP, AMLA)."
+        path="/faqs"
+      />
       {/* Hero */}
       <section
         className="relative h-64 bg-cover bg-center"

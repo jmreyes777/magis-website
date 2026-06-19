@@ -1,7 +1,7 @@
 // user-frontend/src/pages/Pawning-User-Page.js
 import React, { useEffect, useState } from "react";
 import Footer from "../components/Footer-User-Component";
-import { Helmet } from "react-helmet-async";
+import Seo from "../components/Seo";
 import { Link, useLocation } from "react-router-dom";
 import {
   FaBoxOpen,
@@ -98,13 +98,11 @@ const todayLocal = () => {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800">
-      <Helmet>
-        <title>Pawning | Magis Gold &amp; Gem</title>
-        <meta
-          name="description"
-          content="How to pawn, accepted items, renewal and redemption steps, and key terms & conditions. BSP-regulated and AMLA-compliant."
-        />
-      </Helmet>
+      <Seo
+        title="Pawning | Magis Gold & Gem"
+        description="How to pawn, accepted items, renewal and redemption steps, and key terms & conditions. BSP-regulated and AMLA-compliant."
+        path="/pawning"
+      />
 
       <main className="flex-1">
         {/* Hero */}

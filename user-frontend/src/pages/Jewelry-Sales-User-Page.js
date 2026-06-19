@@ -1,6 +1,6 @@
 // src/pages/Jewelry-Sales-User-Page.jsx
 import React from "react";
-import { Helmet } from "react-helmet-async";
+import Seo from "../components/Seo";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer-User-Component";
 import FacebookLatestVideo from "../components/FacebookLatestVideo";
@@ -230,13 +230,11 @@ export default function JewelrySales() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-gray-800">
-      <Helmet>
-        <title>Jewelry Sales | Magis Gold &amp; Gems</title>
-        <meta
-          name="description"
-          content="Fine gold jewelry at fair prices — rings, earrings, bracelets, chains, bangles, and pendants. Learn about layaway options and FAQs."
-        />
-      </Helmet>
+      <Seo
+        title="Jewelry Sales | Magis Gold & Gems"
+        description="Fine gold jewelry at fair prices — rings, earrings, bracelets, chains, bangles, and pendants. Learn about layaway options and FAQs."
+        path="/jewelry-sales"
+      />
 
       <main className="flex-1">
         {/* HERO */}
