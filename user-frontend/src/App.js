@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useState } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route } from "react-router-dom";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import ScrollToTop from "./Shared/ScrollToTop-Component";
 import ErrorBoundary from "./Shared/ErrorBoundary-Component";
@@ -14,6 +14,7 @@ const PrivacyPolicy = lazy(() => import("./pages/Footer-Privacy-Policy-User-Page
 const FAQsUserPage = lazy(() => import("./pages/FAQS-User-Page"));
 const Pawning = lazy(() => import("./pages/Pawn-Service-User-Page"));
 const JewelrySales = lazy(() => import("./pages/Jewelry-Sales-User-Page"));
+const NotFound = lazy(() => import("./pages/NotFound-User-Page"));
 
 function App() {
   const [branchStatuses, setBranchStatuses] = useState({}); // Tracks branch online/offline statuses
@@ -45,8 +46,8 @@ function App() {
                 <Route path="/faqs" element={<FAQsUserPage branchStatuses={branchStatuses} />} />
                 <Route path="/pawning" element={<Pawning />} />
                 <Route path="/jewelry-sales" element={<JewelrySales />} />
-                {/* Fallback Route */}
-                <Route path="*" element={<Navigate to="/" replace />} />
+                {/* 404 — real Not Found page (noindex) instead of a soft-404 redirect */}
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </ErrorBoundary>
           </Suspense>

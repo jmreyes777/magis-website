@@ -68,7 +68,7 @@ export default function Seo({
     <Helmet>
       {title ? <title>{title}</title> : null}
       {description ? <meta name="description" content={description} /> : null}
-      <link rel="canonical" href={url} />
+      {noindex ? null : <link rel="canonical" href={url} />}
       {noindex ? <meta name="robots" content="noindex, follow" /> : null}
 
       <meta property="og:site_name" content={SITE_NAME} />

@@ -21,11 +21,11 @@
 | ID | Issue | Severity | Location | Wave | Status |
 |----|-------|----------|----------|------|--------|
 | SEO-1 | Incomplete per-page meta: `/branches`, `/contact-us`, `/terms`, `/privacy-policy`, `/faqs` have **no `<Helmet>`** (fall back to generic `Magis Website` title); `/jewelry-sales` & `/pawning` lack `canonical`+OG | **High** | `src/pages/*`, `src/App.js` | 1 | ✅ Done (W1) |
-| SEO-2 | **No structured data (JSON-LD)** anywhere — no `Organization`/`LocalBusiness`, `FAQPage`, or `BreadcrumbList` | **High** | `index.html`, `src/pages/*` | 2 | Planned |
-| SEO-3 | **No `sitemap.xml`**; `robots.txt` has no `Sitemap:` directive | Med | `public/robots.txt`, `public/sitemap.xml` | 3 | Planned |
+| SEO-2 | **No structured data (JSON-LD)** anywhere — no `Organization`/`LocalBusiness`, `FAQPage`, or `BreadcrumbList` | **High** | `index.html`, `src/pages/*` | 2 | ✅ Done (W2) |
+| SEO-3 | **No `sitemap.xml`**; `robots.txt` has no `Sitemap:` directive | Med | `public/robots.txt`, `public/sitemap.xml` | 3 | ✅ Done (W3) |
 | SEO-4 | **Broken social previews:** non-JS scrapers see only static `index.html` (generic description, **no `og:image`**) | **High** | `public/index.html` | 1 (default) / 4 (per-route) | 🟡 Default OG done (W1); per-route in W4 |
 | SEO-5 | **Canonical uses `window.location.host`** → diverges across hosts (`*.workers.dev`, `*.onrender.com`, custom domain) | Med | `src/pages/Home-User-Page.js:177-182` + new `<Seo>` | 1 | ✅ Done (W1) |
-| SEO-6 | **Soft-404:** `*` route does `<Navigate to="/">` instead of a real 404 (search engines see soft-404s) | Low-Med | `src/App.js:51` | 3 | Planned |
+| SEO-6 | **Soft-404:** `*` route does `<Navigate to="/">` instead of a real 404 (search engines see soft-404s) | Low-Med | `src/App.js:51` | 3 | ✅ Done (W3) |
 | SEO-7 | **CSR render model:** per-page meta/JSON-LD injected client-side → invisible to non-JS crawlers/social (Google renders JS, so it's OK there) | Med | architecture | 4 | **Decision** |
 | SEO-8 | Semantic/a11y polish: image `alt` audit, heading order, descriptive link text, `manifest.json` completeness | Low | `src/**`, `public/manifest.json` | 5 | Planned |
 
@@ -64,12 +64,14 @@
 - **Verify (done):** JSON validated programmatically; CSP/`ld+json` checked in built HTML; FAQ diff confirms identical visible output. **Still recommended:** Google Rich Results Test once the domain serves over HTTPS.
 
 ## Wave 3 — Crawl infrastructure  *(Severity Med · Effort S · Risk None/Low)*
-**Status: Planned**
+**Status: ✅ Implemented 2026-06-19** — `sitemap.xml` validates as XML (8 `<url>`s, absolute `SITE_ORIGIN` URLs) and `robots.txt` now declares it; the soft-404 redirect is replaced by a real `noindex` NotFound page. Production build clean (no new eslint warnings); both static files confirmed copied into `build/`.
 
-- Create **`public/sitemap.xml`** (8 routes, absolute URLs from `SITE_ORIGIN`).
-- Update **`robots.txt`**: add `Sitemap:` directive; keep allowing crawl; optionally `Disallow: /api/`.
-- Fix **SEO-5** (fixed canonical origin) and **SEO-6**: replace the soft-404 redirect with a real **NotFound page** (`<Seo>` `noindex`, helpful links) while keeping a sane catch-all.
-- **Verify:** `sitemap.xml` validates; `robots.txt` parses; 404 route renders + emits `noindex`.
+- **`public/sitemap.xml`** created — 8 public routes, absolute `https://www.magispawnshop.com` URLs, with `lastmod`/`changefreq`/`priority`.
+- **`robots.txt`** updated — added `Sitemap:` directive + `Disallow: /api/` (keeps everything else crawlable).
+- **SEO-6 fixed:** the old orphaned `NotFound-User-Page.js` was rebuilt on-brand (hero + helpful links + `Footer`) and wired into `App.js`' catch-all (`<Navigate to="/">` removed, unused `Navigate` import dropped). It emits **`<Seo noindex>`**, and `<Seo>` now **omits `canonical` when `noindex`** so the 404 doesn't assert a self-canonical.
+- **SEO-5** was already fixed in W1 (single `SITE_ORIGIN`).
+- **Note:** this SPA still returns **HTTP 200** for unknown URLs (client-side 404); the `noindex` meta is the crawler signal. A true 404 status would need the edge worker / hosting (tie-in with the Wave 4 render-model decision).
+- **Verify (done):** `[xml]` parse of `sitemap.xml` OK (8 urls); `robots.txt` parses with `Sitemap:`; build compiles; 404 route wired to `<NotFound>`.
 
 ## Wave 4 — Render model for non-JS crawlers/social  *(Severity Med · Effort M-L · Risk Med · DECISION)*
 **Status: Awaiting decision — see recommendation**
