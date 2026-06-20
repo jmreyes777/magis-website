@@ -99,8 +99,8 @@ const todayLocal = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800">
       <Seo
-        title="Pawning | Magis Gold & Gems"
-        description="How to pawn, accepted items, renewal and redemption steps, and key terms & conditions. BSP-regulated and AMLA-compliant."
+        title="Pawn Gold & Jewelry (Sangla) | Magis Gold & Gems"
+        description="Pawn (sangla) your gold and jewelry for instant cash — see how much you can pawn 18k/21k gold for, with low interest, easy renewal and redemption. BSP-regulated."
         path="/pawning"
         breadcrumbs={[
           { name: "Home", path: "/" },

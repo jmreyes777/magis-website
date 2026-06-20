@@ -65,7 +65,7 @@ function ContactUs() {
     <div className="contact-page">
       <Seo
         title="Contact Us | Magis Gold & Gems Pawnshop"
-        description="Get in touch with Magis Gold & Gems — send a message or chat with support about pawning, jewelry sales, and branch services."
+        description="Contact Magis Gold & Gems — message us or live-chat about pawning, jewelry, and branch services, including our contact number and customer service."
         path="/contact-us"
         breadcrumbs={[
           { name: "Home", path: "/" },

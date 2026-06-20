@@ -292,19 +292,19 @@ const ROUTE_META = {
       "Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing.",
   },
   "/branches": {
-    title: "Find a Branch | Magis Gold & Gems Pawnshop",
+    title: "Pawnshop Branches Near You | Magis Gold & Gems",
     description:
-      "Locate Magis Gold & Gems pawnshop and jewelry branches near you — addresses, opening hours, contact numbers, and directions. Live chat is available per branch.",
+      "Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, directions, and live chat.",
   },
   "/contact-us": {
     title: "Contact Us | Magis Gold & Gems Pawnshop",
     description:
-      "Get in touch with Magis Gold & Gems — send a message or chat with support about pawning, jewelry sales, and branch services.",
+      "Contact Magis Gold & Gems — message us or live-chat about pawning, jewelry, and branch services, including our contact number and customer service.",
   },
   "/faqs": {
-    title: "FAQs | Magis Gold & Gems Pawnshop",
+    title: "FAQs: Pawning & Sangla | Magis Gold & Gems",
     description:
-      "Answers about pawning, pawn tickets, appraisal, IDs, redemption, renewal, fees, and Philippine pawnshop regulations (BSP, AMLA).",
+      "Answers on how to pawn (paano mag-sangla), requirements, how much you can pawn gold for, interest, redemption (tubos), appraisal, and BSP/AMLA rules.",
   },
   "/privacy-policy": {
     title: "Privacy Policy | Magis Gold & Gems Pawnshop",
@@ -312,14 +312,14 @@ const ROUTE_META = {
       "How Magis Gold & Gems collects, uses, and protects your personal data under the Philippine Data Privacy Act (RA 10173), including your data subject rights.",
   },
   "/jewelry-sales": {
-    title: "Jewelry Sales | Magis Gold & Gems",
+    title: "Gold Jewelry for Sale (Alahas) | Magis Gold & Gems",
     description:
-      "Fine gold jewelry at fair prices — rings, earrings, bracelets, chains, bangles, and pendants. Learn about layaway options and FAQs.",
+      "Buy fine gold jewelry (alahas) in the Philippines — rings, necklaces, earrings and bracelets at fair, gold-price-based prices, with layaway (hulugan) options.",
   },
   "/pawning": {
-    title: "Pawning | Magis Gold & Gems",
+    title: "Pawn Gold & Jewelry (Sangla) | Magis Gold & Gems",
     description:
-      "How to pawn, accepted items, renewal and redemption steps, and key terms & conditions. BSP-regulated and AMLA-compliant.",
+      "Pawn (sangla) your gold and jewelry for instant cash — see how much you can pawn 18k/21k gold for, with low interest, easy renewal and redemption. BSP-regulated.",
   },
   "/terms": {
     title: "Terms & Conditions | Magis Gold & Gems Pawnshop",

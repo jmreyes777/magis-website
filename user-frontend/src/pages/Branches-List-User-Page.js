@@ -409,8 +409,8 @@ function BranchesMapView() {
   return (
     <div className="flex flex-col min-h-screen ">
       <Seo
-        title="Find a Branch | Magis Gold & Gems Pawnshop"
-        description="Locate Magis Gold & Gems pawnshop and jewelry branches near you — addresses, opening hours, contact numbers, and directions. Live chat is available per branch."
+        title="Pawnshop Branches Near You | Magis Gold & Gems"
+        description="Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, directions, and live chat."
         path="/branches"
         breadcrumbs={[
           { name: "Home", path: "/" },

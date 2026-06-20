@@ -242,8 +242,8 @@ export default function JewelrySales() {
   return (
     <div className="flex flex-col min-h-screen bg-white text-gray-800">
       <Seo
-        title="Jewelry Sales | Magis Gold & Gems"
-        description="Fine gold jewelry at fair prices — rings, earrings, bracelets, chains, bangles, and pendants. Learn about layaway options and FAQs."
+        title="Gold Jewelry for Sale (Alahas) | Magis Gold & Gems"
+        description="Buy fine gold jewelry (alahas) in the Philippines — rings, necklaces, earrings and bracelets at fair, gold-price-based prices, with layaway (hulugan) options."
         path="/jewelry-sales"
         breadcrumbs={[
           { name: "Home", path: "/" },

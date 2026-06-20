@@ -131,8 +131,8 @@ function FAQsUserPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Seo
-        title="FAQs | Magis Gold & Gems Pawnshop"
-        description="Answers about pawning, pawn tickets, appraisal, IDs, redemption, renewal, fees, and Philippine pawnshop regulations (BSP, AMLA)."
+        title="FAQs: Pawning & Sangla | Magis Gold & Gems"
+        description="Answers on how to pawn (paano mag-sangla), requirements, how much you can pawn gold for, interest, redemption (tubos), appraisal, and BSP/AMLA rules."
         path="/faqs"
         breadcrumbs={[
           { name: "Home", path: "/" },
