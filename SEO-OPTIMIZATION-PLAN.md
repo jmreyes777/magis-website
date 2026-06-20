@@ -23,10 +23,10 @@
 | SEO-1 | Incomplete per-page meta: `/branches`, `/contact-us`, `/terms`, `/privacy-policy`, `/faqs` have **no `<Helmet>`** (fall back to generic `Magis Website` title); `/jewelry-sales` & `/pawning` lack `canonical`+OG | **High** | `src/pages/*`, `src/App.js` | 1 | ✅ Done (W1) |
 | SEO-2 | **No structured data (JSON-LD)** anywhere — no `Organization`/`LocalBusiness`, `FAQPage`, or `BreadcrumbList` | **High** | `index.html`, `src/pages/*` | 2 | ✅ Done (W2) |
 | SEO-3 | **No `sitemap.xml`**; `robots.txt` has no `Sitemap:` directive | Med | `public/robots.txt`, `public/sitemap.xml` | 3 | ✅ Done (W3) |
-| SEO-4 | **Broken social previews:** non-JS scrapers see only static `index.html` (generic description, **no `og:image`**) | **High** | `public/index.html` | 1 (default) / 4 (per-route) | 🟡 Default OG done (W1); per-route in W4 |
+| SEO-4 | **Broken social previews:** non-JS scrapers see only static `index.html` (generic description, **no `og:image`**) | **High** | `public/index.html` | 1 (default) / 4 (per-route) | ✅ Done (W1 default + W4 per-route) |
 | SEO-5 | **Canonical uses `window.location.host`** → diverges across hosts (`*.workers.dev`, `*.onrender.com`, custom domain) | Med | `src/pages/Home-User-Page.js:177-182` + new `<Seo>` | 1 | ✅ Done (W1) |
 | SEO-6 | **Soft-404:** `*` route does `<Navigate to="/">` instead of a real 404 (search engines see soft-404s) | Low-Med | `src/App.js:51` | 3 | ✅ Done (W3) |
-| SEO-7 | **CSR render model:** per-page meta/JSON-LD injected client-side → invisible to non-JS crawlers/social (Google renders JS, so it's OK there) | Med | architecture | 4 | **Decision** |
+| SEO-7 | **CSR render model:** per-page meta/JSON-LD injected client-side → invisible to non-JS crawlers/social (Google renders JS, so it's OK there) | Med | architecture | 4 | ✅ Done (W4) |
 | SEO-8 | Semantic/a11y polish: image `alt` audit, heading order, descriptive link text, `manifest.json` completeness | Low | `src/**`, `public/manifest.json` | 5 | ✅ Done (W5) |
 
 ## Zero-regression baseline (do not break)
@@ -73,13 +73,15 @@
 - **Note:** this SPA still returns **HTTP 200** for unknown URLs (client-side 404); the `noindex` meta is the crawler signal. A true 404 status would need the edge worker / hosting (tie-in with the Wave 4 render-model decision).
 - **Verify (done):** `[xml]` parse of `sitemap.xml` OK (8 urls); `robots.txt` parses with `Sitemap:`; build compiles; 404 route wired to `<NotFound>`.
 
-## Wave 4 — Render model for non-JS crawlers/social  *(Severity Med · Effort M-L · Risk Med · DECISION)*
-**Status: Awaiting decision — see recommendation**
+## Wave 4 — Render model for non-JS crawlers/social  *(Severity Med · Effort M-L · Risk Med)*
+**Status: ✅ Implemented 2026-06-19 (Option 3 — edge-worker per-route meta injection).** The edge worker (`magis-edge-worker/index.js`) already rewrites served HTML for CSP nonces; Wave 4 adds a self-contained `injectRouteMeta(html, pathname)` step **right after** the nonce substitution that mirrors each page's `<Seo>` values into the **static** `<head>` for non-JS scrapers. The React app/build is **byte-for-byte unchanged**.
 
-**Recommended: Option 3 — edge-worker per-route meta injection.** The worker already rewrites HTML for CSP nonces, so: the React app/build stays **byte-for-byte identical** (zero SPA-bundle risk), the worker **knows the canonical host**, it's only **8 known routes**, and it can be **fail-safe** (unknown path → no injection → current behavior). Injects per-route `<title>`/`description`/OG/`canonical` (+ optional JSON-LD) into the proxied HTML.
-
-- **Alternatives:** *Option 2 (react-snap)* — build-time prerender; semi-unmaintained, React-18 hydration risk, adds Puppeteer. *Option 4 (CRA→Vite/Next SSR)* — durable but a separate project (matches the deferred security/perf migration).
-- **Verify:** `curl` each route as a bot UA → confirm correct static `<title>`/OG; real-user SPA path unchanged; CSP intact.
+- **What it injects** (8 known routes, keyed on the request pathname): rewrites `<title>`, `meta[name=description]`, `og:title`/`og:description`/`og:url`, `twitter:title`/`twitter:description`, and **adds** a `<link rel="canonical">` (the static HTML had none). `og:image`/`twitter:image`/`og:site_name`/`og:type` stay constant.
+- **Fail-safe:** unknown paths (deep SPA links, `/admin`, hashed assets, `sitemap.xml`) match nothing → HTML returned **byte-identical**. Values are HTML-escaped; canonical added once (never duplicated).
+- **Zero-regression:** runs AFTER nonce substitution and touches no `<script>`/nonce/CSP bytes; `node --check index.js` clean. Verified by a unit test against the real `build/index.html` — **112/112 assertions** (every route's tags correct, exactly one `<title>`/canonical/`og:title`, nonce placeholders untouched, non-routes byte-identical). Throwaway test was removed after.
+- **JSON-LD:** sitewide `Organization`/`WebSite`/`PawnShop` is already **static** in `index.html` (W2, scraper-visible); per-page `BreadcrumbList`/`FAQPage` stay client-rendered (Google renders JS). Worker-side per-route JSON-LD is a possible future add — not required for social cards.
+- **Alternatives (not chosen):** *Option 2 (react-snap)* — build-time prerender; React-18 hydration risk + Puppeteer. *Option 4 (CRA→Vite/Next SSR)* — durable but a separate migration project.
+- **Deploy/DNS follow-ups:** the simplified local `dev-server.js` does **not** rewrite HTML (it pipes), so per-route meta only appears via the real worker — `curl` each route with a bot UA on the **staging** `*.workers.dev` and run the Facebook Sharing Debugger / Google Rich Results Test there (no prod domain required). Keep `ROUTE_META` in sync with `src/pages/*` `<Seo>` going forward.
 
 ## Wave 5 — Semantic & a11y polish  *(Severity Low · Effort S-M · Risk Low)*
 **Status: ✅ Implemented 2026-06-19** — audit found the codebase already in good shape (every `<img>` had `alt`; social links had `aria-label`s; icons `aria-hidden`). Production build clean (no new eslint warnings) and the pre-existing `anchor-is-valid` warning is now resolved.

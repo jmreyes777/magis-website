@@ -268,6 +268,139 @@ function cspForSpa(opts = {}) {
   ].join(" ");
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// Wave 4 (SEO): per-route <head> meta for non-JS crawlers + social scrapers.
+//
+// The SPA sets per-page <title>/description/Open Graph via react-helmet at
+// runtime. Googlebot renders JS and sees them, but most SOCIAL scrapers
+// (Facebook, X/Twitter, LinkedIn, Slack) do NOT run JS — they read the raw HTML
+// only. Since this worker already rewrites the served HTML (for CSP nonces), we
+// cheaply mirror the SAME per-route values into the STATIC tags so scrapers get
+// correct titles, descriptions, share cards, and canonicals.
+//
+// Keep these in sync with each page's <Seo> component (user-frontend/src/pages).
+// Unknown paths (deep SPA links, /admin, hashed assets) match nothing here and
+// are returned untouched — they fall back to the static defaults baked into
+// index.html plus the client-side <Seo>.
+// ==== SEO-INJECT (start) ====
+const SEO_ORIGIN = "https://www.magispawnshop.com";
+
+const ROUTE_META = {
+  "/": {
+    title: "Magis Pawnshop & Jewelry | Instant Cash for Your Gold",
+    description:
+      "Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing.",
+  },
+  "/branches": {
+    title: "Find a Branch | Magis Gold & Gems Pawnshop",
+    description:
+      "Locate Magis Gold & Gems pawnshop and jewelry branches near you — addresses, opening hours, contact numbers, and directions. Live chat is available per branch.",
+  },
+  "/contact-us": {
+    title: "Contact Us | Magis Gold & Gems Pawnshop",
+    description:
+      "Get in touch with Magis Gold & Gems — send a message or chat with support about pawning, jewelry sales, and branch services.",
+  },
+  "/faqs": {
+    title: "FAQs | Magis Gold & Gems Pawnshop",
+    description:
+      "Answers about pawning, pawn tickets, appraisal, IDs, redemption, renewal, fees, and Philippine pawnshop regulations (BSP, AMLA).",
+  },
+  "/privacy-policy": {
+    title: "Privacy Policy | Magis Gold & Gems Pawnshop",
+    description:
+      "How Magis Gold & Gems collects, uses, and protects your personal data under the Philippine Data Privacy Act (RA 10173), including your data subject rights.",
+  },
+  "/jewelry-sales": {
+    title: "Jewelry Sales | Magis Gold & Gems",
+    description:
+      "Fine gold jewelry at fair prices — rings, earrings, bracelets, chains, bangles, and pendants. Learn about layaway options and FAQs.",
+  },
+  "/pawning": {
+    title: "Pawning | Magis Gold & Gems",
+    description:
+      "How to pawn, accepted items, renewal and redemption steps, and key terms & conditions. BSP-regulated and AMLA-compliant.",
+  },
+  "/terms": {
+    title: "Terms & Conditions | Magis Gold & Gems Pawnshop",
+    description:
+      "Terms governing use of the Magis Gold & Gems website, branch finder, and live chat, including BSP, AMLA, and Data Privacy Act (RA 10173) notices.",
+  },
+};
+
+// Escape a value for safe embedding in an HTML attribute / text node. Inputs
+// here are static + trusted; this is defense-in-depth so a stray character can
+// never break out of the tag we build.
+function seoEscape(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Replace the FIRST match of `re` (non-global) with `replacement`. No match →
+// return html unchanged. Never throws, never duplicates.
+function seoReplaceFirst(html, re, replacement) {
+  return re.test(html) ? html.replace(re, replacement) : html;
+}
+
+// Rewrite the static <head> to this route's title/description/OG/Twitter and add
+// a canonical link. Any path not in ROUTE_META is returned unchanged.
+function injectRouteMeta(html, pathname) {
+  let key = pathname || "/";
+  if (key.length > 1 && key.endsWith("/")) key = key.slice(0, -1); // /x/ → /x
+  const meta = ROUTE_META[key];
+  if (!meta) return html;
+
+  const title = seoEscape(meta.title);
+  const description = seoEscape(meta.description);
+  const canonical = key === "/" ? `${SEO_ORIGIN}/` : `${SEO_ORIGIN}${key}`;
+
+  html = seoReplaceFirst(html, /<title>[\s\S]*?<\/title>/, `<title>${title}</title>`);
+  html = seoReplaceFirst(
+    html,
+    /<meta name="description" content="[^"]*"\s*\/?>/,
+    `<meta name="description" content="${description}"/>`
+  );
+  html = seoReplaceFirst(
+    html,
+    /<meta property="og:title" content="[^"]*"\s*\/?>/,
+    `<meta property="og:title" content="${title}"/>`
+  );
+  html = seoReplaceFirst(
+    html,
+    /<meta property="og:description" content="[^"]*"\s*\/?>/,
+    `<meta property="og:description" content="${description}"/>`
+  );
+  html = seoReplaceFirst(
+    html,
+    /<meta property="og:url" content="[^"]*"\s*\/?>/,
+    `<meta property="og:url" content="${canonical}"/>`
+  );
+  html = seoReplaceFirst(
+    html,
+    /<meta name="twitter:title" content="[^"]*"\s*\/?>/,
+    `<meta name="twitter:title" content="${title}"/>`
+  );
+  html = seoReplaceFirst(
+    html,
+    /<meta name="twitter:description" content="[^"]*"\s*\/?>/,
+    `<meta name="twitter:description" content="${description}"/>`
+  );
+  // The static HTML has no canonical (the SPA adds one at runtime). Add a static
+  // one for scrapers — once, only if absent.
+  if (!/rel="canonical"/.test(html)) {
+    html = seoReplaceFirst(
+      html,
+      /<\/head>/,
+      `<link rel="canonical" href="${canonical}"/></head>`
+    );
+  }
+  return html;
+}
+// ==== SEO-INJECT (end) ====
+
 function minimalResponse(
   body,
   status,
@@ -412,11 +545,14 @@ async function handle(request, event) {
 
     if (isHtml && cspMode !== "legacy") {
       const nonce = generateNonce();
-      const html = (await resp.text())
+      let html = (await resp.text())
         .replaceAll('nonce="xyz123"', `nonce="${nonce}"`)
         .replaceAll("'nonce-xyz123'", `'nonce-${nonce}'`)
         .replaceAll('__CSP_NONCE="xyz123"', `__CSP_NONCE="${nonce}"`)
         .replaceAll('__CSP_NONCE = "xyz123"', `__CSP_NONCE = "${nonce}"`);
+      // Wave 4 (SEO): mirror the SPA's per-route <head> meta into the static
+      // HTML so non-JS social scrapers/crawlers get correct titles + cards.
+      html = injectRouteMeta(html, pathname);
       h.set("Content-Security-Policy", cspForSpa({ nonce }));
       h.delete("Content-Length"); // body length changed by the substitution
       addSecurityHeaders(h);
