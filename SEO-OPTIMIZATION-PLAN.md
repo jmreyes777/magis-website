@@ -93,6 +93,14 @@
 - **Deferred:** Lighthouse Core Web Vitals re-check (needs the live HTTPS domain).
 - **Verify (done):** production build clean; `manifest.json` valid JSON with brand name; `.sr-only` present in built CSS; `anchor-is-valid` warning gone.
 
+## Wave 6 — Keyword research & on-page intent alignment  *(Severity Med · Effort M · Risk Low)*
+**Status: ✅ Implemented 2026-06-20** — pre-launch PH keyword research (free Google Autocomplete, EN+TL) applied to per-route meta + FAQ. Deliverables in `seo-research/` (`keyword-map.md`, `keyword-harvester.mjs`, `keywords.csv`/`.json` — 566 suggestions). Both builds clean; worker `node --check` clean.
+
+- **Research:** bilingual intent→page map + a re-runnable harvester (no API key, `gl=ph`). Top demand: gold price / `presyo ng ginto`, `magkano ang sangla ng 18k/21k gold`, `pawnshop interest rate`, `bsp registered pawnshop`, Tagalog how-to (`ano ang sangla`, `paano mag-sangla`), and local `near me / open now`.
+- **Phase A:** refined `ROUTE_META` (worker) + 5 pages' `<Seo>` titles/descriptions with bilingual money terms (`sangla`, `alahas`, `presyo ng ginto`, `near you`, `tubos`). Worker + client kept identical.
+- **Phase B:** expanded `/faqs` to **32 Q&As** (7 new bilingual + 4 enriched) feeding `FAQPage` schema — interest **as low as 1%/mo (select branches)**, gold-jewelry-only, **free on-the-spot appraisal**, full accepted-ID list, `tubos`/`patubo`, layaway (hulugan), and **BSP + AMLC-registered**.
+- **Deferred:** real search **volumes** (paid API e.g. DataForSEO, or free Google Ads Keyword Planner) and the post-launch **GSC Search Analytics** feedback loop (needs the live domain). Optional next: a gold-price/appraisal explainer for the large gold-price demand; `openingHoursSpecification` for "open now" intent.
+
 ---
 
 ## Side note (not SEO, flagged for awareness)

@@ -8,6 +8,30 @@ import Seo from "../components/Seo";
 // so the structured data can never drift from what users actually read.
 const COMPANY_FAQS = [
   {
+    q: "What is pawning, and what is “sangla”?",
+    a: "Pawning (sangla) is a quick, collateral-based loan: you leave an item as security, get cash, and reclaim it (tubos) once you pay back the amount due. At Magis we lend against gold jewelry, with no credit check and no lengthy paperwork.",
+  },
+  {
+    q: "How do I pawn my gold jewelry? (Paano mag-sangla ng alahas?)",
+    a: "Visit any Magis branch with your gold jewelry and one valid government ID. We appraise it for free, on the spot, explain the offer, and—if you accept—release your cash together with a pawn ticket. The process usually takes only a few minutes.",
+  },
+  {
+    q: "How much can I pawn my gold for? (Magkano ang pwedeng isangla ng ginto?)",
+    a: "Your loan is based on the piece’s purity (karat), weight, and the current gold price—so higher-karat (18k, 21k, 22k) and heavier items appraise higher. Appraisal is free and on the spot, and the appraiser shows the amount before you decide.",
+  },
+  {
+    q: "What is your interest rate? (Magkano ang patubo/interest?)",
+    a: "Interest is as low as 1% per month on select branches. The exact rate and any charges are posted in-branch and disclosed before you proceed, and the final computation is printed on your pawn ticket.",
+  },
+  {
+    q: "What do “tubos” and “patubo” mean?",
+    a: "“Tubos” means redeeming—reclaiming your item by paying the amount due. “Patubo” is the interest on the loan. You can also renew by paying the interest to extend your loan to a new maturity date.",
+  },
+  {
+    q: "Do you offer jewelry layaway (hulugan)?",
+    a: "Yes—you can reserve gold jewelry and pay in installments (hulugan). See our Jewelry Sales page for details and a layaway calculator that estimates your payments.",
+  },
+  {
     q: "Do I need to go to a branch to pawn an item?",
     a: "Yes. The website and live chat are for inquiries only. Actual pawning requires in-branch appraisal, a valid ID, and issuance of a pawn ticket.",
   },
@@ -16,16 +40,16 @@ const COMPANY_FAQS = [
     a: "It’s the official document for your loan—showing the item, amount, charges, and due dates. Keep it safe; you’ll need it to redeem or renew.",
   },
   {
-    q: "What items can I pawn?",
-    a: "We only accept Gold Jewelry. Acceptance depends on condition and branch policy. We cannot accept stolen, counterfeit, illegal, or restricted items.",
+    q: "What items can I pawn? Do you accept gadgets or appliances?",
+    a: "We specialize in gold jewelry only—we do not accept gadgets, cellphones, appliances, or vehicles. Acceptance still depends on authenticity, condition, and branch policy; we cannot accept stolen, counterfeit, or illegal items.",
   },
   {
-    q: "How do you appraise my item?",
-    a: "By authenticity, condition, and weight/karat. The appraiser explains the offer before you decide.",
+    q: "How is my gold appraised? Is appraisal free?",
+    a: "Appraisal is free and on the spot, based on authenticity, weight, and karat (purity) measured against the current gold price. The appraiser explains the offer before you decide.",
   },
   {
-    q: "What IDs do I need?",
-    a: "A valid government-issued ID. For some transactions, additional documents may be required to meet regulatory checks.",
+    q: "What ID do I need to pawn? (Anong valid ID ang tinatanggap?)",
+    a: "Any one (1) valid government-issued ID—for example: PhilID/National ID, Passport, Driver’s License, UMID, PRC, SSS, GSIS, Postal ID, Voter’s ID, PhilHealth, TIN, Pag-IBIG, Senior Citizen or PWD ID, NBI or Police Clearance, or a Barangay Certification with photo and signature, among others. Some transactions may require additional documents for regulatory (AMLA) checks.",
   },
   {
     q: "How are interest and fees computed?",
@@ -99,8 +123,12 @@ const COMPANY_FAQS = [
 
 const REGULATORY_FAQS = [
   {
+    q: "Is Magis a registered pawnshop? Is it legit and safe? (Legit ba?)",
+    a: "Yes. Magis Gold & Gems is a registered pawnshop supervised by the Bangko Sentral ng Pilipinas (BSP) and compliant with Anti-Money Laundering Council (AMLC) rules. Every transaction is documented with an official pawn ticket for your protection.",
+  },
+  {
     q: "Who regulates pawnshops in the Philippines? (BSP)",
-    a: "Pawnshops are supervised by the Bangko Sentral ng Pilipinas (BSP), which issues rules on licensing, disclosures, reporting, and consumer protection.",
+    a: "Pawnshops are supervised by the Bangko Sentral ng Pilipinas (BSP), which issues rules on licensing, disclosures, reporting, and consumer protection. Magis is registered with and supervised by the BSP and complies with AMLC requirements.",
   },
   {
     q: "What is AMLA and why does it matter to me?",
