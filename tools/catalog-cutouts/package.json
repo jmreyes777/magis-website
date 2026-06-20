@@ -1,0 +1,14 @@
+{
+  "name": "magis-catalog-cutouts",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline job: cut out backgrounds from the latest Facebook auction album and emit transparent WebP + manifest for the catalog carousel. Runs in CI or locally — never on the live web server.",
+  "scripts": {
+    "generate": "node generate.mjs"
+  },
+  "dependencies": {
+    "@imgly/background-removal-node": "^1.4.5",
+    "sharp": "^0.33.5"
+  }
+}

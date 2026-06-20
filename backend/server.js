@@ -880,6 +880,40 @@ app.get("/api/facebook/latest-video", fbLimiter, publicCache(300, 600), async (r
 const latestAlbumCache = { at: 0, albumId: null, photos: [] };
 const LATEST_ALBUM_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// PERF/UX: when a NEW Facebook album becomes the latest, fire a GitHub
+// repository_dispatch so the OFF-SITE cutout job regenerates transparent
+// cutouts within minutes (instead of waiting for the daily cron). The live
+// server still does NO image processing itself. Fully DORMANT unless
+// GH_DISPATCH_TOKEN is set, and ALWAYS fire-and-forget so it can never affect
+// the album response. Token needs `repo` scope (classic PAT) or Contents:write
+// (fine-grained); repo defaults to this project (override via GH_DISPATCH_REPO).
+async function fireCutoutRefresh(albumId) {
+  const token = process.env.GH_DISPATCH_TOKEN;
+  if (!token) return; // not configured -> daily cron still covers it
+  const repo = process.env.GH_DISPATCH_REPO || "jmreyes777/magis-website";
+  try {
+    const r = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
+      method: "POST",
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+        "User-Agent": "magis-backend",
+      },
+      body: JSON.stringify({ event_type: "new-album", client_payload: { albumId } }),
+    });
+    if (!r.ok) {
+      const body = await r.text().catch(() => "");
+      console.error("[cutout-dispatch] GitHub dispatch failed:", r.status, body.slice(0, 200));
+    } else {
+      console.log("[cutout-dispatch] requested cutout refresh for album", albumId);
+    }
+  } catch (err) {
+    console.error("[cutout-dispatch] error:", err?.message || err);
+  }
+}
+
 app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), async (req, res) => {
   const pageId = process.env.FB_PAGE_ID;
   const pageToken = process.env.FB_PAGE_ACCESS_TOKEN;
@@ -967,9 +1001,16 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
         : [],
     }));
 
+    const prevAlbumId = latestAlbumCache.albumId;
     latestAlbumCache.at = Date.now();
     latestAlbumCache.albumId = albumId;
     latestAlbumCache.photos = norm;
+
+    // New album detected (and not just the first fill after a restart) -> ask
+    // the off-site job to (re)generate cutouts now. Fire-and-forget.
+    if (prevAlbumId && prevAlbumId !== albumId) {
+      fireCutoutRefresh(albumId).catch(() => {});
+    }
 
     return res.json({ albumId, photos: norm });
   } catch (err) {

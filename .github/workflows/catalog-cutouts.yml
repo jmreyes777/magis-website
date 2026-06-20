@@ -1,0 +1,53 @@
+name: Catalog cutouts
+
+# Generates transparent jewelry cutouts for the homepage carousel OFF-SITE, so
+# the live web server never runs ML. Runs on Linux (all native deps prebuilt),
+# commits only the changed images + manifest back to the repo.
+
+on:
+  workflow_dispatch: {} # manual "Run workflow" button
+  repository_dispatch:
+    types: [new-album] # fired by the backend the moment a new FB album appears
+  schedule:
+    - cron: "17 3 * * *" # daily 03:17 UTC — safety net if the instant trigger is off
+
+permissions:
+  contents: write # allow committing generated cutouts
+
+concurrency:
+  group: catalog-cutouts
+  cancel-in-progress: false
+
+jobs:
+  cutouts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install generator deps
+        working-directory: tools/catalog-cutouts
+        run: npm install --no-audit --no-fund
+
+      - name: Generate cutouts
+        working-directory: tools/catalog-cutouts
+        env:
+          SOURCE_API: https://magis-website.onrender.com
+        run: npm run generate
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "magis-cutouts-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add user-frontend/public/catalog-cutouts
+          if git diff --cached --quiet; then
+            echo "No cutout changes — nothing to commit."
+          else
+            git commit -m "chore(catalog): refresh auction jewelry cutouts [skip ci]"
+            git push
+          fi

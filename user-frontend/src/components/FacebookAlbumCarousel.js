@@ -24,32 +24,111 @@ export default function FacebookAlbumCarousel({ albumId }) {
   const autoTimer = useRef(null);
   const userInteracted = useRef(false);
   const mounted = useRef(false);
+  const wrapRef = useRef(null);
 
-  // visual constants
-  const CARD_H = 384;      // fixed slide height
-  const GAP    = 24;       // spacing between logical positions
+  // measured container width -> fully responsive sizing (seeded from the
+  // viewport so the very first paint is already correct on mobile)
+  const [cw, setCw] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1024
+  );
+
   const AUTO_DELAY = 4000;
 
   // clamp helper
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
 
+  // Responsive layout metrics, recomputed from the live container width so the
+  // pieces always fit their frame (and the viewport) on any device.
+  const baseW     = cw || 1024;
+  const isNarrow  = baseW < 560;
+  const cardH     = Math.round(clamp(baseW * 0.5, 200, 384)); // slide height
+  const GAP       = isNarrow ? 10 : 24;
+  const maxCardW   = Math.round(baseW * (isNarrow ? 0.58 : 0.42)); // smaller on phones; leaves side peeks
+  const stagePadY  = Math.round(cardH * 0.12);  // vertical room so shadows aren't clipped
+  const frameScale = 0.84;                      // shrink each piece inside its slide -> framed, not zoomed
+  const shadow     = `drop-shadow(0 ${Math.round(cardH * 0.04)}px ${Math.round(cardH * 0.05)}px rgba(0,0,0,0.22))`;
+
   // load photos
   useEffect(() => {
     mounted.current = true;
+
+    const fetchJSON = async (url, opts = {}, timeoutMs = 7000) => {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { ...opts, signal: ctrl.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+
     (async () => {
       try {
-        if (!API_BASE) throw new Error("Missing REACT_APP_API_URL");
-        const url = albumId
-          ? `${API_BASE}/api/facebook/album/${encodeURIComponent(albumId)}/photos`
-          : `${API_BASE}/api/facebook/albums/latest/photos`;
-        const res  = await fetch(url, { headers: { Accept: "application/json" } });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error || data?.message || `HTTP ${res.status}`);
+        // Fetch BOTH in parallel:
+        //  (a) the prebuilt transparent cutouts (static, same-origin, fast), and
+        //  (b) the live latest album from the backend.
+        // The LIVE album is the source of truth for WHICH items show and their
+        // order, so a freshly posted album appears instantly. Transparent
+        // cutouts are overlaid by photo id wherever the off-site job has made
+        // them (-> floating); items not yet processed show the live photo
+        // (gently blended) until the next job run catches up.
+        const manifestP = fetchJSON(
+          "/catalog-cutouts/manifest.json",
+          { headers: { Accept: "application/json" }, cache: "no-cache" },
+          5000
+        ).catch(() => null);
+
+        const liveP = (async () => {
+          const url = albumId
+            ? `${API_BASE}/api/facebook/album/${encodeURIComponent(albumId)}/photos`
+            : `${API_BASE}/api/facebook/albums/latest/photos`;
+          return fetchJSON(url, { headers: { Accept: "application/json" } }, 7000);
+        })().catch((e) => {
+          // eslint-disable-next-line no-console
+          console.warn("[Carousel] live album unavailable; using cutouts only:", e?.message || e);
+          return null;
+        });
+
+        const [mj, live] = await Promise.all([manifestP, liveP]);
+
+        // cutout lookup by photo id
+        const cutoutById = new Map();
+        if (mj && Array.isArray(mj.items)) {
+          for (const it of mj.items) cutoutById.set(String(it.id), it);
+        }
+
+        let list = [];
+        const livePhotos = Array.isArray(live?.photos) ? live.photos : null;
+
+        if (livePhotos && livePhotos.length) {
+          // Live album drives membership + order; overlay cutouts by id.
+          list = livePhotos.map((p) => {
+            const id = String(p.id);
+            const cut = cutoutById.get(id);
+            return cut
+              ? { id, caption: cut.caption || p.caption || "", cutout: true,
+                  images: [{ src: cut.src, w: cut.w, h: cut.h }] }
+              : { id, caption: p.caption || "", cutout: false,
+                  images: Array.isArray(p.images) ? p.images : [] };
+          });
+        } else if (cutoutById.size) {
+          // Live album unavailable -> show the cutouts we have (still floating).
+          list = (mj.items || []).map((it) => ({
+            id: String(it.id),
+            caption: it.caption || "",
+            cutout: true,
+            images: [{ src: it.src, w: it.w, h: it.h }],
+          }));
+        }
 
         if (mounted.current) {
-          const list = Array.isArray(data?.photos) ? data.photos : [];
           setPhotos(list);
           setActive(0);
+          if (!list.length && !live && !cutoutById.size) {
+            setError("Unable to load catalog photos at the moment.");
+          }
         }
       } catch (e) {
         if (mounted.current) setError("Unable to load catalog photos at the moment.");
@@ -64,6 +143,36 @@ export default function FacebookAlbumCarousel({ albumId }) {
       clearInterval(autoTimer.current);
     };
   }, [albumId]);
+
+  // Measure the carousel via a CALLBACK ref. The container renders only AFTER
+  // the loading state clears, so a plain mount effect would see a null ref and
+  // never attach (leaving cw at the desktop fallback -> oversized on phones).
+  const roRef = useRef(null);
+  const measureRef = useCallback((node) => {
+    if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+    wrapRef.current = node;
+    if (!node) return;
+    const update = () => setCw(node.clientWidth || node.offsetWidth || 0);
+    update();
+    if (typeof ResizeObserver !== "undefined") {
+      roRef.current = new ResizeObserver(update);
+      roRef.current.observe(node);
+    }
+  }, []);
+
+  // Fallback for orientation changes / browsers without ResizeObserver.
+  useEffect(() => {
+    const update = () => {
+      const el = wrapRef.current;
+      if (el) setCw(el.clientWidth || el.offsetWidth || 0);
+    };
+    window.addEventListener("resize", update);
+    window.addEventListener("orientationchange", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      window.removeEventListener("orientationchange", update);
+    };
+  }, []);
 
   // autoplay (pauses on any interaction)
   useEffect(() => {
@@ -90,14 +199,15 @@ export default function FacebookAlbumCarousel({ albumId }) {
   const dims = useMemo(() => {
     return photos.map((p) => {
       const img = Array.isArray(p.images) && p.images[0] ? p.images[0] : null;
-      const w = Number(img?.width)  || 1080;
-      const h = Number(img?.height) || 1080;
+      const w = Number(img?.w ?? img?.width)  || 1080;
+      const h = Number(img?.h ?? img?.height) || 1080;
       const aspect = w / h;
-      // preserve full image while avoiding “skinny” look:
-      const cardW = clamp(Math.round(CARD_H * aspect), 320, 560); // min 320px, max 560px
-      return { cardW, cardH: CARD_H };
+      // Width follows the piece's aspect at the responsive height, but is capped
+      // so the center piece always fits the viewport (with room for side peeks).
+      const cardW = clamp(Math.round(cardH * aspect), 140, maxCardW);
+      return { cardW, cardH };
     });
-  }, [photos]);
+  }, [photos, cardH, maxCardW]);
 
   const len        = photos.length;
   const leftIndex  = len ? (active - 1 + len) % len : -1;
@@ -113,26 +223,31 @@ export default function FacebookAlbumCarousel({ albumId }) {
   if (error)   return <div className="text-red-500 py-4 text-center">{error}</div>;
   if (!len)    return <div className="text-gray-500 py-4 text-center">No catalog items found.</div>;
 
-  // SHIFT based on the actual center card’s width
-  const centerW = dims[active]?.cardW || 400;
-  const SHIFT   = centerW + GAP;
+  // Place side pieces just outside the center piece using per-side widths so they
+  // never overlap regardless of each photo's aspect ratio.
+  const centerW = dims[active]?.cardW || 320;
+  const leftW   = dims[leftIndex]?.cardW || centerW;
+  const rightW  = dims[rightIndex]?.cardW || centerW;
+  const leftShift  = Math.round(centerW / 2 + GAP + leftW / 2);
+  const rightShift = Math.round(centerW / 2 + GAP + rightW / 2);
 
   const styleFor = (role) => {
     switch (role) {
-      case "left":   return { transform: `translateX(-${SHIFT}px) scale(0.95)`, opacity: 0.9, zIndex: 1 };
-      case "right":  return { transform: `translateX(${SHIFT}px) scale(0.95)`,  opacity: 0.9, zIndex: 1 };
-      case "center": return { transform: `translateX(0) scale(1.06)`,           opacity: 1,   zIndex: 2 };
-      default:       return { transform: `translateX(0) scale(0.85)`,           opacity: 0,   zIndex: 0, pointerEvents: "none" };
+      case "left":   return { transform: `translateX(-${leftShift}px) scale(0.9)`, opacity: isNarrow ? 0.85 : 1, zIndex: 1 };
+      case "right":  return { transform: `translateX(${rightShift}px) scale(0.9)`, opacity: isNarrow ? 0.85 : 1, zIndex: 1 };
+      case "center": return { transform: `translateX(0) scale(1)`,                 opacity: 1, zIndex: 2 };
+      default:       return { transform: `translateX(0) scale(0.85)`,              opacity: 0, zIndex: 0, pointerEvents: "none" };
     }
   };
 
   return (
     <div
+      ref={measureRef}
       className="relative max-w-6xl mx-auto px-4 select-none"
       onPointerDown={markInteracted}
       onMouseDown={markInteracted}
       onTouchStart={markInteracted}
-      style={{ height: CARD_H + 72 }}
+      style={{ height: cardH + stagePadY * 2 + 44 }}
     >
       {/* Controls */}
       <button
@@ -150,15 +265,15 @@ export default function FacebookAlbumCarousel({ albumId }) {
         <FaChevronRight size={20} />
       </button>
 
-      {/* Stage (style isolation so globals can’t leak) */}
+      {/* Stage — NO isolation, so each photo's mix-blend-mode can blend with the page background */}
       <div
-        className="relative h-full w-full flex items-center justify-center overflow-hidden py-6"
-        style={{ isolation: "isolate" }}
+        className="relative w-full flex items-center justify-center overflow-hidden"
+        style={{ height: cardH + stagePadY * 2 }}
       >
         {photos.map((p, i) => {
           const src = p?.images?.[0]?.src || "";
           const role = roles[i];
-          const { cardW, cardH } = dims[i] || { cardW: 400, cardH: CARD_H };
+          const cardW = dims[i]?.cardW || maxCardW;
 
           return (
             <div
@@ -170,18 +285,15 @@ export default function FacebookAlbumCarousel({ albumId }) {
                 maxWidth: cardW,
                 height: cardH,
                 transition: "transform 600ms cubic-bezier(0.22,1,0.36,1), opacity 600ms ease",
-                willChange: "transform, opacity",
+                willChange: "transform",
                 ...styleFor(role),
               }}
               onClick={() => role !== "off" && setLightbox(p)}
             >
               <div
-                className="rounded-lg shadow-sm"
                 style={{
                   width: "100%",
                   height: "100%",
-                  backgroundColor: "white",
-                  overflow: "hidden",
                 }}
               >
                 {/* The actual pixels — locally reset so global CSS can’t touch it */}
@@ -196,7 +308,13 @@ export default function FacebookAlbumCarousel({ albumId }) {
                     height: "100%",
                     objectFit: "contain",          // show FULL image; no crop
                     imageRendering: "auto",
-                    backgroundColor: "white",
+                    transform: `scale(${frameScale})`,  // uniform breathing room -> framed, never zoomed/distorted
+                    transformOrigin: "center center",
+                    // Transparent cutouts float with a soft shape-shadow; the
+                    // live-FB fallback keeps the gentler multiply blend.
+                    ...(p.cutout
+                      ? { filter: shadow }
+                      : { mixBlendMode: "multiply" }),
                   }}
                 />
               </div>
