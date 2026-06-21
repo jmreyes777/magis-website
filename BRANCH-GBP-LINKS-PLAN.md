@@ -169,12 +169,72 @@ Both halves are required. This plan sequences them so we never publish a dead li
 
 ---
 
-## Appendix A — Branch → slug → GBP Website URL (to fill in)
+## Appendix A — Branch → slug → GBP Website URL
 
-| Branch name | City / Barangay | Proposed slug | Final Website URL | GBP verified? |
-|-------------|-----------------|---------------|-------------------|---------------|
-| _e.g._ Balibago (Head Office) | Balibago, Angeles City | `balibago-angeles-city` | `https://www.magispawnshop.com/branches/balibago-angeles-city` | ☐ |
-|  |  |  |  | ☐ |
-|  |  |  |  | ☐ |
+Source: `backend/branches.json` (11 branches; names + addresses). Slugs are **proposed defaults — editable**, but must be finalized before GBP Website fields are set. Final URL pattern: `https://www.magispawnshop.com/branches/<slug>`.
 
-> Populate one row per branch (pull the list from the Firestore `branches` collection). Provide names/addresses and I can propose final slugs + URLs.
+> ⚠ **Data quality:** the phone numbers (`123456789` / `1234567890`) and the uniform 9:00–17:00 daily hours in `branches.json` are **placeholder/seed data**, and several emails are test values. **Do NOT use them in GBP.** Collect real per-branch phone + hours (Appendix C) first — fake/placeholder NAP risks GBP suspension.
+
+| # | Branch name | Area / City | Proposed slug | Final Website URL | Jewelry? | GBP verified? |
+|---|-------------|-------------|---------------|-------------------|----------|---------------|
+| 1 | Dolores | Dolores, San Fernando, Pampanga | `dolores-san-fernando` | `https://www.magispawnshop.com/branches/dolores-san-fernando` | Yes | ☐ |
+| 2 | Mabalacat | Gil Puyat Ave, Mabalacat, Pampanga | `mabalacat` | `https://www.magispawnshop.com/branches/mabalacat` | Yes | ☐ |
+| 3 | Balibago | Fields Ave, Balibago, Angeles City | `balibago-angeles` | `https://www.magispawnshop.com/branches/balibago-angeles` | No | ☐ |
+| 4 | Pandacaqui | Pandacaqui, Mexico, Pampanga | `pandacaqui-mexico` | `https://www.magispawnshop.com/branches/pandacaqui-mexico` | No | ☐ |
+| 5 | Madapdap | Madapdap, Mabalacat, Pampanga | `madapdap-mabalacat` | `https://www.magispawnshop.com/branches/madapdap-mabalacat` | No | ☐ |
+| 6 | Rizal | Rizal St, Angeles City | `rizal-angeles` | `https://www.magispawnshop.com/branches/rizal-angeles` | Yes | ☐ |
+| 7 | Dau | MacArthur Hwy, Dau, Mabalacat | `dau-mabalacat` | `https://www.magispawnshop.com/branches/dau-mabalacat` | No | ☐ |
+| 8 | Don Gueco | Aniceto Gueco St, Angeles City | `don-gueco-angeles` | `https://www.magispawnshop.com/branches/don-gueco-angeles` | Yes | ☐ |
+| 9 | Novaliches 1 | Buenamar Dr, Novaliches, Quezon City | `novaliches-buenamar-quezon-city` | `https://www.magispawnshop.com/branches/novaliches-buenamar-quezon-city` | Yes | ☐ |
+| 10 | Novaliches 2 | Susano Rd, Novaliches, Quezon City | `novaliches-susano-quezon-city` | `https://www.magispawnshop.com/branches/novaliches-susano-quezon-city` | No | ☐ |
+| 11 | N.S Amoranto | N.S. Amoranto St, La Loma, Quezon City | `amoranto-quezon-city` | `https://www.magispawnshop.com/branches/amoranto-quezon-city` | Yes | ☐ |
+
+> Slug notes: the two Novaliches branches use the street (Buenamar / Susano) to stay unique and descriptive. "Jewelry? = Yes" → add `Jewelry store` as a GBP secondary category.
+
+---
+
+## Appendix B — Google Business Profile setup walkthrough (operator)
+
+**Prep once**
+- Use **one owner Google account** for all listings (a company Gmail/Workspace account). Add branch staff as **Managers** per location afterwards.
+- Per branch, have ready: exact **signage name**, full **street address** (no plus-codes), **real local phone**, **real hours**, **category**, and the **Website URL** (Appendix A).
+
+**Manual — per branch**
+1. Go to `business.google.com` → sign in with the owner account.
+2. Search the branch name + address. If a listing already exists → **Claim / Own this business**; otherwise **Add your business to Google**.
+3. **Business name** = the real storefront name only (no "near me"/city keyword stuffing — Google can suspend).
+4. **Primary category** = `Pawn shop`; add `Jewelry store` (secondary) for branches marked Jewelry = Yes.
+5. "Do customers visit?" → **Yes** → enter the exact street address; drag the **map pin** to the exact door.
+6. **Phone** = the branch's real local number. **Website** = the Appendix A URL (interim: `https://www.magispawnshop.com/branches` until per-branch routes ship — see Section 8).
+7. Complete **verification** (video / postcard / phone — Google chooses what's eligible). The Website link/features stay limited until verified, so start this early.
+8. After verified: set **hours** (+ special/holiday), add **photos** (storefront, interior, logo), a short **description** (no promos), and the opening date.
+9. (If the category exposes it) set the **Appointment/booking link** to the `?chat=1` variant of the branch URL.
+
+**Faster for 11 branches — bulk upload**
+- In Business Profile Manager: create a **location group** → **Add locations → Import locations** using Google's spreadsheet template. The template's columns map to name / address / phone / **website** / category / hours, so you set all 11 per-branch URLs in one pass.
+- Then request **bulk verification** (a brand with 10+ same-owner locations is typically eligible). *(I can pre-fill this import sheet from Appendix A + C on request.)*
+
+**Guidelines (avoid suspension)**
+- One listing per physical branch; flag/merge any duplicates.
+- Keep **NAP identical** across GBP, the site, `user-frontend/public/index.html` JSON-LD, and the footer.
+- Use **real local numbers** per branch (avoid one shared number if possible); no virtual offices.
+
+---
+
+## Appendix C — Real NAP to collect (replaces placeholder seed data)
+
+Fill this in from official branch records, then we sync it to Firestore + `index.html` JSON-LD + GBP. Confirm or correct the Appendix-A address while you're at it.
+
+| # | Branch | Confirmed street address (no plus-code) | Real local phone | Real opening hours | GBP business name (as on signage) |
+|---|--------|-----------------------------------------|------------------|--------------------|------------------------------------|
+| 1 | Dolores |  |  |  |  |
+| 2 | Mabalacat |  |  |  |  |
+| 3 | Balibago |  |  |  |  |
+| 4 | Pandacaqui |  |  |  |  |
+| 5 | Madapdap |  |  |  |  |
+| 6 | Rizal |  |  |  |  |
+| 7 | Dau |  |  |  |  |
+| 8 | Don Gueco |  |  |  |  |
+| 9 | Novaliches 1 |  |  |  |  |
+| 10 | Novaliches 2 |  |  |  |  |
+| 11 | N.S Amoranto |  |  |  |  |
