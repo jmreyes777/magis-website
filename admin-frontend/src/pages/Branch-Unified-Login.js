@@ -64,7 +64,6 @@ function BranchUnifiedLogin() {
   // Staff flow
   const [code, setCode] = useState("");
   const [loginTicket, setLoginTicket] = useState(null);
-  const [rememberDevice, setRememberDevice] = useState(true);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pendingSession, setPendingSession] = useState(null);
@@ -191,7 +190,7 @@ function BranchUnifiedLogin() {
     setError(""); setBusy(true);
     try {
       const { ok, status, data } = await post("/api/branch/login/verify-otp", {
-        loginTicket, code: theCode, rememberDevice,
+        loginTicket, code: theCode,
       });
       if (!ok) {
         setError(data.error || (status === 429 ? "Too many attempts." : "Verification failed."));
@@ -205,7 +204,7 @@ function BranchUnifiedLogin() {
     } finally {
       setBusy(false);
     }
-  }, [post, loginTicket, rememberDevice, completeStaffLogin]);
+  }, [post, loginTicket, completeStaffLogin]);
 
   const handleOtpChange = (val) => {
     const digits = val.replace(/\D/g, "").slice(0, 6);
