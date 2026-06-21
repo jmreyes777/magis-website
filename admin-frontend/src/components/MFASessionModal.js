@@ -10,13 +10,14 @@
  * For DPA 2012 compliance: Re-verification required every 8 hours for chat access
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   getMultiFactorResolver,
   TotpMultiFactorGenerator,
 } from 'firebase/auth';
+import { jwtDecode } from 'jwt-decode';
 import { auth } from '../firebase-config';
 
 const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat with sensitive personal information' }) => {
@@ -28,6 +29,25 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Staff (email-OTP) step-up ─────────────────────────────────────────
+  // Staff accounts have no Firebase user, so the password+TOTP step-up below
+  // can't work for them; detect them from their token and use the emailed-code
+  // step-up endpoints instead.
+  const isStaff = (() => {
+    try {
+      const t = sessionStorage.getItem('branchAdminToken') || localStorage.getItem('branchAdminToken');
+      if (!t) return false;
+      const d = jwtDecode(t);
+      return d.staff === true || d.authVia === 'staff_email_otp';
+    } catch {
+      return false;
+    }
+  })();
+  const [staffCode, setStaffCode] = useState('');
+  const [staffSent, setStaffSent] = useState(false);
+  const [staffResendIn, setStaffResendIn] = useState(0);
+  const staffRequestedRef = useRef(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -86,6 +106,96 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
       setLoading(false);
     }
   };
+
+  const authToken = () =>
+    sessionStorage.getItem('branchAdminToken') || localStorage.getItem('branchAdminToken');
+
+  // Staff step-up: email a fresh 6-digit code, then verify it. The backend
+  // (/api/staff/stepup/*) writes a fresh 8h MFA session keyed by the same
+  // X-Session-Id the dashboard polls, so chat access resumes immediately.
+  const requestStaffCode = async () => {
+    setError(null);
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/staff/stepup/request`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken()}`,
+          'X-Session-Id': generateSessionId(),
+        },
+        credentials: 'include',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Could not send the code. Please try again.');
+        if (res.status === 429 && data.retryAfterSec) setStaffResendIn(data.retryAfterSec);
+        return;
+      }
+      setStaffSent(true);
+      setStaffResendIn(45);
+    } catch (err) {
+      setError('Network error. Please try again.');
+    }
+  };
+
+  const verifyStaffCode = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/staff/stepup/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken()}`,
+          'X-Session-Id': generateSessionId(),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ code: staffCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Verification failed.');
+        setStaffCode('');
+        return;
+      }
+      setStatus('verified');
+      setStaffCode('');
+      onVerify(data);
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Reset staff step-up state when the modal closes.
+  useEffect(() => {
+    if (!isOpen) {
+      staffRequestedRef.current = false;
+      setStaffSent(false);
+      setStaffCode('');
+      setStaffResendIn(0);
+    }
+  }, [isOpen]);
+
+  // Resend cooldown ticker.
+  useEffect(() => {
+    if (staffResendIn <= 0) return;
+    const t = setInterval(() => setStaffResendIn((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [staffResendIn]);
+
+  // Auto-email a code as soon as a staffer needs to re-verify.
+  useEffect(() => {
+    if (
+      isOpen && isStaff && !staffRequestedRef.current &&
+      (status === 'needs-verification' || status === 'expired')
+    ) {
+      staffRequestedRef.current = true;
+      requestStaffCode();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, isStaff, status]);
 
   // Send a freshly-minted Firebase ID token (post-reauth) to the backend so it
   // can (re)establish the verified session. The backend rejects stale tokens.
@@ -291,8 +401,67 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
           </div>
         )}
 
-        {/* Needs Verification / Expired -> genuine step-up */}
-        {(status === 'needs-verification' || status === 'expired') && !loading && (
+        {/* Needs Verification / Expired -> staff email-OTP step-up */}
+        {(status === 'needs-verification' || status === 'expired') && !loading && isStaff && (
+          <form onSubmit={verifyStaffCode} className="text-center">
+            <div className="bg-yellow-50 border border-yellow-400 text-yellow-800 px-3 py-2 rounded mb-4 text-sm">
+              {geoAnomaly ? (
+                <>
+                  <p className="font-medium">New Sign-in Location Detected</p>
+                  <p>Your session is being accessed from a different location.</p>
+                  <p className="mt-1">Enter the code we emailed you to continue.</p>
+                </>
+              ) : (
+                <>
+                  <p className="font-medium">Re-verification Required</p>
+                  <p>Your previous verification has expired.</p>
+                  <p className="mt-1">Enter the 6-digit code we emailed you to continue.</p>
+                </>
+              )}
+            </div>
+
+            <div className="text-left mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email code</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={staffCode}
+                onChange={(e) => setStaffCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                autoComplete="one-time-code"
+                autoFocus
+                className="w-full border border-gray-300 rounded px-3 py-2 tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="6-digit code"
+                disabled={submitting}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mb-2 disabled:opacity-60"
+              disabled={submitting || staffCode.length !== 6}
+            >
+              {submitting ? 'Verifying...' : 'Verify & continue'}
+            </button>
+
+            <button
+              type="button"
+              onClick={requestStaffCode}
+              disabled={staffResendIn > 0}
+              className="w-full text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+            >
+              {staffResendIn > 0 ? `Resend code in ${staffResendIn}s` : (staffSent ? 'Resend code' : 'Email me a code')}
+            </button>
+
+            <p className="text-xs text-gray-500 mt-2">
+              A 6-digit code was emailed to your address. It expires shortly.
+            </p>
+          </form>
+        )}
+
+        {/* Needs Verification / Expired -> genuine step-up (Firebase admins) */}
+        {(status === 'needs-verification' || status === 'expired') && !loading && !isStaff && (
           <form onSubmit={verifySession} className="text-center">
             <div className="bg-yellow-50 border border-yellow-400 text-yellow-800 px-3 py-2 rounded mb-4 text-sm">
               {geoAnomaly ? (

@@ -412,6 +412,10 @@ const messageRoutes = require("./routes/messages");
 const guestRoutes = require("./routes/guest");
 const analyticsRoutes = require("./routes/analytics");
 const mfaRoutes = require("./routes/mfa");
+// Staff (password + email-OTP) access for the chat dashboard — additive module,
+// isolated from the existing Firebase / issue-fallback-token auth.
+const staffAuthRoutes = require("./routes/staffAuth");
+const staffAdminRoutes = require("./routes/staffAdmin");
 // P1-4: per-IP throttle on guest-session creation — bot/abuse mitigation on the
 // public /init endpoint. Redis-backed for multi-instance correctness (degrades
 // to in-memory if Redis is down); tunable via env. NOTE: effectiveness depends
@@ -466,6 +470,26 @@ const loginLimiter = rateLimit({
 });
 app.use("/api/branchadmin/login", loginLimiter);
 app.use("/api/superadmin/login", loginLimiter);
+
+// ── Staff (password + email-OTP) access — additive, isolated from Firebase auth.
+// The flow is multi-step (login → verify-otp → optional resend), so this allows
+// more requests than the 5-attempt loginLimiter; per-code attempt caps + account
+// lockout are enforced in utils/staffOtp.js and utils/staffAccounts.js.
+const staffAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.STAFF_AUTH_RL_MAX) || 30,
+  keyGenerator: rateLimitKey, // edge-authenticated client IP
+  message: { error: "Too many attempts. Please try again later." },
+  headers: true,
+  store: new RedisStore({
+    prefix: "rl:staff-auth:",
+    sendCommand: (...args) => getRedis().call(...args),
+  }),
+});
+app.use("/api/staff/login", staffAuthLimiter);
+app.use("/api/staff/stepup", staffAuthLimiter);
+app.use("/api/staff", staffAuthRoutes);
+app.use("/api/admin/staff", staffAdminRoutes);
 
 // Super-Admin login handler (VERIFY Firebase ID token TOTP)
 app.post("/api/superadmin/login", express.json(), async (req, res) => {

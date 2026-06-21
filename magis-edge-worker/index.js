@@ -618,10 +618,28 @@ async function handle(request, event) {
       pathname.startsWith("/api/messages/mark-seen-by-guest")) ||
     ((request.method === "GET" || request.method === "POST") && pathname === "/api/csrf-token") ||
     (request.method === "POST" && pathname === "/api/issue-fallback-token") ||
+    // Super-admin login token exchange (Firebase idToken in body -> backend
+    // superadmin JWT). Like /api/issue-fallback-token it carries no prior edge
+    // JWT, so it must be public; the backend verifies the Firebase token + the
+    // superadmin allowlist. Required for the super-admin who manages staff.
+    (request.method === "POST" && pathname === "/api/superadmin/login") ||
     // session-verify needs the Firebase RS256 ID token (fresh TOTP proof), which
     // the edge HS256 check would reject. The backend fully authenticates it
     // (Firebase verify + fresh-second-factor enforcement), so bypass here.
-    (request.method === "POST" && pathname === "/api/mfa/session-verify");
+    (request.method === "POST" && pathname === "/api/mfa/session-verify") ||
+    // ── Staff password + email-OTP module (additive) ─────────────────────────
+    // Staff LOGIN flow is public (no token exists yet): the backend validates the
+    // password, the emailed OTP, and the short-lived login ticket. Mirrors how the
+    // existing admin login reaches the backend via /api/issue-fallback-token.
+    // Covers /api/staff/login, /login/verify-otp, /login/resend-otp.
+    (request.method === "POST" && pathname.startsWith("/api/staff/login")) ||
+    // Super-admin STAFF MANAGEMENT (/api/admin/staff*): a superadmin token would be
+    // 403'd by the edge's branchadmin gate below, so bypass the edge JWT here
+    // exactly like /api/mfa/session-verify — the backend's authenticateSuperAdmin
+    // fully authorizes it, and the edge still stamps X-Edge-Auth on the forwarded
+    // request. (Staff /stepup/* and /change-password carry the branchadmin staff
+    // token and intentionally pass through the normal admin gate, not this bypass.)
+    (pathname.startsWith("/api/admin/staff"));
 
   if (isPublic) {
     // PERF5-1: serve a small ALLOWLIST of public, NON-personalized GETs from the

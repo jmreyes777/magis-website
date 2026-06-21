@@ -99,12 +99,21 @@ router.get('/session-status', authenticateBranchAdmin, async (req, res) => {
     const sessionId = req.headers['x-session-id'] || req.user.uid || email;
     
     // Check if Firebase user has MFA enrolled.
-    // Fallback (HMAC) tokens have no Firebase `uid`, so look up by email in that case.
-    const userRecord = req.user.uid
-      ? await admin.auth().getUser(req.user.uid)
-      : await admin.auth().getUserByEmail(email);
-    const enrolledFactors = userRecord.multiFactor?.enrolledFactors || [];
-    const mfaEnrolled = enrolledFactors.length > 0;
+    // Staff (email-OTP) accounts have no Firebase user — their second factor is
+    // the emailed code, so treat them as "enrolled" and skip the Firebase lookup
+    // (which would throw for a non-Firebase uid). Existing Firebase admins are
+    // unaffected.
+    let mfaEnrolled;
+    if (req.user && req.user.staff === true) {
+      mfaEnrolled = true;
+    } else {
+      // Fallback (HMAC) tokens have no Firebase `uid`, so look up by email in that case.
+      const userRecord = req.user.uid
+        ? await admin.auth().getUser(req.user.uid)
+        : await admin.auth().getUserByEmail(email);
+      const enrolledFactors = userRecord.multiFactor?.enrolledFactors || [];
+      mfaEnrolled = enrolledFactors.length > 0;
+    }
     
     if (!mfaEnrolled) {
       return res.json({
@@ -266,6 +275,15 @@ router.post('/clear-session', authenticateBranchAdmin, async (req, res) => {
  */
 router.get('/enrollment-status', authenticateBranchAdmin, async (req, res) => {
   try {
+    // Staff (email-OTP) accounts have no Firebase user; report email-OTP as the
+    // enrolled factor instead of calling getUser (which would throw).
+    if (req.user && req.user.staff === true) {
+      return res.json({
+        enrolled: true,
+        factors: [{ factorId: 'email_otp', displayName: 'Email code' }],
+        required: true,
+      });
+    }
     const userRecord = await admin.auth().getUser(req.user.uid);
     const enrolledFactors = userRecord.multiFactor?.enrolledFactors || [];
     

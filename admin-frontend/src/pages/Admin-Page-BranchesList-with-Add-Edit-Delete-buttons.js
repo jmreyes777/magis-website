@@ -348,6 +348,14 @@ function BranchesList() {
       <button onClick={() => navigate("/admin/branches/new")} className="btn btn-add">
         Add Branch
       </button>
+
+      <button
+        onClick={() => navigate("/admin/staff")}
+        className="btn btn-add"
+        style={{ marginLeft: "0.5rem" }}
+      >
+        Manage Staff
+      </button>
   
       {/* 🔹 Interest Rates Modal */}
       {isModalOpen && (

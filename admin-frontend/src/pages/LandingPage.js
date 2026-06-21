@@ -43,6 +43,23 @@ const LandingPage = () => {
             Branch Admin Login
           </button>
         </Link>
+
+        {/* Staff Login Button */}
+        <Link to="/staff-login" style={{ textDecoration: "none" }}>
+          <button
+            style={{
+              padding: "10px 20px",
+              backgroundColor: "#6B5BD2",
+              color: "white",
+              fontSize: "16px",
+              border: "none",
+              borderRadius: "5px",
+              cursor: "pointer",
+            }}
+          >
+            Staff Login
+          </button>
+        </Link>
       </div>
     </div>
   );

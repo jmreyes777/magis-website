@@ -11,9 +11,11 @@ import AuthContext from "./context/AuthContext";
 
 // Lazy-loaded Admin Components
 const BranchAdminLogin = lazy(() => import("./pages/BranchAdmin-Login"));
+const StaffLogin = lazy(() => import("./pages/Staff-Login"));
 const SuperAdminLogin = lazy(() => import("./pages/SuperAdminLogin"));
 const BranchManagement = lazy(() => import("./pages/Admin-Page-Branch-Add-Edit-Interface"));
 const BranchesList = lazy(() => import("./pages/Admin-Page-BranchesList-with-Add-Edit-Delete-buttons"));
+const StaffManagement = lazy(() => import("./pages/Admin-Page-Staff-Management"));
 const BranchChatDashboard = lazy(() => import("./pages/Branch-Chat-Dashboard"));
 const BranchAdminAnalytics = lazy(() => import("./pages/BranchAdmin-Analytics-Page"));
 const LandingPage = lazy(() => import("./pages/LandingPage")); // Neutral landing page
@@ -67,6 +69,7 @@ const RoutesComponent = () => {
               <Route path="/" element={<LandingPage />} />
               <Route path="/branch-admin-login" element={<BranchAdminLogin />} />
               <Route path="/super-admin-login" element={<SuperAdminLogin />} />
+              <Route path="/staff-login" element={<StaffLogin />} />
 
               <Route
                 path="/admin/branches"
@@ -89,6 +92,14 @@ const RoutesComponent = () => {
                 element={
                   <ProtectedRoute requiredRole="superadmin">
                     <BranchManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/staff"
+                element={
+                  <ProtectedRoute requiredRole="superadmin">
+                    <StaffManagement />
                   </ProtectedRoute>
                 }
               />
