@@ -10,8 +10,7 @@ import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 import AuthContext from "./context/AuthContext";
 
 // Lazy-loaded Admin Components
-const BranchAdminLogin = lazy(() => import("./pages/BranchAdmin-Login"));
-const StaffLogin = lazy(() => import("./pages/Staff-Login"));
+const BranchLogin = lazy(() => import("./pages/Branch-Unified-Login")); // unified Staff + Branch-Admin login
 const SuperAdminLogin = lazy(() => import("./pages/SuperAdminLogin"));
 const BranchManagement = lazy(() => import("./pages/Admin-Page-Branch-Add-Edit-Interface"));
 const BranchesList = lazy(() => import("./pages/Admin-Page-BranchesList-with-Add-Edit-Delete-buttons"));
@@ -67,9 +66,9 @@ const RoutesComponent = () => {
           <ErrorBoundary>
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              <Route path="/branch-admin-login" element={<BranchAdminLogin />} />
+              <Route path="/branch-admin-login" element={<BranchLogin />} />
               <Route path="/super-admin-login" element={<SuperAdminLogin />} />
-              <Route path="/staff-login" element={<StaffLogin />} />
+              <Route path="/staff-login" element={<BranchLogin />} />
 
               <Route
                 path="/admin/branches"

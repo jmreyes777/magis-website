@@ -1,0 +1,430 @@
+// backend/routes/branchAuth.js
+//
+// SIMPLE branch login: email + password (checked against the `branchAdmins`
+// collection) + an emailed 6-digit OTP on EVERY sign-in, delivered to that
+// branch's predefined email.
+//
+// Flow:
+//   POST /api/branch/login            { email, password }  -> always emails OTP
+//   POST /api/branch/login/verify-otp { loginTicket, code } -> issues token
+//   POST /api/branch/login/resend-otp { loginTicket }
+//   POST /api/branch/change-password  (auth) { currentPassword, newPassword }
+//   POST /api/branch/forgot           { email }            -> emails reset code
+//   POST /api/branch/reset            { email, code, newPassword }
+//
+// On success it mints the SAME `branchadmin` HMAC token + cookie + `mfa_sessions`
+// doc the dashboard already understands, so nothing downstream changes.
+
+const express = require("express");
+const router = express.Router();
+
+const { db } = require("../utils/firebase");
+const { signJWT, verifyJWT } = require("../utils/secretPool");
+const { getClientGeo } = require("../utils/geoSecurity");
+const { sendMail, escapeHtml } = require("../utils/email");
+const authenticateBranchAdmin = require("../middlewares/authenticateBranchAdmin");
+const {
+  normalizeEmail,
+  verifyPassword,
+  hashPassword,
+  findByEmail,
+  findByBranchId,
+  getById,
+  setPassword,
+  upsertCredentials,
+  listBranchAdmins,
+  isLocked,
+  recordFailedLogin,
+  recordSuccessfulLogin,
+} = require("../utils/branchAccounts");
+const { requestOtp, verifyOtp } = require("../utils/staffOtp");
+const authenticateSuperAdmin = require("../middlewares/authenticateSuperAdmin");
+
+const FALLBACK_TTL_MIN = Number(
+  process.env.JWT_FALLBACK_TTL_MIN || process.env.JWT_ADMIN_TTL_MIN || "240"
+);
+const TICKET_TTL_MIN = Number(process.env.BRANCH_OTP_TICKET_TTL_MIN || 10);
+const MFA_SESSION_COLLECTION = "mfa_sessions";
+const MFA_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8h — matches routes/mfa.js
+const MIN_PASSWORD_LEN = Number(process.env.BRANCH_MIN_PASSWORD_LEN || 10);
+
+// Lazily-built dummy hash so a "user not found" path still spends ~scrypt time,
+// reducing user-enumeration via timing.
+let DUMMY_HASH = null;
+async function burnTimingBudget(password) {
+  try {
+    if (!DUMMY_HASH) DUMMY_HASH = await hashPassword("timing-equalization-placeholder");
+    await verifyPassword(password || "x", DUMMY_HASH);
+  } catch {
+    /* ignore */
+  }
+}
+
+function sessionIdFrom(req, account) {
+  return (
+    req.headers["x-session-id"] ||
+    (req.body && req.body.sessionId) ||
+    (account && account.id) ||
+    "default"
+  );
+}
+
+function setBranchAdminCookie(res, token) {
+  const cookie = [
+    `branchAdminToken=${token}`,
+    `Path=/`,
+    `HttpOnly`,
+    `Secure`,
+    `SameSite=Strict`,
+    `Partitioned`,
+    `Max-Age=${FALLBACK_TTL_MIN * 60}`,
+  ].join("; ");
+  res.setHeader("Set-Cookie", cookie);
+}
+
+async function issueBranchAdminToken(account) {
+  const payload = {
+    uid: account.id,
+    branchId: account.branchId,
+    email: account.email, // the branch email drives chat routing
+    branchName: account.branchName || "Branch Admin",
+    role: "branchadmin",
+    fallback: true,
+    authVia: "branch_email_otp",
+  };
+  return signJWT(payload, { expiresIn: `${FALLBACK_TTL_MIN}m` });
+}
+
+async function writeMfaSession(req, email, sessionId) {
+  const { ip, country } = getClientGeo(req);
+  await db
+    .collection(MFA_SESSION_COLLECTION)
+    .doc(`${email}_${sessionId}`)
+    .set({
+      email,
+      sessionId,
+      verifiedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + MFA_SESSION_TTL_MS).toISOString(),
+      ip: ip || req.ip || null,
+      country: country || null,
+      geoLocked: false,
+      userAgent: req.headers["user-agent"] || null,
+      via: "branch_email_otp",
+    });
+}
+
+async function signLoginTicket(account) {
+  return signJWT(
+    { sub: account.id, email: account.email, purpose: "branch_otp_pending" },
+    { expiresIn: `${TICKET_TTL_MIN}m` }
+  );
+}
+
+async function verifyLoginTicket(ticket) {
+  const decoded = await verifyJWT(ticket);
+  if (!decoded || decoded.purpose !== "branch_otp_pending" || !decoded.email || !decoded.sub) {
+    throw new Error("invalid_ticket");
+  }
+  return decoded;
+}
+
+async function sendCodeEmail(to, code, ttlSec, { reset = false } = {}) {
+  const minutes = Math.max(1, Math.round((ttlSec || 600) / 60));
+  const heading = reset ? "Reset your password" : "Your login code";
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Magis Chat Dashboard</h2>
+      <p style="color:#4b5563;margin:0 0 20px;">${escapeHtml(heading)} &mdash; enter this code to continue:</p>
+      <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#1a1a2e;background:#faf8f5;border:1px solid #e5dcc8;border-radius:12px;padding:16px;text-align:center;">${escapeHtml(code)}</div>
+      <p style="color:#6b7280;font-size:13px;margin:16px 0 0;line-height:1.6;">This code expires in ${minutes} minute${minutes === 1 ? "" : "s"} and can be used once. If you did not try to sign in, ignore this email and notify your administrator.</p>
+    </div>`;
+  const text =
+    `Magis Chat Dashboard\n${heading} — enter this code to continue:\n\n${code}\n\n` +
+    `Expires in ${minutes} minute(s). Single use. If you did not request this, ignore this email.`;
+  await sendMail({
+    to,
+    subject: reset ? "Reset your Magis dashboard password" : "Your Magis dashboard login code",
+    html,
+    text,
+  });
+}
+
+const OTP_ERROR_MAP = {
+  NO_CODE: [410, "No active code. Please request a new one."],
+  EXPIRED: [410, "Your code expired. Please request a new one."],
+  TOO_MANY_ATTEMPTS: [429, "Too many incorrect attempts. Please request a new code."],
+  INVALID: [401, "Incorrect code."],
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/branch/login  { email, password }  — factor 1, then ALWAYS OTP.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/login", express.json(), async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const password = req.body.password;
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
+
+    const account = await findByEmail(email);
+    // No account, or no password set yet (legacy doc not seeded) → generic 401.
+    if (!account || !account.passwordHash) {
+      await burnTimingBudget(password);
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+    if (account.status === "disabled") {
+      return res.status(403).json({ error: "This account has been disabled. Contact your administrator." });
+    }
+    if (isLocked(account)) {
+      return res.status(429).json({ error: "Account temporarily locked after too many attempts. Try again later." });
+    }
+
+    const ok = await verifyPassword(password, account.passwordHash);
+    if (!ok) {
+      await recordFailedLogin(account.id, account);
+      return res.status(401).json({ error: "Invalid email or password." });
+    }
+
+    // ALWAYS send an OTP to the branch's predefined email.
+    const { ip } = getClientGeo(req);
+    const otp = await requestOtp({
+      email: account.email,
+      sessionId: sessionIdFrom(req, account),
+      ip,
+      userAgent: req.headers["user-agent"],
+    });
+    if (!otp.ok) {
+      return res.status(429).json({
+        error: "Please wait before requesting another code.",
+        retryAfterSec: otp.retryAfterSec,
+      });
+    }
+    await sendCodeEmail(account.email, otp.code, otp.ttlSec);
+    const loginTicket = await signLoginTicket(account);
+    return res.json({
+      otpRequired: true,
+      loginTicket,
+      email: account.email,
+      expiresAt: otp.expiresAt,
+    });
+  } catch (e) {
+    console.error("[BRANCH:login] ❌", e.message);
+    return res.status(500).json({ error: "Login failed. Please try again." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/branch/login/verify-otp  { loginTicket, code }
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/login/verify-otp", express.json(), async (req, res) => {
+  try {
+    const { loginTicket, code } = req.body || {};
+    if (!loginTicket || !code) {
+      return res.status(400).json({ error: "Verification code is required." });
+    }
+
+    let decoded;
+    try {
+      decoded = await verifyLoginTicket(loginTicket);
+    } catch {
+      return res.status(401).json({ error: "Your login session expired. Please sign in again." });
+    }
+
+    const account = await getById(decoded.sub);
+    if (!account || account.status === "disabled") {
+      return res.status(403).json({ error: "Account unavailable. Contact your administrator." });
+    }
+
+    const result = await verifyOtp({ email: account.email, code });
+    if (!result.ok) {
+      const [status, msg] = OTP_ERROR_MAP[result.code] || [400, "Verification failed."];
+      return res.status(status).json({ error: msg, attemptsLeft: result.attemptsLeft });
+    }
+
+    await recordSuccessfulLogin(account.id);
+    const token = await issueBranchAdminToken(account);
+    setBranchAdminCookie(res, token);
+    await writeMfaSession(req, account.email, sessionIdFrom(req, account));
+
+    return res.json({
+      token,
+      mustChangePassword: Boolean(account.mustChangePassword),
+      branchName: account.branchName,
+    });
+  } catch (e) {
+    console.error("[BRANCH:verify-otp] ❌", e.message);
+    return res.status(500).json({ error: "Verification failed. Please try again." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/branch/login/resend-otp  { loginTicket }
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/login/resend-otp", express.json(), async (req, res) => {
+  try {
+    const { loginTicket } = req.body || {};
+    let decoded;
+    try {
+      decoded = await verifyLoginTicket(loginTicket);
+    } catch {
+      return res.status(401).json({ error: "Your login session expired. Please sign in again." });
+    }
+    const account = await getById(decoded.sub);
+    if (!account || account.status === "disabled") {
+      return res.status(403).json({ error: "Account unavailable." });
+    }
+    const { ip } = getClientGeo(req);
+    const otp = await requestOtp({
+      email: account.email,
+      sessionId: sessionIdFrom(req, account),
+      ip,
+      userAgent: req.headers["user-agent"],
+    });
+    if (!otp.ok) {
+      return res.status(429).json({
+        error: "Please wait before requesting another code.",
+        retryAfterSec: otp.retryAfterSec,
+      });
+    }
+    await sendCodeEmail(account.email, otp.code, otp.ttlSec);
+    return res.json({ sent: true, expiresAt: otp.expiresAt });
+  } catch (e) {
+    console.error("[BRANCH:resend-otp] ❌", e.message);
+    return res.status(500).json({ error: "Could not resend code." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/branch/change-password  (authenticated)
+// { currentPassword, newPassword }  — covers the optional first-login change.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/change-password", authenticateBranchAdmin, express.json(), async (req, res) => {
+  try {
+    const account = await getById(req.user.uid);
+    if (!account) return res.status(404).json({ error: "Account not found." });
+
+    const { currentPassword, newPassword } = req.body || {};
+    if (!newPassword || String(newPassword).length < MIN_PASSWORD_LEN) {
+      return res
+        .status(400)
+        .json({ error: `New password must be at least ${MIN_PASSWORD_LEN} characters.` });
+    }
+    const ok = await verifyPassword(currentPassword || "", account.passwordHash || "");
+    if (!ok) return res.status(401).json({ error: "Current password is incorrect." });
+
+    await setPassword(account.id, newPassword, { mustChangePassword: false });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("[BRANCH:change-password] ❌", e.message);
+    return res.status(500).json({ error: "Could not change password." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/branch/forgot  { email }  — emails a reset code (anti-enumeration:
+// always returns ok). POST /api/branch/reset { email, code, newPassword }.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/forgot", express.json(), async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    if (!email) return res.status(400).json({ error: "Email is required." });
+    const account = await findByEmail(email);
+    if (account && account.status !== "disabled") {
+      const { ip } = getClientGeo(req);
+      const otp = await requestOtp({
+        email: account.email,
+        sessionId: "reset",
+        ip,
+        userAgent: req.headers["user-agent"],
+      });
+      if (otp.ok) {
+        await sendCodeEmail(account.email, otp.code, otp.ttlSec, { reset: true });
+      }
+    }
+    // Always generic so we never reveal whether an email exists.
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[BRANCH:forgot] ❌", e.message);
+    return res.json({ ok: true });
+  }
+});
+
+router.post("/reset", express.json(), async (req, res) => {
+  try {
+    const email = normalizeEmail(req.body.email);
+    const { code, newPassword } = req.body || {};
+    if (!email || !code) return res.status(400).json({ error: "Email and code are required." });
+    if (!newPassword || String(newPassword).length < MIN_PASSWORD_LEN) {
+      return res
+        .status(400)
+        .json({ error: `New password must be at least ${MIN_PASSWORD_LEN} characters.` });
+    }
+    const result = await verifyOtp({ email, code });
+    if (!result.ok) {
+      const [status, msg] = OTP_ERROR_MAP[result.code] || [400, "Verification failed."];
+      return res.status(status).json({ error: msg, attemptsLeft: result.attemptsLeft });
+    }
+    const account = await findByEmail(email);
+    if (!account) return res.status(400).json({ error: "Verification failed." });
+    await setPassword(account.id, newPassword, { mustChangePassword: false });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("[BRANCH:reset] ❌", e.message);
+    return res.status(500).json({ error: "Could not reset password." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────
+// Super-admin: predefine/reset a branch's login password (writes to branchAdmins)
+// and list which branches have credentials. Edge-bypassed like /api/admin/staff;
+// the backend's authenticateSuperAdmin is the authority.
+// ─────────────────────────────────────────────────────────────────────────
+router.post("/admin/set-password", authenticateSuperAdmin, express.json(), async (req, res) => {
+  try {
+    const { branchId, email, password, mustChangePassword = true } = req.body || {};
+    if (!branchId) return res.status(400).json({ error: "branchId is required." });
+    if (!password || String(password).length < 8) {
+      return res.status(400).json({ error: "Password must be at least 8 characters." });
+    }
+
+    let loginEmail = normalizeEmail(email);
+    if (!loginEmail) {
+      const existing = await findByBranchId(branchId);
+      loginEmail = existing?.email || "";
+    }
+    if (!loginEmail) {
+      const branchSnap = await db.collection("branches").doc(String(branchId)).get();
+      loginEmail = normalizeEmail(branchSnap.exists && branchSnap.data().email);
+    }
+    if (!loginEmail) {
+      return res
+        .status(400)
+        .json({ error: "No login email found for this branch. Provide an email." });
+    }
+
+    const { id } = await upsertCredentials({
+      email: loginEmail,
+      branchId,
+      password,
+      mustChangePassword: Boolean(mustChangePassword),
+      passwordSetBy: (req.user && (req.user.email || req.user.uid)) || "superadmin",
+    });
+    return res.json({ success: true, id, email: loginEmail });
+  } catch (e) {
+    console.error("[BRANCH:set-password] \u274c", e.message);
+    return res.status(500).json({ error: "Could not set branch password." });
+  }
+});
+
+router.get("/admin/list", authenticateSuperAdmin, async (req, res) => {
+  try {
+    const list = await listBranchAdmins();
+    return res.json(list);
+  } catch (e) {
+    console.error("[BRANCH:admin-list] \u274c", e.message);
+    return res.status(500).json({ error: "Could not list branch credentials." });
+  }
+});
+
+module.exports = router;

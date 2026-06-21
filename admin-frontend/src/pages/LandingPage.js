@@ -27,7 +27,7 @@ const LandingPage = () => {
           </button>
         </Link>
 
-        {/* Branch Admin Login Button */}
+        {/* Branch Login Button (unified Staff + Branch Admin) */}
         <Link to="/branch-admin-login" style={{ textDecoration: "none" }}>
           <button
             style={{
@@ -40,24 +40,7 @@ const LandingPage = () => {
               cursor: "pointer",
             }}
           >
-            Branch Admin Login
-          </button>
-        </Link>
-
-        {/* Staff Login Button */}
-        <Link to="/staff-login" style={{ textDecoration: "none" }}>
-          <button
-            style={{
-              padding: "10px 20px",
-              backgroundColor: "#6B5BD2",
-              color: "white",
-              fontSize: "16px",
-              border: "none",
-              borderRadius: "5px",
-              cursor: "pointer",
-            }}
-          >
-            Staff Login
+            Branch Login
           </button>
         </Link>
       </div>
