@@ -551,6 +551,22 @@ const initializeSocket = (server) => {
 
       try { await touchBranchOnline(branchEmail); } catch (_) {}
 
+      // Persist ONLINE to the Firestore branchStatus doc via the Admin SDK (this
+      // bypasses security rules). /api/branch-status falls back to this doc when
+      // Redis is unavailable, and the dashboard's CLIENT-side updateBranchStatus()
+      // cannot write it when the branch admin signed in via OTP (no/late Firebase
+      // session) — which left the branch showing OFFLINE to guests. Mirrors the
+      // offline write performed on disconnect. Best-effort; never blocks connect.
+      try {
+        await db.collection("branchStatus").doc(branchEmail.toLowerCase()).set(
+          { online: true, lastSeen: new Date().toISOString() },
+          { merge: true }
+        );
+        console.log(`[SOCKET] ✅ Marked branch ONLINE in Firestore (server-side): ${branchEmail}`);
+      } catch (e) {
+        console.warn("[SOCKET] Failed to mark branch ONLINE in Firestore:", e.message);
+      }
+
       const guestSet = branchGuests.get(branchEmail);
       if (guestSet && guestSet.size > 0) {
         guestSet.forEach((gid) => {
