@@ -134,6 +134,10 @@ async function mintFirebaseToken(account) {
       role: "branchadmin",
       branchId: account.branchId,
       branchName: account.branchName || "Branch Admin",
+      // The Firestore rules compare `request.auth.token.email == branchEmail`
+      // (messages read + branchStatus write). Custom-token sessions do NOT
+      // reliably carry the user-record email, so set it EXPLICITLY here.
+      email,
       id: account.id,
     };
 

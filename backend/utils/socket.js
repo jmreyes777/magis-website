@@ -1003,7 +1003,12 @@ const initializeSocket = (server) => {
     });
 
     // chatClosed (guest)
-    socket.on("chatClosed", async ({ guestId }) => {
+    socket.on("chatClosed", async ({ guestId }, callback) => {
+      const ack = (payload) => {
+        if (typeof callback === "function") {
+          try { callback(payload); } catch (_) {}
+        }
+      };
       const canon = (id) =>
         id?.toLowerCase().startsWith("guest-") ? id.toLowerCase() : `guest-${id?.toLowerCase()}`;
       const incomingGuestId = canon(guestId);
@@ -1022,6 +1027,7 @@ const initializeSocket = (server) => {
           expected: actualGuestId,
           branch: actualBranchEmail,
         });
+        ack({ success: false, error: "invalid_payload" });
         return;
       }
 
@@ -1078,6 +1084,11 @@ const initializeSocket = (server) => {
       }
 
       checkForStaleGuests(actualBranchEmail);
+
+      // Acknowledge so the guest can safely disconnect AFTER we've received and
+      // processed the close (prevents the emit being dropped by an immediate
+      // socket.disconnect() on the client — the root cause of lingering chats).
+      ack({ success: true, guestId: incomingGuestId });
     });
 
     // NOTE: ECDH public-key exchange handlers (e2ee:public_key / e2ee:branch_key)

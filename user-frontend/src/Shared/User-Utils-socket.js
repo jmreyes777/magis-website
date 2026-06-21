@@ -747,12 +747,34 @@ export async function emitChatClosed(guestId, branchEmail) {
     return;
   }
 
-  // 1️⃣ Primary path: emit immediately if connected
+  // 1️⃣ Primary path: emit if connected, but WAIT for the server's ACK before
+  //    returning. The caller (disconnectSocket) calls socket.disconnect()
+  //    immediately after this resolves; without waiting, the disconnect drops
+  //    the in-flight chatClosed packet so the server never marks the guest
+  //    offline — the conversation then lingers on the admin dashboard. A short
+  //    timeout falls back gracefully if the server doesn't ack (older server).
   if (socket.connected) {
     console.log(
       `[SOCKET] ✅ Emitting chatClosed for guestId: ${guestId}, branchEmail: ${branchEmail}`
     );
-    socket.emit("chatClosed", { guestId, branchEmail });
+    await new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+      };
+      try {
+        socket.emit("chatClosed", { guestId, branchEmail }, () => {
+          console.log("[SOCKET] ✅ chatClosed acknowledged by server");
+          done();
+        });
+      } catch (e) {
+        done();
+      }
+      setTimeout(done, 1500);
+    });
     return;
   }
 
