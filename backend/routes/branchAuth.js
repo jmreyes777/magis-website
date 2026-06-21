@@ -48,6 +48,25 @@ const MFA_SESSION_COLLECTION = "mfa_sessions";
 const MFA_SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8h — matches routes/mfa.js
 const MIN_PASSWORD_LEN = Number(process.env.BRANCH_MIN_PASSWORD_LEN || 10);
 
+// Staging/dev testing aid: when the OTP email can't be delivered (e.g. SMTP not
+// configured / bad credentials), expose the code in the API response so the
+// flow can still be tested. NEVER on in production unless BRANCH_OTP_DEV_ECHO=1
+// is explicitly set on the backend.
+const OTP_ECHO_ALLOWED =
+  process.env.NODE_ENV !== "production" || process.env.BRANCH_OTP_DEV_ECHO === "1";
+
+// Send the OTP email but NEVER let a delivery failure crash the login. Returns
+// whether it was delivered (+ the error) so callers can surface it gracefully.
+async function deliverOtpEmail(to, code, ttlSec, opts) {
+  try {
+    await sendCodeEmail(to, code, ttlSec, opts);
+    return { emailSent: true, emailError: null };
+  } catch (mailErr) {
+    console.error("[BRANCH] OTP email delivery failed:", mailErr.message);
+    return { emailSent: false, emailError: mailErr.message };
+  }
+}
+
 // Lazily-built dummy hash so a "user not found" path still spends ~scrypt time,
 // reducing user-enumeration via timing.
 let DUMMY_HASH = null;
@@ -200,14 +219,20 @@ router.post("/login", express.json(), async (req, res) => {
         retryAfterSec: otp.retryAfterSec,
       });
     }
-    await sendCodeEmail(account.email, otp.code, otp.ttlSec);
+    const { emailSent, emailError } = await deliverOtpEmail(account.email, otp.code, otp.ttlSec);
     const loginTicket = await signLoginTicket(account);
-    return res.json({
+    const payload = {
       otpRequired: true,
       loginTicket,
       email: account.email,
       expiresAt: otp.expiresAt,
-    });
+      emailSent,
+    };
+    if (!emailSent) {
+      payload.emailError = emailError;
+      if (OTP_ECHO_ALLOWED) payload.devCode = otp.code;
+    }
+    return res.json(payload);
   } catch (e) {
     console.error("[BRANCH:login] ❌", e.message);
     return res.status(500).json({ error: "Login failed. Please try again." });
@@ -287,8 +312,13 @@ router.post("/login/resend-otp", express.json(), async (req, res) => {
         retryAfterSec: otp.retryAfterSec,
       });
     }
-    await sendCodeEmail(account.email, otp.code, otp.ttlSec);
-    return res.json({ sent: true, expiresAt: otp.expiresAt });
+    const { emailSent, emailError } = await deliverOtpEmail(account.email, otp.code, otp.ttlSec);
+    const payload = { sent: emailSent, emailSent, expiresAt: otp.expiresAt };
+    if (!emailSent) {
+      payload.emailError = emailError;
+      if (OTP_ECHO_ALLOWED) payload.devCode = otp.code;
+    }
+    return res.json(payload);
   } catch (e) {
     console.error("[BRANCH:resend-otp] ❌", e.message);
     return res.status(500).json({ error: "Could not resend code." });

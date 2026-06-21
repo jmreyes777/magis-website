@@ -69,6 +69,7 @@ function BranchUnifiedLogin() {
   const [pendingSession, setPendingSession] = useState(null);
   const [resendIn, setResendIn] = useState(0);
   const [resetCode, setResetCode] = useState("");
+  const [otpDevCode, setOtpDevCode] = useState(""); // staging fallback shown when OTP email is down
 
   // Firebase flow
   const [totpCode, setTotpCode] = useState("");
@@ -217,8 +218,15 @@ function BranchUnifiedLogin() {
     setError(""); setBusy(true);
     try {
       const { ok, data } = await post("/api/branch/login/resend-otp", { loginTicket });
-      if (!ok) setError(data.error || "Could not resend code.");
-      else { setInfo("A new code has been emailed."); setResendIn(RESEND_SECONDS); }
+      if (!ok) { setError(data.error || "Could not resend code."); return; }
+      setResendIn(RESEND_SECONDS);
+      if (data.emailSent === false) {
+        setOtpDevCode(data.devCode || "");
+        setInfo(data.devCode ? "Email is down — use the new testing code below." : "We couldn't email the code (email service error).");
+      } else {
+        setOtpDevCode("");
+        setInfo("A new code has been emailed.");
+      }
     } finally {
       setBusy(false);
     }
@@ -507,7 +515,17 @@ function BranchUnifiedLogin() {
         setLoginTicket(data.loginTicket);
         setView("staffOtp");
         setResendIn(RESEND_SECONDS);
-        setInfo(`We emailed a 6-digit code to ${data.email || cleanEmail}.`);
+        if (data.emailSent === false) {
+          setOtpDevCode(data.devCode || "");
+          setInfo(
+            data.devCode
+              ? "Email delivery is down — use the testing code shown below."
+              : "We couldn't email the code (email service error). Ask an admin to fix email, or set BRANCH_OTP_DEV_ECHO=1 on the backend to test."
+          );
+        } else {
+          setOtpDevCode("");
+          setInfo(`We emailed a 6-digit code to ${data.email || cleanEmail}.`);
+        }
         return;
       }
       if (status === 401) {
@@ -576,6 +594,16 @@ function BranchUnifiedLogin() {
         {view === "staffOtp" && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1 text-center">Enter the 6-digit code</label>
+            {otpDevCode && (
+              <button
+                type="button"
+                onClick={() => handleOtpChange(otpDevCode)}
+                className="w-full mb-3 p-2 rounded-lg bg-amber-50 border border-amber-200 text-center"
+              >
+                <span className="block text-xs text-amber-700">Email is down &mdash; testing code (tap to autofill):</span>
+                <span className="block font-mono text-2xl tracking-[0.4em] text-amber-900">{otpDevCode}</span>
+              </button>
+            )}
             <input
               type="text"
               inputMode="numeric"
