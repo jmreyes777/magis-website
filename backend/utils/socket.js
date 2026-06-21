@@ -1064,6 +1064,19 @@ const initializeSocket = (server) => {
       io.to(adminRoom).emit("chatClosed", { guestId: incomingGuestId });
       console.log(`[BACKEND] Emitted chatClosed to admin room: ${adminRoom} for guestId=${incomingGuestId}`);
 
+      // Belt-and-suspenders: also push the authoritative presence set. markGuestOffline
+      // above just deleted this guest's Redis key, so getBranchPresence now excludes
+      // them. The admin re-binds `guestPresenceUpdate` on every reconnect and PRUNES
+      // any chat row not in the live set — so the conversation is removed even if the
+      // one-shot `chatClosed` event is missed during a socket rebind.
+      try {
+        const updatedPresence = await getBranchPresence(actualBranchEmail);
+        io.to(adminRoom).emit("guestPresenceUpdate", updatedPresence);
+        console.log(`[BACKEND] Re-emitted guestPresenceUpdate after close → ${updatedPresence.length} online`);
+      } catch (e) {
+        console.warn("[SERVER] chatClosed presence re-emit failed:", e.message);
+      }
+
       checkForStaleGuests(actualBranchEmail);
     });
 

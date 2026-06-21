@@ -414,6 +414,34 @@ router.post("/change-password", authenticateBranchAdmin, express.json(), async (
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// POST /api/branch/firebase-token  (authenticated)
+// Re-mint a Firebase custom token for the CURRENT branch-admin session so the
+// dashboard can (re)establish its Firebase Auth session on page reload / a
+// reopened tab — not only immediately after OTP login. Without this, the
+// client-side Firestore (chats/messages/presence) is permission-denied after any
+// reload because Firebase's browserSessionPersistence was cleared while the HMAC
+// session is still valid. Best-effort; the HMAC session is unaffected on failure.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/firebase-token", authenticateBranchAdmin, async (req, res) => {
+  try {
+    const account = {
+      id: req.user?.uid || req.user?.id || req.branchEmail,
+      email: req.branchEmail,
+      branchId: req.branchId,
+      branchName: req.branchName,
+    };
+    const firebaseToken = await mintFirebaseToken(account);
+    if (!firebaseToken) {
+      return res.status(503).json({ error: "Could not establish Firebase session." });
+    }
+    return res.json({ firebaseToken });
+  } catch (e) {
+    console.error("[BRANCH:firebase-token] ❌", e.message);
+    return res.status(500).json({ error: "Could not issue Firebase token." });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // POST /api/branch/forgot  { email }  — emails a reset code (anti-enumeration:
 // always returns ok). POST /api/branch/reset { email, code, newPassword }.
 // ─────────────────────────────────────────────────────────────────────────────

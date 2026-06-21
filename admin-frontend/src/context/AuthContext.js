@@ -2,7 +2,7 @@ import React, { createContext, useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { disconnectSocket } from "../components/Admin-Utils-socket";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth, onAuthStateChanged, signInWithCustomToken } from "firebase/auth";
 import { getSessionIds } from "../utils/initSession";
 import { ensureSessionHydrated } from "../utils/sessionHydration";
 
@@ -26,6 +26,7 @@ export const AuthProvider = ({ children }) => {
   const [mfaRequired, setMfaRequired] = useState(true);
 
   const logoutTriggeredRef = useRef(false);
+  const fbSessionAttemptRef = useRef(false);
 
   useEffect(() => {
   // 🚨 Cold-start cleanup: if there’s no JWT in sessionStorage,
@@ -238,6 +239,65 @@ export const AuthProvider = ({ children }) => {
     logoutTriggeredRef.current = true;
     await handleLogout(isTabClosing);
   };
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Ensure a Firebase Auth session for branch-admin dashboards.
+  //
+  // The OTP login mints an HMAC token (edge worker + Socket.IO), but the chat
+  // dashboard reads chats/messages and writes presence via the Firebase client
+  // SDK, whose security rules require request.auth. On a page reload / reopened
+  // tab the HMAC session is restored from storage while Firebase's
+  // browserSessionPersistence may already be gone — leaving Firestore
+  // permission-denied. Here we re-establish the Firebase session from a
+  // backend-minted custom token whenever it's missing, so Firestore is
+  // authorized on EVERY load (not only right after login). Never blocks the HMAC
+  // session.
+  // ──────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (firebaseAuthReady) return; // already signed into Firebase
+    if (!isAuthenticated || userRole !== "branchadmin") return;
+    if (fbSessionAttemptRef.current) return;
+
+    let cancelled = false;
+    const establish = async () => {
+      // Give Firebase a brief moment to restore an existing session from storage
+      // before minting a new one (avoids redundant requests on reload).
+      await new Promise((r) => setTimeout(r, 700));
+      if (cancelled || auth.currentUser) return;
+
+      const token =
+        sessionStorage.getItem("branchAdminToken") ||
+        localStorage.getItem("branchAdminToken");
+      if (!token) return;
+
+      fbSessionAttemptRef.current = true;
+      try {
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL}/api/branch/firebase-token`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.firebaseToken && !auth.currentUser) {
+          await signInWithCustomToken(auth, data.firebaseToken);
+          console.info("[AUTH] ✅ Firebase session re-established for dashboard Firestore");
+        } else if (!res.ok) {
+          console.warn("[AUTH] Firebase token endpoint failed:", res.status, data.error);
+        }
+      } catch (e) {
+        console.warn("[AUTH] Could not establish Firebase session:", e.message);
+      } finally {
+        fbSessionAttemptRef.current = false;
+      }
+    };
+    establish();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, userRole, firebaseAuthReady, auth]);
 
   // ============================================================================
   // MFA FUNCTIONS
