@@ -188,6 +188,12 @@ const { ADMIN_URL, GUEST_URL, BACKEND_URL, JWT_SECRET, RATE_LIMIT_KV, EDGE_SHARE
 const ALLOWED_ORIGINS = [
   ADMIN_URL,
   GUEST_URL,
+  // Local dev origins (CRA's default scheme is http) — used when running the
+  // admin frontend locally against this worker for staging testing.
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
   "https://127.0.0.1:3000",
   "https://127.0.0.1:3001",
   "https://127.0.0.1:8787",
@@ -199,7 +205,18 @@ const isHashedAsset = (p) =>
   /\.[0-9a-f]{8,}\.(js|css|png|jpe?g|gif|svg|webp|woff2?)$/i.test(p);
 
 function isAllowedOrigin(origin) {
-  return !!origin && ALLOWED_ORIGINS.includes(origin);
+  if (!origin) return false;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Any localhost / 127.0.0.1 origin (any port, http or https) — dev only. The
+  // browser controls the Origin header and remote pages cannot forge it, so
+  // permitting all local ports is safe and also covers IDE preview proxies that
+  // bind to a random localhost port.
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
 }
 
 function addSecurityHeaders(h, { hsts = true } = {}) {
@@ -639,7 +656,20 @@ async function handle(request, event) {
     // fully authorizes it, and the edge still stamps X-Edge-Auth on the forwarded
     // request. (Staff /stepup/* and /change-password carry the branchadmin staff
     // token and intentionally pass through the normal admin gate, not this bypass.)
-    (pathname.startsWith("/api/admin/staff"));
+    (pathname.startsWith("/api/admin/staff")) ||
+    // ── Branch login (email + password vs `branchAdmins` + emailed OTP) ───────
+    // Public auth endpoints (no token exists yet): /login, /login/verify-otp,
+    // /login/resend-otp, /forgot, /reset. The backend validates the password, the
+    // emailed OTP, and the short-lived login ticket. (/api/branch/change-password
+    // carries the branchadmin token and intentionally uses the normal gate below.)
+    (request.method === "POST" && pathname.startsWith("/api/branch/login")) ||
+    (request.method === "POST" && pathname === "/api/branch/forgot") ||
+    (request.method === "POST" && pathname === "/api/branch/reset") ||
+    // Super-admin branch password management (/api/branch/admin*): a superadmin
+    // token would be 403'd by the edge's branchadmin gate, so bypass like
+    // /api/admin/staff — the backend's authenticateSuperAdmin authorizes it and
+    // the edge still stamps X-Edge-Auth on the forwarded request.
+    (pathname.startsWith("/api/branch/admin"));
 
   if (isPublic) {
     // PERF5-1: serve a small ALLOWLIST of public, NON-personalized GETs from the

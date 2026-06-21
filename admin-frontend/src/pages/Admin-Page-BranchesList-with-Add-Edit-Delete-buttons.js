@@ -350,11 +350,11 @@ function BranchesList() {
       </button>
 
       <button
-        onClick={() => navigate("/admin/staff")}
+        onClick={() => navigate("/admin/branch-passwords")}
         className="btn btn-add"
         style={{ marginLeft: "0.5rem" }}
       >
-        Manage Staff
+        Branch Login Passwords
       </button>
   
       {/* 🔹 Interest Rates Modal */}

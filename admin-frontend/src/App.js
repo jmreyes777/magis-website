@@ -15,6 +15,7 @@ const SuperAdminLogin = lazy(() => import("./pages/SuperAdminLogin"));
 const BranchManagement = lazy(() => import("./pages/Admin-Page-Branch-Add-Edit-Interface"));
 const BranchesList = lazy(() => import("./pages/Admin-Page-BranchesList-with-Add-Edit-Delete-buttons"));
 const StaffManagement = lazy(() => import("./pages/Admin-Page-Staff-Management"));
+const BranchPasswords = lazy(() => import("./pages/Admin-Page-Branch-Passwords"));
 const BranchChatDashboard = lazy(() => import("./pages/Branch-Chat-Dashboard"));
 const BranchAdminAnalytics = lazy(() => import("./pages/BranchAdmin-Analytics-Page"));
 const LandingPage = lazy(() => import("./pages/LandingPage")); // Neutral landing page
@@ -99,6 +100,14 @@ const RoutesComponent = () => {
                 element={
                   <ProtectedRoute requiredRole="superadmin">
                     <StaffManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/branch-passwords"
+                element={
+                  <ProtectedRoute requiredRole="superadmin">
+                    <BranchPasswords />
                   </ProtectedRoute>
                 }
               />
