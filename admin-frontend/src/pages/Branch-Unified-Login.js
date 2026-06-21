@@ -36,6 +36,7 @@ import { useWakeLock } from "../utils/useWakeLock";
 import {
   getAuth,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   getMultiFactorResolver,
   multiFactor,
   TotpMultiFactorGenerator,
@@ -176,7 +177,19 @@ function BranchUnifiedLogin() {
     return { branchEmail, branchId, branchName, tabId };
   }, [email, setIsAuthenticated, setUserRole, setAdminEmail]);
 
-  const completeStaffLogin = useCallback((token, { mustChangePassword, branchName }) => {
+  const completeStaffLogin = useCallback(async (token, { mustChangePassword, branchName, firebaseToken }) => {
+    // Establish a Firebase Auth session so the dashboard's client-side Firestore
+    // (chat list, message history, presence) is authorized. The HMAC token only
+    // covers the edge worker + Socket.IO; Firestore rules require request.auth
+    // with a branchadmin role + matching email. Best-effort: a Firebase hiccup
+    // must not block a login that already succeeded server-side.
+    if (firebaseToken) {
+      try {
+        await signInWithCustomToken(getAuth(), firebaseToken);
+      } catch (e) {
+        console.warn("[LOGIN] Firebase custom-token sign-in failed:", e.message);
+      }
+    }
     const session = establishStaffSession(token, branchName);
     if (mustChangePassword) {
       setPendingSession(session);
@@ -199,7 +212,7 @@ function BranchUnifiedLogin() {
         return;
       }
       if (data.trustedDeviceToken) localStorage.setItem(TRUSTED_KEY, data.trustedDeviceToken);
-      completeStaffLogin(data.token, data);
+      await completeStaffLogin(data.token, data);
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -510,7 +523,7 @@ function BranchUnifiedLogin() {
         password,
         trustedDeviceToken: localStorage.getItem(TRUSTED_KEY) || undefined,
       });
-      if (ok && data.token) { completeStaffLogin(data.token, data); return; }
+      if (ok && data.token) { await completeStaffLogin(data.token, data); return; }
       if (ok && data.otpRequired) {
         setLoginTicket(data.loginTicket);
         setView("staffOtp");

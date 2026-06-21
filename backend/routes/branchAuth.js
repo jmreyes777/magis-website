@@ -18,7 +18,7 @@
 const express = require("express");
 const router = express.Router();
 
-const { db } = require("../utils/firebase");
+const { db, admin } = require("../utils/firebase");
 const { signJWT, verifyJWT } = require("../utils/secretPool");
 const { getClientGeo } = require("../utils/geoSecurity");
 const { sendMail, escapeHtml } = require("../utils/email");
@@ -112,6 +112,64 @@ async function issueBranchAdminToken(account) {
     authVia: "branch_email_otp",
   };
   return signJWT(payload, { expiresIn: `${FALLBACK_TTL_MIN}m` });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Firebase Auth session for the dashboard's client-side Firestore.
+//
+// The HMAC token above only authorizes the edge worker + Socket.IO. The chat
+// dashboard ALSO reads chats/messages and writes presence directly via the
+// Firebase client SDK, whose security rules require `request.auth` with a
+// `branchadmin` role and an `email` claim equal to the branch email
+// (firestore.rules). So we mint a Firebase custom token here and have the
+// frontend signInWithCustomToken() — mirroring the Firebase-login path.
+//
+// Best-effort: a Firebase hiccup must never block an OTP login that already
+// succeeded. Returns a custom-token string, or null on any failure.
+// ─────────────────────────────────────────────────────────────────────────────
+async function mintFirebaseToken(account) {
+  try {
+    const email = normalizeEmail(account.email);
+    const claims = {
+      role: "branchadmin",
+      branchId: account.branchId,
+      branchName: account.branchName || "Branch Admin",
+      id: account.id,
+    };
+
+    // Resolve (or create) the Firebase Auth user for this branch email so the
+    // minted session carries a real `email` claim matching branchEmail
+    // (rules compare resource.data.branchEmail == request.auth.token.email).
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch (e) {
+      if (e.code === "auth/user-not-found") {
+        userRecord = await admin.auth().createUser({ email, emailVerified: true });
+      } else {
+        throw e;
+      }
+    }
+
+    // Keep persistent custom claims in sync (idempotent) so role/branchId hold
+    // across future sessions too.
+    const existing = userRecord.customClaims || {};
+    const needsUpdate =
+      existing.role !== claims.role ||
+      existing.branchId !== claims.branchId ||
+      existing.branchName !== claims.branchName ||
+      existing.id !== claims.id;
+    if (needsUpdate) {
+      await admin.auth().setCustomUserClaims(userRecord.uid, { ...existing, ...claims });
+    }
+
+    // Pass claims as developer claims too so THIS token carries them immediately
+    // (no propagation wait).
+    return await admin.auth().createCustomToken(userRecord.uid, claims);
+  } catch (e) {
+    console.error("[BRANCH] Firebase custom-token mint failed:", e.message);
+    return null;
+  }
 }
 
 async function writeMfaSession(req, email, sessionId) {
@@ -271,9 +329,13 @@ router.post("/login/verify-otp", express.json(), async (req, res) => {
     const token = await issueBranchAdminToken(account);
     setBranchAdminCookie(res, token);
     await writeMfaSession(req, account.email, sessionIdFrom(req, account));
+    // Firebase custom token → frontend signInWithCustomToken() so the dashboard's
+    // client-side Firestore (chats/messages/presence) is authorized. Best-effort.
+    const firebaseToken = await mintFirebaseToken(account);
 
     return res.json({
       token,
+      firebaseToken,
       mustChangePassword: Boolean(account.mustChangePassword),
       branchName: account.branchName,
     });
