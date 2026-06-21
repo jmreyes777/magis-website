@@ -4,10 +4,13 @@
 // new staff-access module (credential + OTP emails) and any future feature can
 // send mail without re-implementing transport config in each route.
 //
-// Transport selection (first match wins):
-//   1) Explicit SMTP_* config (SMTP_HOST/PORT/SECURE/USER/PASS)
-//   2) Gmail service via SUPPORT_EMAIL / SUPPORT_EMAIL_PASSWORD
-//      (identical to the working contact-form mailer in routes/guest.js)
+// Credentials (first match wins):
+//   1) BRANCH_SMTP_USER / BRANCH_SMTP_PASS   (dedicated branch-login mailbox)
+//   2) SMTP_USER / SMTP_PASS                 (generic SMTP)
+//   3) SUPPORT_EMAIL / SUPPORT_EMAIL_PASSWORD (legacy contact-form account)
+//
+// Transport: an explicit SMTP host (BRANCH_SMTP_HOST or SMTP_HOST) if set,
+// otherwise the Gmail service (works with a Gmail App Password).
 //
 // This module is ADDITIVE: it does not modify or replace the inline mailer in
 // guest.js, so existing email behavior is unchanged.
@@ -16,10 +19,18 @@ const nodemailer = require("nodemailer");
 
 let cachedTransporter = null;
 
-/** Resolve the sending account user/pass from env (SMTP_* preferred). */
+/** Resolve the sending account user/pass from env (BRANCH_SMTP_* preferred). */
 function resolveCreds() {
-  const user = process.env.SMTP_USER || process.env.SUPPORT_EMAIL || "";
-  const pass = process.env.SMTP_PASS || process.env.SUPPORT_EMAIL_PASSWORD || "";
+  const user =
+    process.env.BRANCH_SMTP_USER ||
+    process.env.SMTP_USER ||
+    process.env.SUPPORT_EMAIL ||
+    "";
+  const pass =
+    process.env.BRANCH_SMTP_PASS ||
+    process.env.SMTP_PASS ||
+    process.env.SUPPORT_EMAIL_PASSWORD ||
+    "";
   return { user, pass };
 }
 
@@ -34,11 +45,13 @@ function getTransporter() {
   if (cachedTransporter) return cachedTransporter;
   const { user, pass } = resolveCreds();
 
-  if (process.env.SMTP_HOST) {
+  const host = process.env.BRANCH_SMTP_HOST || process.env.SMTP_HOST;
+  if (host) {
     cachedTransporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: String(process.env.SMTP_SECURE || "false").toLowerCase() === "true",
+      host,
+      port: Number(process.env.BRANCH_SMTP_PORT || process.env.SMTP_PORT || 587),
+      secure:
+        String(process.env.BRANCH_SMTP_SECURE || process.env.SMTP_SECURE || "false").toLowerCase() === "true",
       auth: user ? { user, pass } : undefined,
     });
   } else {
