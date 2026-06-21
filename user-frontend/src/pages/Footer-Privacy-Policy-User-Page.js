@@ -63,7 +63,7 @@ function PrivacyPolicy() {
               <p className="text-sm mt-2">
                 This Policy covers personal data we process online — through this website
                 (www.magispawnshop.com), the branch finder and maps, the live chat, and our contact and
-                transcript forms — and in-branch when you make inquiries or transact with us in person. It does
+                transcript forms — as well as in person at our branches. It does
                 not cover third-party sites we link to, which have their own privacy policies.
               </p>
             </div>
