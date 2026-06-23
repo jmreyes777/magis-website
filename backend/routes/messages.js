@@ -218,6 +218,15 @@ function unwrapConversationKey(stored) {
   throw err;
 }
 
+// Opt-in self-heal, DEFAULT OFF. When a stored key cannot be decrypted by ANY
+// configured secret (its wrapping secret was rotated away/lost), the default is to
+// THROW (-> 500) so potentially-recoverable history is never destroyed. Setting
+// CONV_KEY_AUTO_REGEN=true (a deliberate recovery/staging choice) instead makes the
+// backend regenerate a fresh key under the current secret so the conversation works
+// again — each regeneration is logged. NEVER enable this in production unless you
+// accept that un-decryptable conversations' old history is permanently discarded.
+const CONV_KEY_AUTO_REGEN = /^(1|true|yes|on)$/i.test(process.env.CONV_KEY_AUTO_REGEN || "");
+
 // Get the conversation key, creating it atomically on first request so the
 // guest and admin always converge on the same key regardless of who asks first.
 async function getOrCreateConversationKey(branchEmail, guestId) {
@@ -229,7 +238,22 @@ async function getOrCreateConversationKey(branchEmail, guestId) {
   return db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (snap.exists) {
-      return unwrapConversationKey(snap.data().key);
+      try {
+        return unwrapConversationKey(snap.data().key);
+      } catch (err) {
+        if (!CONV_KEY_AUTO_REGEN) throw err; // strict default: surface the 500
+        console.warn(
+          `[CONV-KEY] CONV_KEY_AUTO_REGEN: regenerating un-decryptable key for ${docId} ` +
+            `(${err.code || err.message}). Prior history for this thread is not recoverable.`
+        );
+        const rawB64 = crypto.randomBytes(32).toString("base64"); // AES-256
+        tx.set(
+          ref,
+          { key: wrapConversationKey(rawB64), regeneratedAt: new Date().toISOString() },
+          { merge: true }
+        );
+        return rawB64;
+      }
     }
     const rawB64 = crypto.randomBytes(32).toString("base64"); // AES-256
     tx.set(ref, {
