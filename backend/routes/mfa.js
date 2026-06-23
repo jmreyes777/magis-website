@@ -107,12 +107,24 @@ router.get('/session-status', authenticateBranchAdmin, async (req, res) => {
     if (req.user && req.user.staff === true) {
       mfaEnrolled = true;
     } else {
-      // Fallback (HMAC) tokens have no Firebase `uid`, so look up by email in that case.
-      const userRecord = req.user.uid
-        ? await admin.auth().getUser(req.user.uid)
-        : await admin.auth().getUserByEmail(email);
-      const enrolledFactors = userRecord.multiFactor?.enrolledFactors || [];
-      mfaEnrolled = enrolledFactors.length > 0;
+      try {
+        // Fallback (HMAC) tokens have no Firebase `uid`, so look up by email in that case.
+        const userRecord = req.user.uid
+          ? await admin.auth().getUser(req.user.uid)
+          : await admin.auth().getUserByEmail(email);
+        const enrolledFactors = userRecord.multiFactor?.enrolledFactors || [];
+        mfaEnrolled = enrolledFactors.length > 0;
+      } catch (lookupErr) {
+        // Branch admins on the password + email-OTP system have NO Firebase Auth
+        // user, so getUser/getUserByEmail throws auth/user-not-found. Like staff,
+        // their second factor is the emailed OTP, so treat them as enrolled and let
+        // the mfa_sessions check below decide verification — never hard-500 here.
+        if (lookupErr && lookupErr.code === 'auth/user-not-found') {
+          mfaEnrolled = true;
+        } else {
+          throw lookupErr;
+        }
+      }
     }
     
     if (!mfaEnrolled) {
