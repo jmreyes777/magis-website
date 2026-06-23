@@ -676,7 +676,22 @@ async function handle(request, event) {
     // /api/admin/staff — the backend's authenticateAuditViewer fully authorizes
     // BOTH roles (and scopes branch-admins to their own branchEmail). The edge
     // still stamps X-Edge-Auth on the forwarded request via withForwardedGeo.
-    (pathname.startsWith("/api/audit"));
+    (pathname.startsWith("/api/audit")) ||
+    // Logout endpoints must work even with no/expired edge token: the browser
+    // calls them during teardown (idle auto-close, tab/page close) with only
+    // credentials:'include' (no Authorization header), and the SameSite
+    // branchAdminToken cookie is cross-site to this worker, so the admin JWT gate
+    // would 401. They are safe to expose — the backend verifies the cookie itself
+    // (allow-expired) to revoke the jti when present, then clears it (idempotent).
+    (request.method === "POST" && pathname === "/api/branchadmin/logout") ||
+    (request.method === "POST" && pathname === "/api/superadmin/logout") ||
+    // Offline presence beacon (P3-4): authenticated by a token in the JSON BODY
+    // (navigator.sendBeacon can't set an Authorization header, and the cookie is
+    // not sent cross-site). The edge gate only reads header/cookie tokens, so it
+    // must bypass here — exactly like /api/messages/conversation-key — and the
+    // backend's authenticateBranchAdmin validates the body token and scopes the
+    // offline flip to that token's OWN branch (never the body-supplied email).
+    (request.method === "POST" && pathname === "/api/update-status");
 
   if (isPublic) {
     // PERF5-1: serve a small ALLOWLIST of public, NON-personalized GETs from the
