@@ -669,7 +669,14 @@ async function handle(request, event) {
     // token would be 403'd by the edge's branchadmin gate, so bypass like
     // /api/admin/staff — the backend's authenticateSuperAdmin authorizes it and
     // the edge still stamps X-Edge-Auth on the forwarded request.
-    (pathname.startsWith("/api/branch/admin"));
+    (pathname.startsWith("/api/branch/admin")) ||
+    // Audit & compliance dashboard (/api/audit/*): a READ-ONLY API used by BOTH
+    // super-admin and branch-admin. A superadmin token (role=superadmin) is
+    // 403'd by the edge's branchadmin-only gate below, so bypass exactly like
+    // /api/admin/staff — the backend's authenticateAuditViewer fully authorizes
+    // BOTH roles (and scopes branch-admins to their own branchEmail). The edge
+    // still stamps X-Edge-Auth on the forwarded request via withForwardedGeo.
+    (pathname.startsWith("/api/audit"));
 
   if (isPublic) {
     // PERF5-1: serve a small ALLOWLIST of public, NON-personalized GETs from the
