@@ -2,9 +2,19 @@ import fs from "node:fs";
 
 const ACCOUNT = "8cf3c3e9847d67196d92e0e315a14b9f";
 const SCRIPT = "magis-edge-worker-staging";
-const TOKEN = process.env.CF_API_TOKEN;
+// Resolve the Cloudflare API token, preferring magis-edge-worker/.env (the
+// documented place to manage it) over a shell CF_API_TOKEN. .env-first prevents
+// a stale/invalid CF_API_TOKEN lingering in the shell/user environment from
+// shadowing the value you just set in .env. No dotenv dependency required.
+let TOKEN = "";
+try {
+  const envText = fs.readFileSync(new URL("./.env", import.meta.url), "utf8");
+  const m = envText.match(/^\s*CF_API_TOKEN\s*=\s*(.+?)\s*$/m);
+  if (m) TOKEN = m[1].replace(/^["']|["']$/g, "").trim();
+} catch {}
+if (!TOKEN) TOKEN = (process.env.CF_API_TOKEN || "").trim();
 if (!TOKEN) {
-  console.error("Missing CF_API_TOKEN env var");
+  console.error("Missing CF_API_TOKEN (set it in magis-edge-worker/.env or the shell)");
   process.exit(1);
 }
 
