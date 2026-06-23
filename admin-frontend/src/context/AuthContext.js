@@ -360,19 +360,20 @@ export const AuthProvider = ({ children }) => {
     const tabId = localStorage.getItem("tabId");
     const email = adminEmail || sessionStorage.getItem("branchEmail");
     const activeTabId = localStorage.getItem("activeSocketTabId");
+    // P3-4: capture the admin token UP-FRONT, before disconnectSocket() clears
+    // sessionStorage, so both the offline beacon (step 1) and the logout-revoke
+    // call (step 3) can authenticate via the JSON body. The SameSite=Strict
+    // cookie isn't sent cross-site to the edge worker, so the body token is the
+    // only credential the backend can use to revoke the jti. Reading it here
+    // (not a ?token= query param) keeps it out of logs/history/referrers.
+    const adminToken =
+      sessionStorage.getItem("branchAdminToken") ||
+      localStorage.getItem("branchAdminToken") ||
+      "";
   
     // 1️⃣ Update online status in Firestore if this tab owns the socket
     if (email && activeTabId === tabId) {
       try {
-        // P3-4: authenticate the offline beacon via a token in the JSON body
-        // (not a ?token= query param, which leaks into logs/history/referrers).
-        // sendBeacon can't set an Authorization header and the fetch fallback
-        // below doesn't send the cookie. The backend verifies it and resolves
-        // the branch from the token (the body email is ignored server-side).
-        const adminToken =
-          sessionStorage.getItem("branchAdminToken") ||
-          localStorage.getItem("branchAdminToken") ||
-          "";
         const payload = {
           branchEmail: email,
           email,
@@ -418,9 +419,15 @@ export const AuthProvider = ({ children }) => {
         });
         console.info("[AUTH] 🔐 Super-Admin logged out server-side");
       } else if (userRole === "branchadmin") {
+        // P3-4: send the token in the JSON body too (credentials:"include" still
+        // carries the cookie same-origin). Cross-site to the edge worker the
+        // SameSite=Strict cookie isn't sent, so the body token is what lets the
+        // backend revoke the jti. Mirrors /api/update-status.
         await fetch(`${base}/api/branchadmin/logout`, {
           method: "POST",
           credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: adminToken }),
         });
         console.info("[AUTH] 🔐 Branch-Admin logged out server-side");
       }

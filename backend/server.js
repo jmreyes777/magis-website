@@ -593,15 +593,32 @@ app.post("/api/superadmin/logout", async (req, res) => {
   res.sendStatus(204);
 });
 
-app.post("/api/branchadmin/logout", async (req, res) => {
+app.post("/api/branchadmin/logout", express.json(), async (req, res) => {
   try {
-    const token = req.cookies.branchAdminToken;
+    // P3-4: the logout beacon often arrives cross-site to the edge worker, where
+    // the SameSite=Strict branchAdminToken cookie is NOT sent — so a cookie-only
+    // read meant server-side revocation silently no-op'd. Accept the token from
+    // the JSON body or Authorization header too (same pattern as
+    // /api/update-status). Order: cookie (same-origin) → body.token (cross-site
+    // beacon/fetch) → Bearer header.
+    const authHeader = req.headers.authorization || "";
+    const bearer = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+    const token =
+      (req.cookies && req.cookies.branchAdminToken) ||
+      (req.body && typeof req.body.token === "string" && req.body.token.trim()) ||
+      bearer ||
+      "";
     if (token) {
-      // Same approach: verify signature (worker-backed), ignore exp to safely
-      // gather jti/exp for revocation.
-      const payload = await verifyAllowExpired(token);
-      if (payload?.jti && payload?.exp) {
-        await revokeJWT({ jti: payload.jti, expTimestamp: payload.exp });
+      // Best-effort revocation: a malformed/expired token must never fail logout
+      // (it stays idempotent — we always clear the cookie and return 200).
+      try {
+        // Verify signature (worker-backed), ignore exp to safely gather jti/exp.
+        const payload = await verifyAllowExpired(token);
+        if (payload?.jti && payload?.exp) {
+          await revokeJWT({ jti: payload.jti, expTimestamp: payload.exp });
+        }
+      } catch (revokeErr) {
+        console.warn("[API] Branchadmin logout: revoke skipped:", revokeErr?.message);
       }
     }
     res.clearCookie("branchAdminToken", {
