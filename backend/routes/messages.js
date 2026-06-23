@@ -18,7 +18,7 @@ const {
 } = require("../middlewares/ensureResourceOwner");
 const rateLimitByGuest       = require("../middlewares/rateLimitByGuest");
 const { requireMFA }          = require("../middlewares/requireMFA");
-const { recordAuditEvent, ACTIONS } = require("../utils/auditLog");
+const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
 // const sharp = require("sharp"); // Removed due to Node.js 24 compatibility issues
 
 // Multer setup: memory storage, 5 MB limit, only images/PDFs
@@ -229,13 +229,16 @@ const CONV_KEY_AUTO_REGEN = /^(1|true|yes|on)$/i.test(process.env.CONV_KEY_AUTO_
 
 // Get the conversation key, creating it atomically on first request so the
 // guest and admin always converge on the same key regardless of who asks first.
-async function getOrCreateConversationKey(branchEmail, guestId) {
+// `auditCtx` (optional) carries { actor, context } so a CONV_KEY_AUTO_REGEN
+// self-heal can be recorded to the compliance audit trail (who/where/when).
+async function getOrCreateConversationKey(branchEmail, guestId, auditCtx = null) {
   const branch = normEmailKeyId(branchEmail);
   const guest = normGuestKeyId(guestId);
   const docId = `${branch}__${guest}`;
   const ref = db.collection("conversationKeys").doc(docId);
 
-  return db.runTransaction(async (tx) => {
+  let regenReason = null; // set inside the tx when a self-heal regeneration occurs
+  const rawKey = await db.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
     if (snap.exists) {
       try {
@@ -246,6 +249,7 @@ async function getOrCreateConversationKey(branchEmail, guestId) {
           `[CONV-KEY] CONV_KEY_AUTO_REGEN: regenerating un-decryptable key for ${docId} ` +
             `(${err.code || err.message}). Prior history for this thread is not recoverable.`
         );
+        regenReason = err.code || err.message || "unknown";
         const rawB64 = crypto.randomBytes(32).toString("base64"); // AES-256
         tx.set(
           ref,
@@ -264,6 +268,25 @@ async function getOrCreateConversationKey(branchEmail, guestId) {
     });
     return rawB64;
   });
+
+  // Record the key reset to the audit trail AFTER the transaction commits, so a
+  // transaction retry can never emit duplicate events. Best-effort: recordAuditEvent
+  // never throws, so audit logging can't break key issuance.
+  if (regenReason) {
+    recordAuditEvent({
+      category: "security",
+      action: ACTIONS.SECURITY_CONV_KEY_REGENERATED,
+      severity: "critical",
+      outcome: "success",
+      actor: (auditCtx && auditCtx.actor) || { type: "system", branchEmail: branch },
+      target: { type: "conversation", id: docId, guestId: guest },
+      branchEmail: branch,
+      context: (auditCtx && auditCtx.context) || {},
+      meta: { reason: regenReason, trigger: "CONV_KEY_AUTO_REGEN", historyRecoverable: false },
+    });
+  }
+
+  return rawKey;
 }
 
 // ============================================================================
@@ -832,7 +855,10 @@ router.post("/conversation-key", authenticateGuest, async (req, res) => {
     if (!guestId || !branchEmail) {
       return res.status(400).json({ error: "guestId and branch are required." });
     }
-    const key = await getOrCreateConversationKey(branchEmail, guestId);
+    const key = await getOrCreateConversationKey(branchEmail, guestId, {
+      actor: { type: "guest", id: guestId, branchEmail },
+      context: auditContextFromReq(req),
+    });
     return res.status(200).json({ key });
   } catch (err) {
     console.error("[MESSAGES:conversation-key:guest] ❌", err);
@@ -858,7 +884,10 @@ router.get(
       if (!guestId || !branchEmail) {
         return res.status(400).json({ error: "guestId and branch are required." });
       }
-      const key = await getOrCreateConversationKey(branchEmail, guestId);
+      const key = await getOrCreateConversationKey(branchEmail, guestId, {
+        actor: { type: "branchadmin", email: branchEmail, branchEmail },
+        context: auditContextFromReq(req),
+      });
       return res.status(200).json({ key });
     } catch (err) {
       console.error("[MESSAGES:conversation-key:admin] ❌", err);

@@ -94,6 +94,7 @@ const ACTIONS = {
   // ── security ────────────────────────────────────────────────────
   SECURITY_GEO_ANOMALY: "security.geo_anomaly",
   SECURITY_EDGE_AUTH_BLOCKED: "security.edge_auth.blocked",
+  SECURITY_CONV_KEY_REGENERATED: "security.conv_key.regenerated",
 };
 
 // Keys that must never be persisted (case-insensitive). Defense-in-depth: even
