@@ -692,6 +692,11 @@ const adminReplySchema = z.object({
   content: z.string().min(1, "content is required.").optional(), // may be empty if file present
   tempId:  z.string().optional(),
   clientMessageId: z.string().optional(),
+  // E2EE metadata (multipart sends these as strings). Persisted so the stored
+  // reply is correctly flagged as encrypted — without it the admin's own
+  // messages can't be decrypted on reload (they render "[Encrypted message]").
+  e2ee: z.union([z.boolean(), z.string()]).optional(),
+  encryptionMeta: z.any().optional(),
 });
 
 router.post(
@@ -708,7 +713,20 @@ router.post(
           .status(400)
           .json({ error: parsed.error.errors.map(e => e.message).join(", ") });
       }
-      const { guestId, content, tempId, clientMessageId } = parsed.data;
+      const { guestId, content, tempId, clientMessageId, e2ee, encryptionMeta } = parsed.data;
+
+      // Normalize the E2EE flag (multipart form fields arrive as strings) so the
+      // stored reply is correctly marked encrypted — mirrors POST /send.
+      const isE2EE = e2ee === true || e2ee === "true";
+      let parsedEncryptionMeta = null;
+      if (isE2EE && encryptionMeta) {
+        try {
+          parsedEncryptionMeta =
+            typeof encryptionMeta === "string" ? JSON.parse(encryptionMeta) : encryptionMeta;
+        } catch (_) {
+          parsedEncryptionMeta = null;
+        }
+      }
 
       const branchEmail = req.branchEmail.toLowerCase();
       const branchId    = req.branchId;
@@ -749,6 +767,11 @@ router.post(
         timestamp: new Date().toISOString(),
         tempId:    tempId || uuidv4(),
         clientMessageId: clientMessageId || uuidv4(),
+        // E2EE metadata so the recipient AND the admin's own reload path know to
+        // decrypt the content. Without this the admin's own replies render
+        // "[Encrypted message]" once the local plaintext cache is cleared.
+        e2ee: isE2EE,
+        encryptionMeta: parsedEncryptionMeta,
       };
 
       // 4️⃣ Idempotent persist for admin replies

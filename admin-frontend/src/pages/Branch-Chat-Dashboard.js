@@ -143,6 +143,20 @@ const getCachedPlaintext = (id) => {
   return Object.prototype.hasOwnProperty.call(cache, id) ? cache[id] : null;
 };
 
+// Detect an E2EE payload by SHAPE, not just the stored `e2ee` flag. Admin
+// replies were historically persisted with the ciphertext as `content` but
+// WITHOUT the e2ee flag, so flag-only checks skipped them and they rendered
+// "[Encrypted message]" on reload. Returns the parsed {ciphertext, iv} or null.
+const parseEncryptedPayload = (content) => {
+  if (typeof content !== "string" || !content.includes('"ciphertext"')) return null;
+  try {
+    const p = JSON.parse(content);
+    return p && p.ciphertext && p.iv ? p : null;
+  } catch {
+    return null;
+  }
+};
+
 // ============================================================================
 // MESSAGE SENDING HELPERS
 // ============================================================================
@@ -1084,19 +1098,20 @@ const BranchChatDashboard = () => {
           if (cached != null) {
             return { ...m, content: cached, message: cached, encrypted: true };
           }
-          if (m.e2ee && m.content && isE2EEEstablished(guestId)) {
-            try {
-              const payload = JSON.parse(m.content);
-              if (payload.ciphertext && payload.iv) {
+          // Treat as encrypted if flagged e2ee OR the content is a {ciphertext,iv}
+          // payload (admin's own past replies were stored without the flag).
+          const payload = parseEncryptedPayload(m.content);
+          if (m.e2ee || payload) {
+            if (payload && isE2EEEstablished(guestId)) {
+              try {
                 const plain = await e2eeDecrypt(guestId, payload.ciphertext, payload.iv);
                 return { ...m, content: plain, message: plain, encrypted: true };
+              } catch (e) {
+                return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
               }
-            } catch (e) {
-              return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
             }
-          }
-          // Encrypted but no key available (e.g. older session) → don't show raw ciphertext.
-          if (m.e2ee && typeof m.content === "string" && m.content.includes('"ciphertext"')) {
+            // Encrypted but key not established yet (or unparseable) → placeholder;
+            // re-decrypts when the channel establishes (see effect below).
             return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
           }
           return m;
@@ -1749,18 +1764,18 @@ const BranchChatDashboard = () => {
                     if (cached != null) {
                       return { ...m, content: cached, message: cached, encrypted: true };
                     }
-                    if (m.e2ee && m.content && isE2EEEstablished(gid)) {
-                      try {
-                        const payload = JSON.parse(m.content);
-                        if (payload.ciphertext && payload.iv) {
+                    // Treat as encrypted by flag OR {ciphertext,iv} shape (admin's
+                    // own past replies were stored without the e2ee flag).
+                    const payload = parseEncryptedPayload(m.content);
+                    if (m.e2ee || payload) {
+                      if (payload && isE2EEEstablished(gid)) {
+                        try {
                           const plain = await e2eeDecrypt(gid, payload.ciphertext, payload.iv);
                           return { ...m, content: plain, message: plain, encrypted: true };
+                        } catch (e) {
+                          return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
                         }
-                      } catch (e) {
-                        return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
                       }
-                    }
-                    if (m.e2ee && typeof m.content === "string" && m.content.includes('"ciphertext"')) {
                       return { ...m, content: "[Encrypted message]", message: "[Encrypted message]", encrypted: true };
                     }
                     return m;
