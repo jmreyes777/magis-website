@@ -105,15 +105,64 @@ function getRoomName(role, id) {
 // CONV_KEY_SECRET is configured, and access is gated by per-side auth + ACL.
 // ============================================================================
 const CONV_KEY_SECRET = process.env.CONV_KEY_SECRET || "";
+// Optional list of PREVIOUS secrets (comma- or newline-separated) so conversation
+// keys wrapped under a rotated/older CONV_KEY_SECRET can still be decrypted — i.e.
+// zero-downtime, zero-loss key rotation. New keys are ALWAYS wrapped with the
+// PRIMARY (current) CONV_KEY_SECRET; fallbacks are only ever tried on read.
+const CONV_KEY_SECRET_FALLBACKS = (process.env.CONV_KEY_SECRET_FALLBACKS || "")
+  .split(/[,\n]/)
+  .map((s) => s.trim())
+  .filter(Boolean);
 
 const normGuestKeyId = (s = "") =>
   String(s).toLowerCase().replace(/^guest-/, "").trim();
 const normEmailKeyId = (s = "") => String(s).toLowerCase().trim();
 
+const sha256Bytes = (s) => crypto.createHash("sha256").update(s).digest(); // 32 bytes
+// Non-reversible 8-char fingerprint — lets us identify WHICH secret is in play in
+// logs without ever leaking the secret value itself.
+const secretFingerprint = (s) =>
+  crypto.createHash("sha256").update(s).digest("hex").slice(0, 8);
+
+// Primary master key, used to WRAP new keys. null if no secret is configured.
 function deriveMasterKey() {
   if (!CONV_KEY_SECRET) return null;
-  return crypto.createHash("sha256").update(CONV_KEY_SECRET).digest(); // 32 bytes
+  return sha256Bytes(CONV_KEY_SECRET);
 }
+
+// All candidate master keys for UNWRAPPING: primary first, then each fallback,
+// deduped by fingerprint. Lets the backend read keys wrapped by the current OR a
+// prior secret. Returns [{ fp, key }, ...]; empty if no secret is configured.
+function deriveUnwrapKeys() {
+  const out = [];
+  const seen = new Set();
+  for (const secret of [CONV_KEY_SECRET, ...CONV_KEY_SECRET_FALLBACKS]) {
+    if (!secret) continue;
+    const fp = secretFingerprint(secret);
+    if (seen.has(fp)) continue;
+    seen.add(fp);
+    out.push({ fp, key: sha256Bytes(secret) });
+  }
+  return out;
+}
+
+// One-time boot log of the active secret fingerprints (safe — no secret values).
+// Use this against the probe's reported fingerprint to confirm the right secret
+// is actually loaded on the running backend.
+(function logConvKeySecretFingerprints() {
+  const keys = deriveUnwrapKeys();
+  if (!keys.length) {
+    console.warn(
+      "[CONV-KEY] ⚠️ No CONV_KEY_SECRET configured — conversation keys stored/read unwrapped."
+    );
+  } else {
+    console.log(
+      `[CONV-KEY] active secret fingerprints (primary first): ${keys
+        .map((k) => k.fp)
+        .join(", ")}`
+    );
+  }
+})();
 
 // Wrap the raw conversation key for at-rest storage. Falls back to storing raw
 // (with a one-time warning) if no CONV_KEY_SECRET is configured.
@@ -135,22 +184,38 @@ function wrapConversationKey(rawB64) {
   return `v1:${iv.toString("base64")}:${tag.toString("base64")}:${enc.toString("base64")}`;
 }
 
+// Read a stored key, trying the primary secret first, then each configured fallback
+// (CONV_KEY_SECRET_FALLBACKS). Throws — never silently regenerates — if NONE match,
+// because regenerating would discard the conversation's existing message history.
 function unwrapConversationKey(stored) {
   if (!stored || !String(stored).startsWith("v1:")) return stored; // raw
-  const master = deriveMasterKey();
-  if (!master) throw new Error("CONV_KEY_SECRET required to read wrapped conversation key");
+  const candidates = deriveUnwrapKeys();
+  if (!candidates.length) {
+    throw new Error("CONV_KEY_SECRET required to read wrapped conversation key");
+  }
   const [, ivB64, tagB64, encB64] = String(stored).split(":");
-  const decipher = crypto.createDecipheriv(
-    "aes-256-gcm",
-    master,
-    Buffer.from(ivB64, "base64")
+  const iv = Buffer.from(ivB64, "base64");
+  const tag = Buffer.from(tagB64, "base64");
+  const enc = Buffer.from(encB64, "base64");
+  let lastErr = null;
+  for (const { key } of candidates) {
+    try {
+      const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+      decipher.setAuthTag(tag);
+      const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+      return dec.toString("utf8");
+    } catch (e) {
+      lastErr = e; // try the next candidate secret
+    }
+  }
+  const tried = candidates.map((c) => c.fp).join(", ");
+  const err = new Error(
+    `Unable to decrypt conversation key with any configured secret (tried fingerprints: ${tried}). ` +
+      "Add the original secret to CONV_KEY_SECRET_FALLBACKS."
   );
-  decipher.setAuthTag(Buffer.from(tagB64, "base64"));
-  const dec = Buffer.concat([
-    decipher.update(Buffer.from(encB64, "base64")),
-    decipher.final(),
-  ]);
-  return dec.toString("utf8");
+  err.code = "CONV_KEY_NO_MATCHING_SECRET";
+  err.cause = lastErr;
+  throw err;
 }
 
 // Get the conversation key, creating it atomically on first request so the

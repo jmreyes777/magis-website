@@ -19,6 +19,9 @@ backend.env
 **/backend.env
 !backend.env.example
 !**/backend.env.example
+# CONV_KEY_SECRET probe candidate list (holds secret values; never commit)
+.conv-key-candidates
+**/.conv-key-candidates
 
 # --- Firebase / service-account credentials ---
 serviceaccountkey.json
