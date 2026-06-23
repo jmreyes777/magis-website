@@ -40,6 +40,7 @@ const {
   createTrustedDevice,
   verifyTrustedDevice,
 } = require("../utils/staffTrustedDevice");
+const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
 
 // Token lifetime mirrors the existing fallback (HMAC) admin token.
 const FALLBACK_TTL_MIN = Number(
@@ -187,18 +188,47 @@ router.post("/login", express.json(), async (req, res) => {
       return res.status(403).json({ error: "This account has been disabled. Contact your administrator." });
     }
     if (isLocked(staff)) {
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_ACCOUNT_LOCKED,
+        severity: "warning",
+        outcome: "blocked",
+        actor: { type: "staff", id: staff.id, email: staff.email, branchEmail: staff.branchEmail || staff.email },
+        branchEmail: staff.branchEmail || staff.email,
+        context: auditContextFromReq(req),
+        meta: { stage: "login" },
+      });
       return res.status(429).json({ error: "Account temporarily locked after too many attempts. Try again later." });
     }
 
     const ok = await verifyPassword(password, staff.passwordHash || "");
     if (!ok) {
       await recordFailedLogin(staff.id, staff);
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_LOGIN_FAILURE,
+        severity: "warning",
+        outcome: "failure",
+        actor: { type: "staff", id: staff.id, email: staff.email, branchEmail: staff.branchEmail || staff.email },
+        branchEmail: staff.branchEmail || staff.email,
+        context: auditContextFromReq(req),
+        meta: { reason: "bad_password" },
+      });
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
     // 2FA disabled by an admin → issue the token directly (factor 1 only).
     if (!staff.twoFactorEnabled) {
       await recordSuccessfulLogin(staff.id);
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_LOGIN_SUCCESS,
+        severity: "notice",
+        actor: { type: "staff", id: staff.id, email: staff.email, branchEmail: staff.branchEmail || staff.email },
+        branchEmail: staff.branchEmail || staff.email,
+        context: auditContextFromReq(req),
+        meta: { method: "password_only", twoFactor: false },
+      });
       const token = await issueBranchAdminToken(staff);
       setBranchAdminCookie(res, token);
       await writeMfaSession(req, staff.branchEmail || staff.email, sessionIdFrom(req, staff));
@@ -218,6 +248,15 @@ router.post("/login", express.json(), async (req, res) => {
     const trustedToken = req.body.trustedDeviceToken;
     if (trustedToken && (await verifyTrustedDevice({ token: trustedToken, staffId: staff.id }))) {
       await recordSuccessfulLogin(staff.id);
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_LOGIN_SUCCESS,
+        severity: "notice",
+        actor: { type: "staff", id: staff.id, email: staff.email, branchEmail: staff.branchEmail || staff.email },
+        branchEmail: staff.branchEmail || staff.email,
+        context: auditContextFromReq(req),
+        meta: { method: "password+trusted_device" },
+      });
       const token = await issueBranchAdminToken(staff);
       setBranchAdminCookie(res, token);
       await writeMfaSession(req, staff.branchEmail || staff.email, sessionIdFrom(req, staff));
@@ -244,6 +283,15 @@ router.post("/login", express.json(), async (req, res) => {
       });
     }
     await sendOtpEmail(staff.email, otp.code, otp.ttlSec);
+    recordAuditEvent({
+      category: "auth",
+      action: ACTIONS.AUTH_OTP_ISSUED,
+      severity: "info",
+      actor: { type: "staff", id: staff.id, email: staff.email, branchEmail: staff.branchEmail || staff.email },
+      branchEmail: staff.branchEmail || staff.email,
+      context: auditContextFromReq(req),
+      meta: { stage: "login" },
+    });
     const loginTicket = await signLoginTicket(staff);
     return res.json({
       otpRequired: true,
@@ -282,11 +330,30 @@ router.post("/login/verify-otp", express.json(), async (req, res) => {
 
     const result = await verifyOtp({ email: staff.email, code });
     if (!result.ok) {
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_OTP_FAILED,
+        severity: "warning",
+        outcome: "failure",
+        actor: { type: "staff", id: staff.id, email: staff.email, branchEmail: staff.branchEmail || staff.email },
+        branchEmail: staff.branchEmail || staff.email,
+        context: auditContextFromReq(req),
+        meta: { reason: result.code },
+      });
       const [status, msg] = OTP_ERROR_MAP[result.code] || [400, "Verification failed."];
       return res.status(status).json({ error: msg, attemptsLeft: result.attemptsLeft });
     }
 
     await recordSuccessfulLogin(staff.id);
+    recordAuditEvent({
+      category: "auth",
+      action: ACTIONS.AUTH_LOGIN_SUCCESS,
+      severity: "notice",
+      actor: { type: "staff", id: staff.id, email: staff.email, branchEmail: staff.branchEmail || staff.email },
+      branchEmail: staff.branchEmail || staff.email,
+      context: auditContextFromReq(req),
+      meta: { method: "password+otp" },
+    });
     const token = await issueBranchAdminToken(staff);
     setBranchAdminCookie(res, token);
     await writeMfaSession(req, staff.branchEmail || staff.email, sessionIdFrom(req, staff));

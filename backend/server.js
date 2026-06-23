@@ -411,6 +411,10 @@ const upload = multer({ storage });
 const messageRoutes = require("./routes/messages");
 const guestRoutes = require("./routes/guest");
 const analyticsRoutes = require("./routes/analytics");
+// Audit & compliance read API for the chat audit dashboard. Additive,
+// read-only (except a meta-audit event on CSV export); isolated from all
+// existing routes.
+const auditRoutes = require("./routes/audit");
 const mfaRoutes = require("./routes/mfa");
 // Staff (password + email-OTP) access for the chat dashboard — additive module,
 // isolated from the existing Firebase / issue-fallback-token auth.
@@ -455,6 +459,7 @@ app.use("/api/guest/contact", guestContactLimiter);
 app.use("/api/guest", guestRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/audit", auditRoutes);
 app.use("/api/mfa", mfaRoutes);
 
 // Login Rate Limiting (NOW using Redis store for multi-instance correctness)

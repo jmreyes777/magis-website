@@ -13,6 +13,7 @@
 
 const crypto = require("crypto");
 const { db } = require("./firebase");
+const { recordAuditEvent, ACTIONS } = require("./auditLog");
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const GEO_ANOMALY_ENABLED = String(process.env.GEO_ANOMALY_ENABLED || "true") === "true";
@@ -206,6 +207,27 @@ async function logGeoAnomaly({ email, sessionId, fromCountry, toCountry, ip, use
   } catch (e) {
     console.warn("[SECURITY] Failed to log geo anomaly:", e.message);
   }
+
+  // Mirror into the unified audit trail so geo anomalies surface in the
+  // compliance dashboard alongside chat/auth events (best-effort).
+  recordAuditEvent({
+    category: "security",
+    action: ACTIONS.SECURITY_GEO_ANOMALY,
+    severity: GEO_ANOMALY_MODE === "enforce" ? "critical" : "warning",
+    outcome: GEO_ANOMALY_MODE === "enforce" ? "blocked" : "success",
+    actor: { type: "system", email: email || null },
+    context: {
+      ip: ip || null,
+      userAgent: userAgent || null,
+      sessionId: sessionId || null,
+      country: toCountry || null,
+    },
+    meta: {
+      fromCountry: fromCountry || null,
+      toCountry: toCountry || null,
+      mode: GEO_ANOMALY_MODE,
+    },
+  });
 }
 
 /**

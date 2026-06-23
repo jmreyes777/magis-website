@@ -18,6 +18,7 @@ const {
 } = require("../middlewares/ensureResourceOwner");
 const rateLimitByGuest       = require("../middlewares/rateLimitByGuest");
 const { requireMFA }          = require("../middlewares/requireMFA");
+const { recordAuditEvent, ACTIONS } = require("../utils/auditLog");
 // const sharp = require("sharp"); // Removed due to Node.js 24 compatibility issues
 
 // Multer setup: memory storage, 5 MB limit, only images/PDFs
@@ -322,6 +323,18 @@ async function logSensitiveMessage(messageId, originalContent, patterns, guestId
   } catch (e) {
     console.warn('[AUDIT] Failed to log sensitive message:', e.message);
   }
+
+  // Bridge into the unified audit trail (best-effort, PII-minimized: only the
+  // detected pattern TYPES are recorded — never the message content).
+  recordAuditEvent({
+    category: "chat",
+    action: ACTIONS.CHAT_SENSITIVE_DETECTED,
+    severity: "warning",
+    actor: { type: "guest", id: guestId },
+    branchEmail,
+    target: { type: "message", id: messageId, guestId },
+    meta: { patterns, patternCount: Array.isArray(patterns) ? patterns.length : 0 },
+  });
 }
 
 // 1) Helper that only calls multer for multipart/form-data

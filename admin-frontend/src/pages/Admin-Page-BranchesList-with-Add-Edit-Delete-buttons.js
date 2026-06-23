@@ -356,6 +356,14 @@ function BranchesList() {
       >
         Branch Login Passwords
       </button>
+
+      <button
+        onClick={() => navigate("/admin/audit")}
+        className="btn btn-add"
+        style={{ marginLeft: "0.5rem" }}
+      >
+        Audit &amp; Compliance Log
+      </button>
   
       {/* 🔹 Interest Rates Modal */}
       {isModalOpen && (

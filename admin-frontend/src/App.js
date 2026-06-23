@@ -18,6 +18,7 @@ const StaffManagement = lazy(() => import("./pages/Admin-Page-Staff-Management")
 const BranchPasswords = lazy(() => import("./pages/Admin-Page-Branch-Passwords"));
 const BranchChatDashboard = lazy(() => import("./pages/Branch-Chat-Dashboard"));
 const BranchAdminAnalytics = lazy(() => import("./pages/BranchAdmin-Analytics-Page"));
+const AuditDashboard = lazy(() => import("./pages/Audit-Dashboard-Page"));
 const LandingPage = lazy(() => import("./pages/LandingPage")); // Neutral landing page
 
 function App() {
@@ -126,6 +127,18 @@ const RoutesComponent = () => {
                 element={
                   <ProtectedRoute requiredRole="branchadmin">
                     <BranchAdminAnalytics />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Audit & compliance dashboard. Accessible to any authenticated
+                  admin; the backend enforces super-admin (all) vs branch-admin
+                  (own branch, chat+access only) scoping. */}
+              <Route
+                path="/admin/audit"
+                element={
+                  <ProtectedRoute>
+                    <AuditDashboard />
                   </ProtectedRoute>
                 }
               />

@@ -39,6 +39,7 @@ const {
 } = require("../utils/branchAccounts");
 const { requestOtp, verifyOtp } = require("../utils/staffOtp");
 const authenticateSuperAdmin = require("../middlewares/authenticateSuperAdmin");
+const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
 
 const FALLBACK_TTL_MIN = Number(
   process.env.JWT_FALLBACK_TTL_MIN || process.env.JWT_ADMIN_TTL_MIN || "240"
@@ -258,12 +259,32 @@ router.post("/login", express.json(), async (req, res) => {
       return res.status(403).json({ error: "This account has been disabled. Contact your administrator." });
     }
     if (isLocked(account)) {
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_ACCOUNT_LOCKED,
+        severity: "warning",
+        outcome: "blocked",
+        actor: { type: "branchadmin", id: account.id, email: account.email, branchEmail: account.email },
+        branchEmail: account.email,
+        context: auditContextFromReq(req),
+        meta: { stage: "login" },
+      });
       return res.status(429).json({ error: "Account temporarily locked after too many attempts. Try again later." });
     }
 
     const ok = await verifyPassword(password, account.passwordHash);
     if (!ok) {
       await recordFailedLogin(account.id, account);
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_LOGIN_FAILURE,
+        severity: "warning",
+        outcome: "failure",
+        actor: { type: "branchadmin", id: account.id, email: account.email, branchEmail: account.email },
+        branchEmail: account.email,
+        context: auditContextFromReq(req),
+        meta: { reason: "bad_password" },
+      });
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
@@ -282,6 +303,15 @@ router.post("/login", express.json(), async (req, res) => {
       });
     }
     const { emailSent, emailError } = await deliverOtpEmail(account.email, otp.code, otp.ttlSec);
+    recordAuditEvent({
+      category: "auth",
+      action: ACTIONS.AUTH_OTP_ISSUED,
+      severity: "info",
+      actor: { type: "branchadmin", id: account.id, email: account.email, branchEmail: account.email },
+      branchEmail: account.email,
+      context: auditContextFromReq(req),
+      meta: { emailSent, stage: "login" },
+    });
     const loginTicket = await signLoginTicket(account);
     const payload = {
       otpRequired: true,
@@ -325,11 +355,30 @@ router.post("/login/verify-otp", express.json(), async (req, res) => {
 
     const result = await verifyOtp({ email: account.email, code });
     if (!result.ok) {
+      recordAuditEvent({
+        category: "auth",
+        action: ACTIONS.AUTH_OTP_FAILED,
+        severity: "warning",
+        outcome: "failure",
+        actor: { type: "branchadmin", id: account.id, email: account.email, branchEmail: account.email },
+        branchEmail: account.email,
+        context: auditContextFromReq(req),
+        meta: { reason: result.code },
+      });
       const [status, msg] = OTP_ERROR_MAP[result.code] || [400, "Verification failed."];
       return res.status(status).json({ error: msg, attemptsLeft: result.attemptsLeft });
     }
 
     await recordSuccessfulLogin(account.id);
+    recordAuditEvent({
+      category: "auth",
+      action: ACTIONS.AUTH_LOGIN_SUCCESS,
+      severity: "notice",
+      actor: { type: "branchadmin", id: account.id, email: account.email, branchEmail: account.email },
+      branchEmail: account.email,
+      context: auditContextFromReq(req),
+      meta: { method: "password+otp" },
+    });
     const token = await issueBranchAdminToken(account);
     setBranchAdminCookie(res, token);
     await writeMfaSession(req, account.email, sessionIdFrom(req, account));
@@ -410,6 +459,15 @@ router.post("/change-password", authenticateBranchAdmin, express.json(), async (
     if (!ok) return res.status(401).json({ error: "Current password is incorrect." });
 
     await setPassword(account.id, newPassword, { mustChangePassword: false });
+    recordAuditEvent({
+      category: "auth",
+      action: ACTIONS.AUTH_PASSWORD_CHANGED,
+      severity: "notice",
+      actor: { type: "branchadmin", id: account.id, email: account.email, branchEmail: account.email },
+      branchEmail: account.email,
+      context: auditContextFromReq(req),
+      meta: { self: true },
+    });
     return res.json({ success: true });
   } catch (e) {
     console.error("[BRANCH:change-password] ❌", e.message);
@@ -492,6 +550,15 @@ router.post("/reset", express.json(), async (req, res) => {
     const account = await findByEmail(email);
     if (!account) return res.status(400).json({ error: "Verification failed." });
     await setPassword(account.id, newPassword, { mustChangePassword: false });
+    recordAuditEvent({
+      category: "auth",
+      action: ACTIONS.AUTH_PASSWORD_RESET,
+      severity: "notice",
+      actor: { type: "branchadmin", id: account.id, email: account.email, branchEmail: account.email },
+      branchEmail: account.email,
+      context: auditContextFromReq(req),
+      meta: { via: "reset_code" },
+    });
     return res.json({ success: true });
   } catch (e) {
     console.error("[BRANCH:reset] ❌", e.message);
@@ -533,6 +600,16 @@ router.post("/admin/set-password", authenticateSuperAdmin, express.json(), async
       password,
       mustChangePassword: Boolean(mustChangePassword),
       passwordSetBy: (req.user && (req.user.email || req.user.uid)) || "superadmin",
+    });
+    recordAuditEvent({
+      category: "admin",
+      action: ACTIONS.ADMIN_BRANCH_PASSWORD_SET,
+      severity: "notice",
+      actor: { type: "superadmin", id: req.superAdminId, email: req.superAdminEmail, role: "superadmin" },
+      branchEmail: loginEmail,
+      target: { type: "branch", id: branchId },
+      context: auditContextFromReq(req),
+      meta: { mustChangePassword: Boolean(mustChangePassword) },
     });
     return res.json({ success: true, id, email: loginEmail });
   } catch (e) {

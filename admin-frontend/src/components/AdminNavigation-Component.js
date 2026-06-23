@@ -7,7 +7,8 @@ const AdminNavigation = ({ currentPage }) => {
   const { userRole } = useContext(AuthContext);
 
   const navItems = [
-    { path: '/admin/chats', label: 'Chat Dashboard', roles: ['branchadmin', 'superadmin'] },
+    { path: '/admin/chats', label: 'Chat Dashboard', roles: ['branchadmin'] },
+    { path: '/admin/audit', label: 'Audit Log', roles: ['branchadmin', 'superadmin'] },
     { path: '/admin/branches', label: 'Branch Management', roles: ['superadmin'] },
   ];
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const { db } = require("../utils/firebase");
 const authenticateBranchAdmin = require("../middlewares/authenticateBranchAdmin");
 const authenticateSuperAdmin = require("../middlewares/authenticateSuperAdmin");
+const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
 
 const isDev = process.env.NODE_ENV === "development";
 const devLog = (...args) => { if (isDev) console.log(...args); };
@@ -285,7 +286,19 @@ router.get("/conversation-summary", authenticateBranchAdmin, async (req, res) =>
     if (!targetBranchEmail) {
       return res.status(400).json({ error: "Branch email is required" });
     }
+// DPA access logging: an admin viewed conversation analytics (which expose
+    // guest conversation metadata) for this branch (best-effort, non-blocking).
+    recordAuditEvent({
+      category: "access",
+      action: ACTIONS.ACCESS_ANALYTICS_VIEWED,
+      severity: "info",
+      actor: { type: "branchadmin", email: targetBranchEmail, branchEmail: targetBranchEmail },
+      branchEmail: targetBranchEmail,
+      context: auditContextFromReq(req),
+      meta: { view: "conversation-summary" },
+    });
 
+    
     const { query: boundedQuery, startIso, endIso } = buildBoundedMessagesQuery({
       branchEmail: targetBranchEmail,
       startDate,

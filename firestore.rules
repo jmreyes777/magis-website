@@ -153,5 +153,16 @@ service cloud.firestore {
       allow read, write: if request.auth != null
                          && request.auth.token.role == 'superadmin';
     }
+
+    // ─────────────────────────────────────────────────────────────
+    // Audit logs (append-only compliance trail)
+    // The entire read/write lifecycle runs through the backend Admin SDK
+    // (which bypasses these rules) and is served only via the authenticated
+    // /api/audit endpoints. Direct client access is denied outright — the
+    // trail must not be readable or mutable from any browser session.
+    // ─────────────────────────────────────────────────────────────
+    match /auditLogs/{docId} {
+      allow read, write: if false;
+    }
   }
 }

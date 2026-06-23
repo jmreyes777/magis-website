@@ -9,6 +9,7 @@ const { verifyLocal } = require("../utils/jwtKeys"); // alg-aware direct verify 
 const { v4: uuidv4 } = require("uuid");       // unguessable guest ids (P1-4)
 const authenticateGuest = require("../middlewares/authenticateGuest");
 const { ensureGuestOwns } = require("../middlewares/ensureResourceOwner");
+const { recordAuditEvent, auditContextFromReq, maskEmail, ACTIONS } = require("../utils/auditLog");
 
 // P1-4 (Part B): Cloudflare Turnstile verification for the public /init endpoint.
 // Enforced ONLY when TURNSTILE_SECRET is configured (graceful no-op otherwise).
@@ -100,6 +101,22 @@ router.post("/init", async (req, res) => {
     const token = await signJWT(payload, { expiresIn: "1h" });
     console.log(`[GUEST INIT] ✅ Token issued for guestId: ${guestId}`);
 
+    // Audit: a new guest chat session started (best-effort, PII-minimized).
+    recordAuditEvent({
+      category: "chat",
+      action: ACTIONS.CHAT_SESSION_START,
+      severity: "info",
+      actor: { type: "guest", id: guestId },
+      branchEmail: String(branchEmail).toLowerCase(),
+      target: { type: "guest_session", id: guestId, guestId },
+      context: auditContextFromReq(req),
+      meta: {
+        providedEmail: !!email,
+        providedPhone: !!phone,
+        turnstile: captcha.skipped ? "skipped" : captcha.ok ? "passed" : "failed",
+      },
+    });
+
     // Build a Partitioned, cross-site cookie
     const guestCookie = [
       `guestToken=${token}`,
@@ -184,6 +201,24 @@ router.post("/contact", authenticateGuest, async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+
+    // Audit: a transcript/contact message was relayed to the branch. The guest
+    // email is MASKED; the message body is never stored.
+    recordAuditEvent({
+      category: "chat",
+      action: ACTIONS.CHAT_TRANSCRIPT_EMAILED,
+      severity: "notice",
+      actor: { type: "guest" },
+      branchEmail: String(branchEmail).toLowerCase(),
+      target: { type: "branch_contact" },
+      context: auditContextFromReq(req),
+      meta: {
+        guestEmail: maskEmail(cleanGuestEmail),
+        hasAttachment: !!imageBase64,
+        messageLength: String(message).length,
+      },
+    });
+
     return res.status(200).json({ success: true });
   } catch (err) {
     console.error("[CONTACT] ❌", err);
@@ -319,6 +354,18 @@ router.post(
           `[FORCE-CLOSE] 📣 chatClosed ➡️ admin-${branchEmail}`
         );
       }
+
+      // Audit: guest-initiated chat close + archive (best-effort).
+      recordAuditEvent({
+        category: "chat",
+        action: ACTIONS.CHAT_CLOSED,
+        severity: "info",
+        actor: { type: "guest", id: guestId },
+        branchEmail: String(branchEmail).toLowerCase(),
+        target: { type: "conversation", guestId },
+        context: auditContextFromReq(req),
+        meta: { reason: "guest_force_close", archivedCount: snapshot.size || 0 },
+      });
 
       return res
         .status(200)

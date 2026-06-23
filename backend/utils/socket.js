@@ -17,7 +17,29 @@ const { Server } = require("socket.io");
 const cookie = require("cookie");
 const { db, admin } = require("./firebase");
 const { verifyJWT } = require("./secretPool");   // worker-thread backed JWT ops
+const { recordAuditEvent, ACTIONS } = require("./auditLog");
 const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
+
+// Build an audit `context` block from a Socket.IO handshake (mirrors the
+// forwarded-header conventions used elsewhere). Never throws.
+function socketAuditContext(socket) {
+  try {
+    const h = (socket && socket.handshake && socket.handshake.headers) || {};
+    const xff = h["x-forwarded-for"];
+    const ip =
+      (typeof xff === "string" && xff.split(",")[0].trim()) ||
+      (socket && socket.handshake && socket.handshake.address) ||
+      null;
+    return {
+      ip,
+      userAgent: h["user-agent"] || null,
+      country: h["x-geo-country"] || null,
+      sessionId: (socket && socket.user && socket.user.sessionTabId) || null,
+    };
+  } catch (_) {
+    return {};
+  }
+}
 
 // Message rate-limit (guest -> server). Fixed window = 1 hour.
 const MAX_PER_WINDOW = parseInt(process.env.MAX_MESSAGES_PER_HOUR, 10) || 100;
@@ -543,6 +565,9 @@ const initializeSocket = (server) => {
 
     // For branch admins, register them and mark branch online (presence)
     if (isAdmin && branchEmail && sessionTabId) {
+      const branchWasOffline =
+        !onlineAdminsMap[branchEmail] ||
+        Object.keys(onlineAdminsMap[branchEmail]).length === 0;
       if (!onlineAdminsMap[branchEmail]) {
         onlineAdminsMap[branchEmail] = {};
       }
@@ -565,6 +590,20 @@ const initializeSocket = (server) => {
         console.log(`[SOCKET] ✅ Marked branch ONLINE in Firestore (server-side): ${branchEmail}`);
       } catch (e) {
         console.warn("[SOCKET] Failed to mark branch ONLINE in Firestore:", e.message);
+      }
+
+      // Audit: branch transitioned OFFLINE → ONLINE (first admin tab). The
+      // branchWasOffline guard suppresses reconnect / extra-tab noise.
+      if (branchWasOffline) {
+        recordAuditEvent({
+          category: "chat",
+          action: ACTIONS.CHAT_BRANCH_ONLINE,
+          severity: "info",
+          actor: { type: "branchadmin", email: socket.user?.email, branchEmail },
+          branchEmail,
+          context: socketAuditContext(socket),
+          meta: { sessionTabId },
+        });
       }
 
       const guestSet = branchGuests.get(branchEmail);
@@ -1047,6 +1086,7 @@ const initializeSocket = (server) => {
         return;
       }
 
+      let archivedCount = 0;
       try {
         const snap = await db
           .collection("messages")
@@ -1057,6 +1097,7 @@ const initializeSocket = (server) => {
           const batch = db.batch();
           snap.forEach((doc) => batch.update(doc.ref, { archived: true }));
           await batch.commit();
+          archivedCount = snap.size;
           console.log(`[SERVER] chatClosed archived ${snap.size} message(s) for ${actualGuestId}`);
         }
       } catch (err) {
@@ -1101,6 +1142,19 @@ const initializeSocket = (server) => {
 
       checkForStaleGuests(actualBranchEmail);
 
+      // Audit: guest-initiated chat close (primary socket path) + archive count
+      // (best-effort, PII-minimized).
+      recordAuditEvent({
+        category: "chat",
+        action: ACTIONS.CHAT_CLOSED,
+        severity: "info",
+        actor: { type: "guest", id: actualGuestId },
+        branchEmail: actualBranchEmail,
+        target: { type: "conversation", guestId: actualGuestId },
+        context: socketAuditContext(socket),
+        meta: { reason: "guest_socket_close", archivedCount },
+      });
+
       // Acknowledge so the guest can safely disconnect AFTER we've received and
       // processed the close (prevents the emit being dropped by an immediate
       // socket.disconnect() on the client — the root cause of lingering chats).
@@ -1114,10 +1168,12 @@ const initializeSocket = (server) => {
     // disconnect
     socket.on("disconnect", () => {
       if (isAdmin && branchEmail) {
+        let branchWentOffline = false;
         if (onlineAdminsMap[branchEmail]) {
           delete onlineAdminsMap[branchEmail][sessionTabId];
           if (Object.keys(onlineAdminsMap[branchEmail]).length === 0) {
             delete onlineAdminsMap[branchEmail];
+            branchWentOffline = true;
           }
         }
 
@@ -1130,6 +1186,19 @@ const initializeSocket = (server) => {
           });
         });
         console.log(`[SOCKET] 🔕 Emitted branchStatus OFFLINE to guests for ${branchEmail}:`, [...guestSet]);
+
+        // Audit: branch transitioned to fully OFFLINE (last admin tab gone).
+        if (branchWentOffline) {
+          recordAuditEvent({
+            category: "chat",
+            action: ACTIONS.CHAT_BRANCH_OFFLINE,
+            severity: "info",
+            actor: { type: "branchadmin", email: socket.user?.email, branchEmail },
+            branchEmail,
+            context: socketAuditContext(socket),
+            meta: { sessionTabId },
+          });
+        }
       }
       handleDisconnect(socket);
     });
