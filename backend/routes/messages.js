@@ -245,15 +245,42 @@ async function getOrCreateConversationKey(branchEmail, guestId, auditCtx = null)
         return unwrapConversationKey(snap.data().key);
       } catch (err) {
         if (!CONV_KEY_AUTO_REGEN) throw err; // strict default: surface the 500
+        // Non-destructive self-heal: ARCHIVE the un-decryptable key into
+        // priorKeys[] instead of overwriting it. The thread keeps working (a
+        // fresh key is issued), and if the ORIGINAL CONV_KEY_SECRET ever
+        // resurfaces (add it to CONV_KEY_SECRET_FALLBACKS) the archived key can
+        // be unwrapped to decrypt this thread's pre-regen history. We read the
+        // existing array from the in-tx snapshot (consistent) and append.
         console.warn(
           `[CONV-KEY] CONV_KEY_AUTO_REGEN: regenerating un-decryptable key for ${docId} ` +
-            `(${err.code || err.message}). Prior history for this thread is not recoverable.`
+            `(${err.code || err.message}). Prior wrapped key archived to priorKeys[] for possible later recovery.`
         );
         regenReason = err.code || err.message || "unknown";
+        const existing = snap.data() || {};
+        const priorKeys = Array.isArray(existing.priorKeys)
+          ? existing.priorKeys.slice()
+          : [];
+        if (existing.key) {
+          priorKeys.push({
+            key: existing.key, // the wrapped key no currently-configured secret can unwrap
+            archivedAt: new Date().toISOString(),
+            reason: regenReason,
+          });
+        }
+        // Defensive cap on document growth. Regen is rare and self-limiting (the
+        // new key unwraps cleanly afterwards), so this is effectively never hit;
+        // keep the MOST RECENT entries if it ever is.
+        const MAX_PRIOR_KEYS = 25;
+        const trimmedPriorKeys =
+          priorKeys.length > MAX_PRIOR_KEYS ? priorKeys.slice(-MAX_PRIOR_KEYS) : priorKeys;
         const rawB64 = crypto.randomBytes(32).toString("base64"); // AES-256
         tx.set(
           ref,
-          { key: wrapConversationKey(rawB64), regeneratedAt: new Date().toISOString() },
+          {
+            key: wrapConversationKey(rawB64),
+            regeneratedAt: new Date().toISOString(),
+            priorKeys: trimmedPriorKeys,
+          },
           { merge: true }
         );
         return rawB64;
@@ -282,7 +309,12 @@ async function getOrCreateConversationKey(branchEmail, guestId, auditCtx = null)
       target: { type: "conversation", id: docId, guestId: guest },
       branchEmail: branch,
       context: (auditCtx && auditCtx.context) || {},
-      meta: { reason: regenReason, trigger: "CONV_KEY_AUTO_REGEN", historyRecoverable: false },
+      meta: {
+        reason: regenReason,
+        trigger: "CONV_KEY_AUTO_REGEN",
+        priorKeyArchived: true,
+        historyRecoverable: "only with the original CONV_KEY_SECRET (archived in priorKeys[])",
+      },
     });
   }
 
