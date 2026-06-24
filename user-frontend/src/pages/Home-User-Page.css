@@ -355,3 +355,104 @@
   .home-shell { padding-left: 18px; padding-right: 18px; }
   .home-grid, .home-steps { grid-template-columns: 1fr; }
 }
+
+/* ── Motion — discreet, premium, never flashy ───────────────────────────── */
+.home-cell,
+.home-feature,
+.home-step {
+  transition: transform 0.28s ease, border-color 0.28s ease,
+    background-color 0.28s ease, box-shadow 0.28s ease;
+}
+.home-cell:hover,
+.home-feature:hover {
+  transform: translateY(-3px);
+  border-color: var(--gold);
+  box-shadow: 0 1px 0 var(--gold) inset;
+}
+.home-step { position: relative; }
+.home-step:hover { transform: translateY(-3px); }
+.home-step::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--gold);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 0.3s ease;
+}
+.home-step:hover::after { transform: scaleY(1); }
+
+.home-cell__icon,
+.home-feature__icon {
+  transition: color 0.28s ease, border-color 0.28s ease, transform 0.28s ease;
+}
+.home-cell:hover .home-cell__icon,
+.home-feature:hover .home-feature__icon {
+  color: var(--gold);
+  border-color: var(--gold);
+  transform: translateY(-2px);
+}
+
+.home-cta svg:last-child { transition: transform 0.2s ease; }
+.home-cta:hover svg:last-child { transform: translateX(4px); }
+
+.home-trustline span svg,
+.home-eyebrow { transition: color 0.28s ease; }
+
+/* Countdown: gentle living sheen on the gold frame */
+.auction-countdown { position: relative; }
+.countdown-item { transition: background-color 0.3s ease; }
+.auction-countdown::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 1px rgba(212, 168, 83, 0.45);
+  opacity: 0;
+  animation: home-pulse 3.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes home-pulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.7; }
+}
+
+/* Entrance reveals (run once on mount; staggered) */
+@keyframes home-rise {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: none; }
+}
+.home-hero__title,
+.home-hero__sub,
+.home-hero .home-cta,
+.home-trustline,
+.home-section-head { animation: home-rise 0.6s ease both; }
+.home-hero__sub { animation-delay: 0.08s; }
+.home-hero .home-cta { animation-delay: 0.16s; }
+.home-trustline { animation-delay: 0.24s; }
+
+.home-grid .home-cell,
+.home-feature-grid .home-feature,
+.home-steps .home-step { animation: home-rise 0.5s ease both; }
+.home-grid .home-cell:nth-child(2),
+.home-feature-grid .home-feature:nth-child(2),
+.home-steps .home-step:nth-child(2) { animation-delay: 0.06s; }
+.home-grid .home-cell:nth-child(3),
+.home-feature-grid .home-feature:nth-child(3),
+.home-steps .home-step:nth-child(3) { animation-delay: 0.12s; }
+.home-grid .home-cell:nth-child(4),
+.home-steps .home-step:nth-child(4) { animation-delay: 0.18s; }
+.home-grid .home-cell:nth-child(5),
+.home-steps .home-step:nth-child(5) { animation-delay: 0.24s; }
+.home-steps .home-step:nth-child(6) { animation-delay: 0.30s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .home-page *,
+  .home-page *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
