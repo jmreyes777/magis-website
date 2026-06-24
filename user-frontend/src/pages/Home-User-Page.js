@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import Footer from '../components/Footer-User-Component';
 import {
-  FaMoneyBillAlt,
-  FaGavel,
-  FaPercent,
-  FaCertificate,
-  FaClock,
-  FaArrowRight,
-  FaUserCircle,
   FaMapMarkerAlt,
-  FaComments
+  FaArrowRight,
+  FaCertificate,
+  FaBalanceScale,
+  FaClock,
+  FaHeartbeat,
+  FaGraduationCap,
+  FaStore,
+  FaWallet,
+  FaFileInvoiceDollar,
+  FaUserShield,
+  FaLock
 } from 'react-icons/fa';
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Seo, { SITE_ORIGIN, SITE_NAME } from '../components/Seo';
 import './Home-User-Page.css';
 
@@ -128,14 +131,6 @@ function AuctionCountdown({ target, onRollover }) {
 }
 
 function Home() {
-  const navigate = useNavigate();
-
-  const handleFindBranch = () => navigate('/branches');
-
-  // Chat is per-branch (the guest picks a branch, then taps its Chat button),
-  // so route to the branches page where live chat is available.
-  const handleOpenChat = () => navigate('/branches');
-
   // Target date for the auction display + countdown. The per-second ticking is
   // isolated in <AuctionCountdown/> so the rest of the page stays static.
   const [nextAuctionDate, setNextAuctionDate] = useState(() => computeNextAuctionFallback());
@@ -211,7 +206,7 @@ function Home() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="home-page flex flex-col min-h-screen">
       <Seo
         title="Magis Pawnshop & Jewelry | Instant Cash for Your Gold"
         description="Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing."
@@ -219,225 +214,180 @@ function Home() {
         jsonLd={HOME_JSONLD}
       />
 
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="hero-overlay" />
-        <div className="hero-content">
-          <h1 className="hero-title">
-            Instant Cash for Your Gold
-          </h1>
-          <p className="hero-subtitle">
-            Trusted pawning, jewelry sales, and auctions since 1996. Get high appraisals, low interest rates, and fast processing at a branch near you.
+      {/* Hero */}
+      <section className="home-hero">
+        <div className="home-shell home-hero__inner">
+          <h1 className="home-hero__title">Quick cash using your gold jewelry.</h1>
+          <p className="home-hero__sub">
+            A secure, private, and fair way to get emergency funds. Walang kaba, walang
+            mahabang proseso. Just straightforward service for when you need it most.
           </p>
-          <div className="hero-cta-container">
-            <button
-              onClick={handleFindBranch}
-              className="btn-primary-cta"
-            >
-              <FaMapMarkerAlt className="mr-2" />
-              Find a Branch Near You
-            </button>
-            <button
-              onClick={handleOpenChat}
-              className="btn-secondary-cta"
-            >
-              <FaComments className="mr-2" />
-              Chat With Our Team
-            </button>
-          </div>
-          <div className="hero-trust-strip">
-            <span className="hero-trust-item"><FaCertificate /> Trusted since 1996</span>
-            <span className="hero-trust-item"><FaPercent /> Rates from 1% / mo</span>
-            <span className="hero-trust-item"><FaClock /> Cash in ~15 mins</span>
+          <Link to="/branches" className="home-cta">
+            <FaMapMarkerAlt aria-hidden="true" /> Find a Branch Near You{' '}
+            <FaArrowRight aria-hidden="true" />
+          </Link>
+          <div className="home-trustline">
+            <span><FaCertificate className="mr-2" aria-hidden="true" /> Serving customers since 1996</span>
+            <span><FaBalanceScale className="mr-2" aria-hidden="true" /> Fair appraisals</span>
+            <span><FaClock className="mr-2" aria-hidden="true" /> Cash in 15 minutes</span>
           </div>
         </div>
       </section>
 
       <main className="flex-grow">
-        {/* Services Overview */}
-        <section className="section">
-          <div className="section-header">
-            <h2 className="section-title">Our Services</h2>
-            <p className="section-subtitle">
-              Quick cash for your valuables and quality jewelry at competitive prices
-            </p>
-          </div>
-          <div className="services-grid">
-            <div className="service-card">
-              <div className="service-icon">
-                <FaMoneyBillAlt />
-              </div>
-              <h3 className="service-title">Pawn Loans</h3>
-              <p className="service-description">
-                Quick loans for your gold jewelry and valuables with high appraisals and low interest rates.
-              </p>
-              <Link
-                to="/pawning"
-                className="service-link"
-              >
-                Learn More <FaArrowRight />
-              </Link>
-            </div>
-            <div className="service-card">
-              <div className="service-icon">
-                <FaGavel />
-              </div>
-              <h3 className="service-title">Jewelry Sales</h3>
-              <p className="service-description">
-                Unredeemed jewelry at great prices in-store. Browse our collection at any sales branch.
-              </p>
-              <Link
-                to="/jewelry-sales"
-                className="service-link"
-              >
-                View Details <FaArrowRight />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* Value Proposition */}
-        <section className="section section-alt">
-          <div className="section-header">
-            <h2 className="section-title">Why Choose Magis Gold & Gems?</h2>
-            <p className="section-subtitle">
-              Trusted by Filipinos since 1996 for fair appraisals, low rates, and fast service
-            </p>
-          </div>
-          <div className="benefits-grid">
-            <div className="benefit-card">
-              <div className="benefit-icon">
-                <FaCertificate />
-              </div>
-              <h3 className="benefit-title">High Appraisal Values</h3>
-              <p className="benefit-description">
-                Up to 30% higher appraisal for your gold jewelry compared to other pawnshops.
+        {/* Use cases */}
+        <section className="home-section">
+          <div className="home-shell">
+            <div className="home-section-head">
+              <p className="home-eyebrow">Use cases</p>
+              <h2 className="home-h2">Practical help for urgent expenses.</h2>
+              <p className="home-lead">
+                We provide a respectful, no-questions-asked way to get cash immediately
+                when life happens.
               </p>
             </div>
-            <div className="benefit-card">
-              <div className="benefit-icon">
-                <FaPercent />
+            <div className="home-grid">
+              <div className="home-cell">
+                <span className="home-cell__icon"><FaHeartbeat aria-hidden="true" /></span>
+                <h3 className="home-cell__title">Medical needs</h3>
+                <p className="home-cell__text">Hospital bills, sudden treatments, or medicines.</p>
               </div>
-              <h3 className="benefit-title">Low Interest Rates</h3>
-              <p className="benefit-description">
-                Affordable rates starting at 1% per month. Save more on your pawn loans.
-              </p>
-            </div>
-            <div className="benefit-card">
-              <div className="benefit-icon">
-                <FaClock />
+              <div className="home-cell">
+                <span className="home-cell__icon"><FaGraduationCap aria-hidden="true" /></span>
+                <h3 className="home-cell__title">Education</h3>
+                <p className="home-cell__text">Tuition fees and school requirements.</p>
               </div>
-              <h3 className="benefit-title">Fast Processing</h3>
-              <p className="benefit-description">
-                Receive cash in as fast as 15 minutes. Quick appraisal and immediate payout.
-              </p>
+              <div className="home-cell">
+                <span className="home-cell__icon"><FaStore aria-hidden="true" /></span>
+                <h3 className="home-cell__title">Business relief</h3>
+                <p className="home-cell__text">Pandagdag puhunan for your sari-sari store or small business.</p>
+              </div>
+              <div className="home-cell">
+                <span className="home-cell__icon"><FaWallet aria-hidden="true" /></span>
+                <h3 className="home-cell__title">Daily expenses</h3>
+                <p className="home-cell__text">Bridging the gap during a salary delay.</p>
+              </div>
+              <div className="home-cell">
+                <span className="home-cell__icon"><FaFileInvoiceDollar aria-hidden="true" /></span>
+                <h3 className="home-cell__title">Unexpected bills</h3>
+                <p className="home-cell__text">Urgent household repairs or due dates.</p>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Auction Highlights */}
-        <section className="section">
-          <div className="section-header">
-            <h2 className="section-title">Next Monthly Auction</h2>
-            <p className="section-subtitle">
-              Browse unredeemed jewelry and valuables at competitive prices
-            </p>
+        {/* Process */}
+        <section className="home-section home-section--navy">
+          <div className="home-shell">
+            <div className="home-section-head">
+              <p className="home-eyebrow">Process</p>
+              <h2 className="home-h2">How the process works.</h2>
+              <p className="home-lead">
+                A fast, transparent, and no-pressure experience from start to finish.
+              </p>
+            </div>
+            <div className="home-steps">
+              <div className="home-step">
+                <span className="home-step__num">STEP 1</span>
+                <h3 className="home-step__title">Bring your item</h3>
+                <p className="home-step__text">Visit any branch with your gold jewelry.</p>
+              </div>
+              <div className="home-step">
+                <span className="home-step__num">STEP 2</span>
+                <h3 className="home-step__title">Fair appraisal</h3>
+                <p className="home-step__text">We evaluate your gold based on current market value and tell you the exact amount you can borrow.</p>
+              </div>
+              <div className="home-step">
+                <span className="home-step__num">STEP 3</span>
+                <h3 className="home-step__title">Clear terms</h3>
+                <p className="home-step__text">Ipapaliwanag namin nang maayos ang terms at interest rates. Walang hidden charges.</p>
+              </div>
+              <div className="home-step">
+                <span className="home-step__num">STEP 4</span>
+                <h3 className="home-step__title">Your decision</h3>
+                <p className="home-step__text">You decide whether to proceed. Walang pilitan.</p>
+              </div>
+              <div className="home-step">
+                <span className="home-step__num">STEP 5</span>
+                <h3 className="home-step__title">Get your cash</h3>
+                <p className="home-step__text">If you accept, receive your funds in as fast as 15 minutes.</p>
+              </div>
+              <div className="home-step">
+                <span className="home-step__num">STEP 6</span>
+                <h3 className="home-step__title">Redeem securely</h3>
+                <p className="home-step__text">Pay the loan amount within the agreed term to get your jewelry back safely.</p>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="auction-date">
-              Auction Date:{' '}
-              {nextAuctionDate.toLocaleDateString('en-PH', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric'
-              })}
-            </p>
-            <AuctionCountdown target={nextAuctionDate} onRollover={setNextAuctionDate} />
-            <p className="auction-info">
-              Auctions are held monthly during our sales branch's operating hours.{' '}
-              <Link
-                to="/branches?filter=jewelry"
-                className="service-link"
-              >
-                See sales branch hours <FaArrowRight />
-              </Link>
-            </p>
+        </section>
+
+        {/* Trust / privacy / fairness */}
+        <section className="home-section">
+          <div className="home-shell">
+            <div className="home-section-head">
+              <p className="home-eyebrow">Privacy</p>
+              <h2 className="home-h2">Your privacy is our priority.</h2>
+              <p className="home-lead">
+                Pawning is a private matter. Our branches and staff are trained to give
+                you a discreet and highly professional experience.
+              </p>
+            </div>
+            <div className="home-feature-grid">
+              <div className="home-feature">
+                <span className="home-feature__icon"><FaUserShield aria-hidden="true" /></span>
+                <h3 className="home-feature__title">Discreet service</h3>
+                <p className="home-feature__text">Walang usisero. We handle every transaction quietly and respectfully.</p>
+              </div>
+              <div className="home-feature">
+                <span className="home-feature__icon"><FaLock aria-hidden="true" /></span>
+                <h3 className="home-feature__title">Secure storage</h3>
+                <p className="home-feature__text">Your gold is kept completely safe until the day you redeem it.</p>
+              </div>
+              <div className="home-feature">
+                <span className="home-feature__icon"><FaBalanceScale aria-hidden="true" /></span>
+                <h3 className="home-feature__title">Fair rates</h3>
+                <p className="home-feature__text">We offer highly competitive appraisals and transparent interest rates starting at 1%</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Monthly subasta */}
+        <section className="home-section home-section--navy">
+          <div className="home-shell">
+            <div className="home-section-head">
+              <p className="home-eyebrow">Monthly subasta</p>
+              <h2 className="home-h2">Clear policies on unredeemed items.</h2>
+              <p className="home-lead">
+                We understand that financial plans can change. Gusto naming maging malinaw
+                sa simula pa lang kung ano ang mangyayari kung hindi mabayaran ang loan.
+              </p>
+            </div>
+            <ul className="home-policy">
+              <li>If your loan term expires and you cannot renew or redeem your item, it will be included in our scheduled monthly subasta (auction).</li>
+              <li>This is a standard, transparent procedure that allows the pawnshop to recover the unpaid loan amount.</li>
+              <li>We ensure all deadlines and policies are clearly explained to you before you sign anything, para walang surprises.</li>
+            </ul>
+
+            <div className="home-countdown-wrap">
+              <p className="home-countdown-meta">
+                Next scheduled subasta
+                <strong>
+                  {nextAuctionDate.toLocaleDateString('en-PH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </strong>
+              </p>
+              <AuctionCountdown target={nextAuctionDate} onRollover={setNextAuctionDate} />
+            </div>
 
             {/* ⤵️ Automatically fetches the latest Facebook album */}
-            <div style={{ marginTop: '48px' }}>
+            <div className="home-album">
               <FacebookAlbumCarousel pageSize={12} />
             </div>
           </div>
-        </section>
-
-        {/* How It Works */}
-        <section className="section section-alt">
-          <div className="section-header">
-            <h2 className="section-title">How It Works</h2>
-            <p className="section-subtitle">
-              Get cash for your gold in three simple steps
-            </p>
-          </div>
-          <div className="steps-grid">
-            <div className="step-card">
-              <div className="step-number">1</div>
-              <div className="step-icon">
-                <FaUserCircle />
-              </div>
-              <h3 className="step-title">Bring Your Item</h3>
-              <p className="step-description">
-                Visit any of our branches with your gold jewelry or valuables.
-              </p>
-            </div>
-            <div className="step-card">
-              <div className="step-number">2</div>
-              <div className="step-icon">
-                <FaPercent />
-              </div>
-              <h3 className="step-title">Get Appraisal</h3>
-              <p className="step-description">
-                Our experts appraise your item and offer competitive cash value.
-              </p>
-            </div>
-            <div className="step-card">
-              <div className="step-number">3</div>
-              <div className="step-icon">
-                <FaMoneyBillAlt />
-              </div>
-              <h3 className="step-title">Receive Cash</h3>
-              <p className="step-description">
-                Get instant cash with secure storage and peace of mind.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Testimonials */}
-        <section className="section">
-          <div className="section-header">
-            <h2 className="section-title">What Our Customers Say</h2>
-          </div>
-          <div className="testimonial-container">
-            <blockquote className="testimonial-quote">
-              I pawned my necklace at Magis and was impressed by the high appraisal and friendly service.
-              They even guided me through the auction process when I couldn’t redeem.
-            </blockquote>
-            <p className="testimonial-author">– Maria G.</p>
-          </div>
-        </section>
-
-        {/* Final CTA Banner */}
-        <section className="cta-banner">
-          <h2 className="cta-banner-title">Ready to Get Started?</h2>
-          <p className="cta-banner-subtitle">
-            Find a branch near you and chat with our team instantly.
-          </p>
-          <button
-            onClick={handleFindBranch}
-            className="cta-banner-btn"
-          >
-            Find a Branch & Chat
-          </button>
         </section>
       </main>
 

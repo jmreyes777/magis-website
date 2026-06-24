@@ -1,552 +1,357 @@
-/* Home-User-Page.css - Premium Pawnshop Design */
+/* Home-User-Page.css — Discreet private-wealth / digital-bank aesthetic.
+   Zero gradients. Hard 1px borders. Generous whitespace. Utilitarian. */
 
-/* ── Hero Section - Premium & Trustworthy ───────────────────────────────── */
-.hero-section {
-  min-height: 650px;
-  background: linear-gradient(135deg, rgba(26, 26, 46, 0.95) 0%, rgba(31, 41, 55, 0.9) 100%),
-              linear-gradient(135deg, #1a1a2e 0%, #2d3748 100%);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.home-page {
+  --navy: #1a1a2e;
+  --navy-2: #232339;
+  --gold: #d4a853;
+  --gold-deep: #c9a227;
+  --line: rgba(212, 168, 83, 0.3);
+  --line-soft: rgba(26, 26, 46, 0.1);
+  --ink: #1a1a2e;
+  --muted: #5b5b6b;
+  --paper: #ffffff;
+  --paper-2: #faf9f7;
+
+  color: var(--ink);
+  background: var(--paper);
+  font-feature-settings: "tnum" 0;
+  -webkit-font-smoothing: antialiased;
 }
 
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(135deg, rgba(26, 26, 46, 0.85) 0%, rgba(31, 41, 55, 0.75) 100%);
-}
-
-.hero-content {
-  position: relative;
-  z-index: 10;
-  text-align: center;
-  padding: 60px 20px;
-  max-width: 1000px;
-}
-
-.hero-title {
-  font-size: 3rem;
-  font-weight: 700;
-  color: #ffffff;
-  margin-bottom: 16px;
-  line-height: 1.2;
-  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.hero-subtitle {
-  font-size: 1.25rem;
-  color: #e5e7eb;
-  margin-bottom: 32px;
-  line-height: 1.6;
-  max-width: 700px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.hero-cta-container {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.btn-primary-cta {
-  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
-  color: #1a1a2e;
-  padding: 16px 32px;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(212, 168, 83, 0.3), 0 2px 8px rgba(212, 168, 83, 0.2);
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-primary-cta:hover {
-  background: linear-gradient(135deg, #c9a227 0%, #b8941f 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(212, 168, 83, 0.4), 0 3px 12px rgba(212, 168, 83, 0.25);
-}
-
-.btn-secondary-cta {
-  background: transparent;
-  color: #ffffff;
-  padding: 16px 32px;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  border: 2px solid rgba(212, 168, 83, 0.6);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-secondary-cta:hover {
-  background: rgba(212, 168, 83, 0.15);
-  border-color: rgba(212, 168, 83, 0.8);
-  transform: translateY(-2px);
-}
-
-/* ── Section Styling - Premium & Balanced ───────────────────────────────── */
-.section {
-  padding: 80px 20px;
-}
-
-.section-alt {
-  background: linear-gradient(135deg, #faf8f5 0%, #f5f3f0 100%);
-}
-
-.section-header {
-  text-align: center;
-  margin-bottom: 48px;
-}
-
-.section-title {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin-bottom: 12px;
-}
-
-.section-subtitle {
-  font-size: 1.1rem;
-  color: #6b7280;
-  max-width: 700px;
+/* ── Shared shell ───────────────────────────────────────────────────────── */
+.home-shell {
+  max-width: 1120px;
   margin: 0 auto;
-  line-height: 1.6;
+  padding-left: 24px;
+  padding-right: 24px;
 }
 
-/* ── Service Cards - Premium Design ─────────────────────────────────────── */
-.services-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 32px;
-  max-width: 1200px;
-  margin: 0 auto;
+.home-section {
+  padding-top: 88px;
+  padding-bottom: 88px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
-.service-card {
-  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
-  border-radius: 16px;
-  padding: 40px 32px;
-  text-align: center;
-  border: 1px solid rgba(212, 168, 83, 0.2);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.03);
-  transition: all 0.3s ease;
+.home-section--navy {
+  background: var(--navy);
+  color: #fff;
+  border-bottom: 1px solid rgba(212, 168, 83, 0.18);
 }
 
-.service-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(212, 168, 83, 0.2), 0 4px 12px rgba(212, 168, 83, 0.1);
-  border-color: rgba(212, 168, 83, 0.4);
-}
-
-.service-icon {
-  width: 64px;
-  height: 64px;
-  background: linear-gradient(135deg, rgba(212, 168, 83, 0.15) 0%, rgba(212, 168, 83, 0.05) 100%);
-  border-radius: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 20px;
-  color: #d4a853;
-  font-size: 28px;
-}
-
-.service-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1a1a2e;
-  margin-bottom: 12px;
-}
-
-.service-description {
-  font-size: 1rem;
-  color: #4b5563;
-  margin-bottom: 20px;
-  line-height: 1.6;
-}
-
-.service-link {
-  color: #d4a853;
-  font-weight: 600;
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.2s ease;
-}
-
-.service-link:hover {
-  color: #c9a227;
-  transform: translateX(4px);
-}
-
-/* ── Benefits Section - Trust-Building ───────────────────────────────────── */
-.benefits-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 32px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.benefit-card {
-  text-align: center;
-  padding: 20px;
-}
-
-.benefit-icon {
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, rgba(212, 168, 83, 0.15) 0%, rgba(212, 168, 83, 0.05) 100%);
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-  color: #d4a853;
-  font-size: 24px;
-}
-
-.benefit-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1a1a2e;
-  margin-bottom: 8px;
-}
-
-.benefit-description {
-  font-size: 0.95rem;
-  color: #6b7280;
-  line-height: 1.6;
-}
-
-/* ── Auction Section - Premium Presentation ─────────────────────────────── */
-.auction-countdown {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin: 32px 0;
-  flex-wrap: wrap;
-}
-
-.countdown-item {
-  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
-  border: 1px solid rgba(212, 168, 83, 0.2);
-  border-radius: 12px;
-  padding: 20px 28px;
-  text-align: center;
-  min-width: 100px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-}
-
-.countdown-value {
-  font-size: 2rem;
+.home-eyebrow {
+  font-size: 0.75rem;
   font-weight: 700;
-  color: #d4a853;
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.countdown-label {
-  font-size: 0.85rem;
-  color: #6b7280;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  color: var(--gold-deep);
+  margin: 0 0 14px;
 }
 
-.auction-info {
+.home-section--navy .home-eyebrow { color: var(--gold); }
+
+.home-h2 {
+  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.25rem);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  margin: 0 0 14px;
+}
+
+.home-lead {
+  font-size: 1.05rem;
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 640px;
+  margin: 0;
+}
+
+.home-section--navy .home-lead { color: rgba(255, 255, 255, 0.72); }
+
+.home-section-head { margin-bottom: 48px; }
+
+/* ── Hero ───────────────────────────────────────────────────────────────── */
+.home-hero {
+  background: var(--navy);
+  color: #fff;
+  padding-top: 96px;
+  padding-bottom: 96px;
+  border-bottom: 1px solid rgba(212, 168, 83, 0.18);
+}
+
+.home-hero__inner { max-width: 760px; }
+
+.home-hero__title {
+  font-size: clamp(2.1rem, 1.4rem + 3vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
+  margin: 0 0 20px;
+}
+
+.home-hero__sub {
+  font-size: 1.15rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.78);
+  margin: 0 0 32px;
+  max-width: 620px;
+}
+
+.home-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 28px;
   font-size: 1rem;
-  color: #4b5563;
-  max-width: 700px;
-  margin: 0 auto;
-  line-height: 1.7;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--navy);
+  background: var(--gold);
+  border: 1px solid var(--gold-deep);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.18s ease, transform 0.08s ease;
 }
+.home-cta:hover { background: var(--gold-deep); }
+.home-cta:active { transform: translateY(1px); }
+.home-cta svg { font-size: 0.95em; }
 
-/* ── How It Works - Clear Steps ──────────────────────────────────────────── */
-.steps-grid {
+.home-trustline {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(212, 168, 83, 0.25);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+.home-trustline span { display: inline-flex; align-items: center; }
+.home-trustline span + span { position: relative; }
+
+/* ── Use-case grid ──────────────────────────────────────────────────────── */
+.home-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 40px;
-  max-width: 1200px;
-  margin: 0 auto;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--paper);
 }
 
-.step-card {
-  text-align: center;
-  position: relative;
+.home-cell {
+  padding: 28px 26px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
-.step-number {
+.home-cell__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-  color: #1a1a2e;
-  font-weight: 700;
-  font-size: 1.1rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--gold-deep);
+  font-size: 1.05rem;
+  margin-bottom: 16px;
 }
 
-.step-icon {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, rgba(212, 168, 83, 0.15) 0%, rgba(212, 168, 83, 0.05) 100%);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 auto 16px;
-  color: #d4a853;
-  font-size: 20px;
-}
-
-.step-title {
-  font-size: 1.25rem;
+.home-cell__title {
+  font-size: 1.02rem;
   font-weight: 600;
-  color: #1a1a2e;
-  margin-bottom: 8px;
+  margin: 0 0 6px;
+  color: var(--ink);
 }
 
-.step-description {
-  font-size: 0.95rem;
-  color: #6b7280;
+.home-cell__text {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ── Process steps ──────────────────────────────────────────────────────── */
+.home-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1px;
+  background: rgba(212, 168, 83, 0.18);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.home-step {
+  background: var(--navy);
+  padding: 30px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.home-step__num {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+}
+
+.home-step__title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+  color: #fff;
+}
+
+.home-step__text {
+  font-size: 0.92rem;
   line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
 }
 
-/* ── Testimonial - Trust-Building ───────────────────────────────────────── */
-.testimonial-container {
-  max-width: 800px;
-  margin: 0 auto;
-  text-align: center;
+/* ── Trust / privacy ────────────────────────────────────────────────────── */
+.home-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
 }
 
-.testimonial-quote {
-  font-size: 1.25rem;
-  font-style: italic;
-  color: #4b5563;
-  line-height: 1.8;
-  margin-bottom: 20px;
-  position: relative;
+.home-feature {
+  padding: 30px 28px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
 }
 
-.testimonial-quote::before {
-  content: '"';
-  font-size: 4rem;
-  color: rgba(212, 168, 83, 0.2);
-  position: absolute;
-  top: -20px;
-  left: -20px;
-}
-
-.testimonial-author {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #1a1a2e;
-}
-
-/* ── Final CTA Banner - Strong Conversion ─────────────────────────────────── */
-.cta-banner {
-  background: linear-gradient(135deg, #d4a853 0%, #c9a227 100%);
-  padding: 80px 20px;
-  text-align: center;
-}
-
-.cta-banner-title {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: #1a1a2e;
-  margin-bottom: 12px;
-}
-
-.cta-banner-subtitle {
-  font-size: 1.1rem;
-  color: #1a1a2e;
-  margin-bottom: 32px;
-  opacity: 0.9;
-}
-
-.cta-banner-btn {
-  background: #1a1a2e;
-  color: #d4a853;
-  padding: 16px 40px;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  text-decoration: none;
+.home-feature__icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--gold-deep);
+  font-size: 1.15rem;
+  margin-bottom: 18px;
 }
 
-.cta-banner-btn:hover {
-  background: #2d2d42;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+.home-feature__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--ink);
 }
 
-/* ── Mobile Responsiveness ─────────────────────────────────────────────── */
-@media (max-width: 1024px) {
-  .hero-section {
-    min-height: 550px;
-  }
-
-  .hero-title {
-    font-size: 2.5rem;
-  }
-
-  .hero-subtitle {
-    font-size: 1.1rem;
-  }
-
-  .section {
-    padding: 64px 20px;
-  }
-
-  .section-title {
-    font-size: 2rem;
-  }
-
-  .services-grid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 24px;
-  }
-
-  .service-card {
-    padding: 32px 24px;
-  }
+.home-feature__text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: 0;
 }
 
+/* ── Subasta block ──────────────────────────────────────────────────────── */
+.home-policy {
+  list-style: none;
+  margin: 0 0 44px;
+  padding: 0;
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(212, 168, 83, 0.22);
+  border-radius: 6px;
+  overflow: hidden;
+  max-width: 760px;
+}
+.home-policy li {
+  padding: 20px 24px 20px 52px;
+  position: relative;
+  font-size: 0.96rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(212, 168, 83, 0.16);
+}
+.home-policy li:last-child { border-bottom: 0; }
+.home-policy li::before {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 27px;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--gold);
+  border-radius: 1px;
+}
+
+.home-countdown-wrap { margin: 40px 0 16px; }
+
+.home-countdown-meta {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 0 0 18px;
+}
+.home-countdown-meta strong {
+  display: block;
+  margin-top: 6px;
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: #fff;
+}
+
+/* AuctionCountdown component markup (class names preserved) */
+.auction-countdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: rgba(212, 168, 83, 0.3);
+  border: 1px solid var(--gold);
+  border-radius: 4px;
+  overflow: hidden;
+  width: fit-content;
+}
+.countdown-item {
+  background: var(--navy);
+  padding: 18px 22px;
+  min-width: 86px;
+  text-align: center;
+}
+.countdown-value {
+  font-size: clamp(1.8rem, 1.2rem + 1.6vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.countdown-label {
+  margin-top: 8px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.home-album { margin-top: 56px; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-  .hero-section {
-    min-height: 500px;
-  }
-
-  .hero-content {
-    padding: 40px 16px;
-  }
-
-  .hero-title {
-    font-size: 2rem;
-  }
-
-  .hero-subtitle {
-    font-size: 1rem;
-    margin-bottom: 24px;
-  }
-
-  .hero-cta-container {
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .btn-primary-cta,
-  .btn-secondary-cta {
-    width: 100%;
-    padding: 14px 24px;
-  }
-
-  .section {
-    padding: 48px 16px;
-  }
-
-  .section-title {
-    font-size: 1.75rem;
-  }
-
-  .section-subtitle {
-    font-size: 1rem;
-  }
-
-  .section-header {
-    margin-bottom: 32px;
-  }
-
-  .services-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .service-card {
-    padding: 28px 20px;
-  }
-
-  .benefits-grid {
-    grid-template-columns: 1fr;
-    gap: 24px;
-  }
-
-  .auction-countdown {
-    gap: 12px;
-  }
-
-  .countdown-item {
-    min-width: 80px;
-    padding: 16px 20px;
-  }
-
-  .countdown-value {
-    font-size: 1.5rem;
-  }
-
-  .steps-grid {
-    grid-template-columns: 1fr;
-    gap: 32px;
-  }
-
-  .testimonial-quote {
-    font-size: 1.1rem;
-  }
-
-  .cta-banner {
-    padding: 56px 16px;
-  }
-
-  .cta-banner-title {
-    font-size: 1.75rem;
-  }
-
-  .cta-banner-btn {
-    width: 100%;
-  }
+  .home-section, .home-hero { padding-top: 56px; padding-bottom: 56px; }
+  .home-hero { padding-top: 64px; }
+  .home-section-head { margin-bottom: 32px; }
+  .home-cta { width: 100%; justify-content: center; }
+  .countdown-item { min-width: 72px; padding: 14px 16px; }
 }
 
-@media (max-width: 480px) {
-  .hero-section {
-    min-height: 450px;
-  }
-
-  .hero-title {
-    font-size: 1.75rem;
-  }
-
-  .section-title {
-    font-size: 1.5rem;
-  }
-
-  .service-title {
-    font-size: 1.25rem;
-  }
-
-  .benefit-title {
-    font-size: 1.1rem;
-  }
+@media (max-width: 520px) {
+  .home-shell { padding-left: 18px; padding-right: 18px; }
+  .home-grid, .home-steps { grid-template-columns: 1fr; }
 }
