@@ -2242,13 +2242,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
               </div>
             )}
             {previewFile && (
-              <div
-                role="alert"
-                className="flex items-start gap-1.5 mb-3 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-md text-[10px] leading-snug text-amber-800"
-              >
+              <div role="alert" className="upload-id-warning">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="w-3.5 h-3.5 mt-px flex-shrink-0"
+                  className="upload-id-warning__icon"
                   viewBox="0 0 20 20"
                   fill="currentColor"
                   aria-hidden="true"
@@ -2267,13 +2264,12 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
               </div>
             )}
             {previewFile && (
-              <div className="flex justify-center mb-3">
-                <div className="relative w-16 h-16">
+              <div className="attach-preview">
+                <div className="attach-preview__box">
                   <img
                     src={URL.createObjectURL(previewFile)}
                     alt="Attachment preview"
-                    disabled={showOffline}
-                    className="w-full h-full object-cover rounded border"
+                    className="attach-preview__img"
                   />
                   <button
                     type="button"
@@ -2281,7 +2277,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
                       setPreviewFile(null);
                       inputFileRef.current.value = "";
                     }}
-                    className="absolute -top-1 -right-1 bg-gray-800 bg-opacity-75 text-white rounded-full p-0.5 text-xs"
+                    className="attach-preview__remove"
                     aria-label="Remove attachment"
                   >
                     ×
