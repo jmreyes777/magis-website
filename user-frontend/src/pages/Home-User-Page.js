@@ -11,8 +11,8 @@ import {
   FaMapMarkerAlt,
   FaComments
 } from 'react-icons/fa';
-import { Link } from "react-router-dom";
-import Seo from '../components/Seo';
+import { Link, useNavigate } from "react-router-dom";
+import Seo, { SITE_ORIGIN, SITE_NAME } from '../components/Seo';
 import './Home-User-Page.css';
 
 // 🔗 Firestore (client SDK)
@@ -22,60 +22,123 @@ import { doc, onSnapshot, getDoc } from 'firebase/firestore';
 // 🔗 Facebook album grid (auto-fetches latest album if no ID)
 import FacebookAlbumCarousel from '../components/FacebookAlbumCarousel';
 
+// ===========================================================================
+// HOMEPAGE STRUCTURED DATA + ISOLATED AUCTION COUNTDOWN (module scope)
+// ===========================================================================
+
+// LocalBusiness structured data for the homepage. Only facts already shown on
+// the site — no invented address/phone/opening-hours/ratings (Google penalizes
+// fabricated structured data). Add geo/hours later for richer rich-results.
+const HOME_JSONLD = {
+  '@type': 'LocalBusiness',
+  '@id': `${SITE_ORIGIN}/#business`,
+  name: SITE_NAME,
+  description:
+    'Trusted pawning, auctions, and jewelry sales since 1996. High appraisals, low interest rates, and fast processing.',
+  url: `${SITE_ORIGIN}/`,
+  image: `${SITE_ORIGIN}/logo512.png`,
+  logo: `${SITE_ORIGIN}/logo512.png`,
+  foundingDate: '1996',
+  areaServed: { '@type': 'Country', name: 'Philippines' },
+  knowsAbout: ['Pawn loans', 'Gold jewelry', 'Jewelry sales', 'Auctions'],
+};
+
+// ---- Auction date helpers ----
+const AUCTION_DAY = 15;
+
+// Fallback: compute next 15th at 00:00 local time
+const computeNextAuctionFallback = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  return d < AUCTION_DAY
+    ? new Date(y, m, AUCTION_DAY, 0, 0, 0, 0)
+    : new Date(y, m + 1, AUCTION_DAY, 0, 0, 0, 0);
+};
+
+// If a configured date is in the past, roll it forward by months until it's in
+// the future, preserving the day & time.
+const rollForwardIfPast = (base) => {
+  const now = new Date();
+  let target = new Date(base);
+  while (target <= now) {
+    target = new Date(
+      target.getFullYear(),
+      target.getMonth() + 1,
+      target.getDate(),
+      target.getHours(),
+      target.getMinutes(),
+      target.getSeconds(),
+      0
+    );
+  }
+  return target;
+};
+
+const computeTimeLeft = (target) => {
+  const diff = Math.max(0, target - new Date());
+  return {
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+  };
+};
+
+// Countdown is isolated in its own component so the 1s tick only re-renders
+// this subtree, not the entire landing page.
+function AuctionCountdown({ target, onRollover }) {
+  const [timeLeft, setTimeLeft] = useState(() => computeTimeLeft(new Date(target)));
+
+  useEffect(() => {
+    let current = new Date(target);
+    const tick = () => {
+      if (new Date() >= current) {
+        current = rollForwardIfPast(current);
+        if (typeof onRollover === 'function') onRollover(current);
+      }
+      setTimeLeft(computeTimeLeft(current));
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [target, onRollover]);
+
+  return (
+    <div className="auction-countdown">
+      <div className="countdown-item">
+        <div className="countdown-value">{timeLeft.days}</div>
+        <div className="countdown-label">Days</div>
+      </div>
+      <div className="countdown-item">
+        <div className="countdown-value">{timeLeft.hours}</div>
+        <div className="countdown-label">Hours</div>
+      </div>
+      <div className="countdown-item">
+        <div className="countdown-value">{timeLeft.minutes}</div>
+        <div className="countdown-label">Minutes</div>
+      </div>
+      <div className="countdown-item">
+        <div className="countdown-value">{timeLeft.seconds}</div>
+        <div className="countdown-label">Seconds</div>
+      </div>
+    </div>
+  );
+}
+
 function Home() {
-  const handleFindBranch = () => {
-    window.location.href = '/branches';
-  };
+  const navigate = useNavigate();
 
-  const handleOpenChat = () => {
-    // Open the chat widget - this will trigger the chat box
-    const chatWidget = document.querySelector('[class*="guest-chat-box"]');
-    if (chatWidget) {
-      // If chat widget exists, scroll to it or trigger it
-      window.location.href = '/branches';
-    } else {
-      // Navigate to branches where chat is available
-      window.location.href = '/branches';
-    }
-  };
+  const handleFindBranch = () => navigate('/branches');
 
-  // ---- Helpers ----
-  const AUCTION_DAY = 15;
+  // Chat is per-branch (the guest picks a branch, then taps its Chat button),
+  // so route to the branches page where live chat is available.
+  const handleOpenChat = () => navigate('/branches');
 
-  // Fallback: compute next 15th at 00:00 local time
-  const computeNextAuctionFallback = () => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const d = now.getDate();
-    return d < AUCTION_DAY
-      ? new Date(y, m, AUCTION_DAY, 0, 0, 0, 0)
-      : new Date(y, m + 1, AUCTION_DAY, 0, 0, 0, 0);
-  };
-
-  // If a configured date is in the past, roll it forward by months
-  // until it’s in the future, preserving the day & time.
-  // (used as a fallback when we only have a single recurring date)
-  const rollForwardIfPast = (base) => {
-    const now = new Date();
-    let target = new Date(base);
-    while (target <= now) {
-      target = new Date(
-        target.getFullYear(),
-        target.getMonth() + 1,
-        target.getDate(),
-        target.getHours(),
-        target.getMinutes(),
-        target.getSeconds(),
-        0
-      );
-    }
-    return target;
-  };
-
-  // Display state for target date (for "Auction Date: …")
+  // Target date for the auction display + countdown. The per-second ticking is
+  // isolated in <AuctionCountdown/> so the rest of the page stays static.
   const [nextAuctionDate, setNextAuctionDate] = useState(() => computeNextAuctionFallback());
-  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   // Read CMS/Firestore-configured date
   useEffect(() => {
@@ -147,39 +210,13 @@ function Home() {
     return () => unsub();
   }, []);
 
-  // Countdown timer
-  useEffect(() => {
-    let target = new Date(nextAuctionDate);
-    const updateCountdown = () => {
-      const now = new Date();
-      if (now >= target) {
-        // When countdown reaches/passes the target, roll the date forward.
-        // For upcomingDates this will be corrected by the Firestore listener
-        // once you update the calendar there.
-        target = rollForwardIfPast(target);
-        setNextAuctionDate(target);
-      }
-
-      const diff = Math.max(0, target - now);
-      const days = Math.floor(diff / 86400000);
-      const hours = Math.floor((diff % 86400000) / 3600000);
-      const minutes = Math.floor((diff % 3600000) / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-      setTimeLeft({ days, hours, minutes, seconds });
-    };
-
-    updateCountdown();
-    const timer = setInterval(updateCountdown, 1000);
-    return () => clearInterval(timer);
-  }, [nextAuctionDate]);
-
   return (
     <div className="flex flex-col min-h-screen">
       <Seo
         title="Magis Pawnshop & Jewelry | Instant Cash for Your Gold"
         description="Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing."
         path="/"
-        image="/images/og-home.jpg"
+        jsonLd={HOME_JSONLD}
       />
 
       {/* Hero Section */}
@@ -207,6 +244,11 @@ function Home() {
               <FaComments className="mr-2" />
               Chat With Our Team
             </button>
+          </div>
+          <div className="hero-trust-strip">
+            <span className="hero-trust-item"><FaCertificate /> Trusted since 1996</span>
+            <span className="hero-trust-item"><FaPercent /> Rates from 1% / mo</span>
+            <span className="hero-trust-item"><FaClock /> Cash in ~15 mins</span>
           </div>
         </div>
       </section>
@@ -302,7 +344,7 @@ function Home() {
             </p>
           </div>
           <div className="text-center">
-            <p className="text-xl font-semibold mb-4" style={{ color: '#1a1a2e' }}>
+            <p className="auction-date">
               Auction Date:{' '}
               {nextAuctionDate.toLocaleDateString('en-PH', {
                 year: 'numeric',
@@ -310,27 +352,9 @@ function Home() {
                 day: 'numeric'
               })}
             </p>
-            <div className="auction-countdown">
-              <div className="countdown-item">
-                <div className="countdown-value">{timeLeft.days}</div>
-                <div className="countdown-label">Days</div>
-              </div>
-              <div className="countdown-item">
-                <div className="countdown-value">{timeLeft.hours}</div>
-                <div className="countdown-label">Hours</div>
-              </div>
-              <div className="countdown-item">
-                <div className="countdown-value">{timeLeft.minutes}</div>
-                <div className="countdown-label">Minutes</div>
-              </div>
-              <div className="countdown-item">
-                <div className="countdown-value">{timeLeft.seconds}</div>
-                <div className="countdown-label">Seconds</div>
-              </div>
-            </div>
+            <AuctionCountdown target={nextAuctionDate} onRollover={setNextAuctionDate} />
             <p className="auction-info">
-              Auctions are held on the 2
-              <sup>nd</sup> week of every month during our sales branch's operating hours.{' '}
+              Auctions are held monthly during our sales branch's operating hours.{' '}
               <Link
                 to="/branches?filter=jewelry"
                 className="service-link"
@@ -389,29 +413,31 @@ function Home() {
         </section>
 
         {/* Testimonials */}
-        <section className="py-12 bg-white">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl font-bold mb-6">What Our Customers Say</h2>
-            <blockquote className="max-w-xl mx-auto italic text-gray-700 mb-4">
-              “I pawned my necklace at Magis and was impressed by the high appraisal and friendly service.
-              They even guided me through the auction process when I couldn’t redeem.”
+        <section className="section">
+          <div className="section-header">
+            <h2 className="section-title">What Our Customers Say</h2>
+          </div>
+          <div className="testimonial-container">
+            <blockquote className="testimonial-quote">
+              I pawned my necklace at Magis and was impressed by the high appraisal and friendly service.
+              They even guided me through the auction process when I couldn’t redeem.
             </blockquote>
-            <p className="font-semibold">– Maria G.</p>
+            <p className="testimonial-author">– Maria G.</p>
           </div>
         </section>
 
         {/* Final CTA Banner */}
-        <section className="py-12 bg-yellow-500">
-          <div className="container mx-auto px-4 text-center text-black">
-            <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
-            <p className="mb-6">Find a branch near you and chat with our team instantly.</p>
-            <button
-              onClick={handleFindBranch}
-              className="px-8 py-3 bg-black text-yellow-500 font-semibold rounded-full hover:bg-gray-800 transition"
-            >
-              Find a Branch & Chat
-            </button>
-          </div>
+        <section className="cta-banner">
+          <h2 className="cta-banner-title">Ready to Get Started?</h2>
+          <p className="cta-banner-subtitle">
+            Find a branch near you and chat with our team instantly.
+          </p>
+          <button
+            onClick={handleFindBranch}
+            className="cta-banner-btn"
+          >
+            Find a Branch & Chat
+          </button>
         </section>
       </main>
 
