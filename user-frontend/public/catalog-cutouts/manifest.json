@@ -1,231 +1,147 @@
 {
-  "generatedAt": "2026-06-30T07:03:07.521Z",
-  "albumId": "1382640090552726",
-  "count": 32,
+  "generatedAt": "2026-07-01T12:24:06.959Z",
+  "albumId": "1398539158962819",
+  "count": 20,
   "items": [
     {
-      "id": "1382632707220131",
-      "caption": "S0323R0178697L (Plaridel st., Angeles City (BLUEGEMS))\n5.7gms / 14K - size 7\nP 31,700",
-      "src": "/catalog-cutouts/1382632707220131.webp",
+      "id": "1398528605630541",
+      "caption": "R4 \n4.7gms/18K - size 7\nP 33,500",
+      "src": "/catalog-cutouts/1398528605630541.webp",
+      "w": 725,
+      "h": 643
+    },
+    {
+      "id": "1398528832297185",
+      "caption": "E10 Gold Hardware Link U-Shape Earrings - Pre-loved\n1.5gms/18K\nP 10,700",
+      "src": "/catalog-cutouts/1398528832297185.webp",
       "w": 900,
-      "h": 698
+      "h": 765
     },
     {
-      "id": "1382632827220119",
-      "caption": "S0323E184560R (Plaridel st., Angeles City (BLUEGEMS))\n2.5gms / 22k \nP 21,750",
-      "src": "/catalog-cutouts/1382632827220119.webp",
+      "id": "1398528738963861",
+      "caption": "E7\n4.2gms/18K\nP 29,950",
+      "src": "/catalog-cutouts/1398528738963861.webp",
       "w": 900,
-      "h": 586
+      "h": 560
     },
     {
-      "id": "1382632913886777",
-      "caption": "S0323S184469RC (Plaridel st., Angeles City (BLUEGEMS))\n2.5gms / 18K\nP 17,850",
-      "src": "/catalog-cutouts/1382632913886777.webp",
+      "id": "1398529022297166",
+      "caption": "B1\n5.4gms/18K - 7 inches\nP 38,100",
+      "src": "/catalog-cutouts/1398529022297166.webp",
       "w": 900,
-      "h": 401
+      "h": 655
     },
     {
-      "id": "1382638293886239",
-      "caption": "Z0171P32786R  (Don Gueco Ave., Mt. View Balibago)\n2.0gms / 18K\nP 14,250",
-      "src": "/catalog-cutouts/1382638293886239.webp",
-      "w": 529,
-      "h": 900
+      "id": "1398528935630508",
+      "caption": "P1\n1.5gms/18K\nP 10,700",
+      "src": "/catalog-cutouts/1398528935630508.webp",
+      "w": 831,
+      "h": 578
     },
     {
-      "id": "1382636383886430",
-      "caption": "Q0080R13680R (Novaliches 2 - Susano St.,)\n1.6gms / 18K - Size 9\nP 11,400",
-      "src": "/catalog-cutouts/1382636383886430.webp",
-      "w": 640,
-      "h": 681
+      "id": "1398528612297207",
+      "caption": "R3 \n1.6gms/14K - size 7 w/ titus\nP 11,700",
+      "src": "/catalog-cutouts/1398528612297207.webp",
+      "w": 706,
+      "h": 574
     },
     {
-      "id": "1382634017220000",
-      "caption": "Z0172R033896LB (Rizal St., Angeles City)\n3.2gms / 21K - size 8\nP 26,650",
-      "src": "/catalog-cutouts/1382634017220000.webp",
-      "w": 899,
-      "h": 771
+      "id": "1398528728963862",
+      "caption": "E5\n1.8gms/18K\nP 12,850",
+      "src": "/catalog-cutouts/1398528728963862.webp",
+      "w": 821,
+      "h": 533
     },
     {
-      "id": "1382632700553465",
-      "caption": "S0323CP184375R (Plaridel st., Angeles City (BLUEGEMS))\n3.7gms / 18K - 20 inches\nP 26,400",
-      "src": "/catalog-cutouts/1382632700553465.webp",
-      "w": 432,
-      "h": 900
+      "id": "1398528582297210",
+      "caption": "R5 \n3.1gms/14K - size 8 ½ w/ titus\nP 23,900",
+      "src": "/catalog-cutouts/1398528582297210.webp",
+      "w": 733,
+      "h": 686
     },
     {
-      "id": "1382632683886800",
-      "caption": "S0323C0178685L (Plaridel st., Angeles City (BLUEGEMS))\n4.4gms / 18K - 18 inches\nP 31,350",
-      "src": "/catalog-cutouts/1382632683886800.webp",
-      "w": 540,
-      "h": 900
-    },
-    {
-      "id": "1382632810553454",
-      "caption": "S0323B184382RA (Plaridel st., Angeles City (BLUEGEMS))\n1.6gms / 18K - 7.5 inches\nP 11,400",
-      "src": "/catalog-cutouts/1382632810553454.webp",
-      "w": 890,
-      "h": 900
-    },
-    {
-      "id": "1382632843886784",
-      "caption": "S0323P0178825LB (Plaridel st., Angeles City (BLUEGEMS))\n2.5gms / 18K\nP 17,850",
-      "src": "/catalog-cutouts/1382632843886784.webp",
-      "w": 684,
-      "h": 900
-    },
-    {
-      "id": "1382633947220007",
-      "caption": "Z0172CP33194R (Rizal St., Angeles City)\n6.7gms / 18K - 19 inches\nP 47,250",
-      "src": "/catalog-cutouts/1382633947220007.webp",
-      "w": 611,
-      "h": 900
-    },
-    {
-      "id": "1382633917220010",
-      "caption": "Z0172E33191RB (Rizal St., Angeles City)\n0.8gms / 18K \nP 5,700",
-      "src": "/catalog-cutouts/1382633917220010.webp",
-      "w": 900,
-      "h": 782
-    },
-    {
-      "id": "1382634040553331",
-      "caption": "Z0172B033844L (Rizal St., Angeles City)\n6.9gms / 18K - 8 inches\nP 48,650",
-      "src": "/catalog-cutouts/1382634040553331.webp",
-      "w": 900,
-      "h": 831
-    },
-    {
-      "id": "1382634053886663",
-      "caption": "Z0172C33190R (Rizal St., Angeles City)\n1.8gms / 18K - 15 inches\nP 12,850",
-      "src": "/catalog-cutouts/1382634053886663.webp",
-      "w": 469,
-      "h": 900
-    },
-    {
-      "id": "1382634987219903",
-      "caption": "U0157R19514R (B. Mendoza St., City of San Fernando)\n2.4gms / 18K - size 7 ½\nP 17,100",
-      "src": "/catalog-cutouts/1382634987219903.webp",
+      "id": "1398528978963837",
+      "caption": "P5\n1.5gms/18K\nP 10,700",
+      "src": "/catalog-cutouts/1398528978963837.webp",
       "w": 658,
-      "h": 494
+      "h": 537
     },
     {
-      "id": "1382634997219902",
-      "caption": "U0157B19676R (B. Mendoza St., City of San Fernando)\n2.0gms / 18K - 7 inches\nP 14,250",
-      "src": "/catalog-cutouts/1382634997219902.webp",
+      "id": "1398528562297212",
+      "caption": "R7 \n2.2gms/14K - size 5 w/ titus\nP 36,800",
+      "src": "/catalog-cutouts/1398528562297212.webp",
       "w": 900,
-      "h": 720
+      "h": 774
     },
     {
-      "id": "1382634950553240",
-      "caption": "U0157E19427R (B. Mendoza St., City of San Fernando)\n1.3gms / 18K \nP 9,300",
-      "src": "/catalog-cutouts/1382634950553240.webp",
-      "w": 583,
-      "h": 900
+      "id": "1398528598963875",
+      "caption": "R9 \n4.6gms/22K - size 9 ½\nP 40,050",
+      "src": "/catalog-cutouts/1398528598963875.webp",
+      "w": 862,
+      "h": 734
     },
     {
-      "id": "1382634957219906",
-      "caption": "U0157CP19449R (B. Mendoza St., City of San Fernando)\n3.7gms / 18K\nP 26,400",
-      "src": "/catalog-cutouts/1382634957219906.webp",
-      "w": 796,
-      "h": 900
-    },
-    {
-      "id": "1382636410553094",
-      "caption": "Q0080C13745R  (Novaliches 2 - Susano St.,)\n2.6gms / 18K - 19inches\nP 18,550",
-      "src": "/catalog-cutouts/1382636410553094.webp",
-      "w": 539,
-      "h": 900
-    },
-    {
-      "id": "1382636377219764",
-      "caption": "Q0080B13572R  (Novaliches 2 - Susano St.,)\n3.7gms / 18K - 7 ½ inches\nP 26,400",
-      "src": "/catalog-cutouts/1382636377219764.webp",
+      "id": "1398528588963876",
+      "caption": "E4 \n2.1gms/18K\nP 15,000",
+      "src": "/catalog-cutouts/1398528588963876.webp",
       "w": 900,
-      "h": 828
+      "h": 675
     },
     {
-      "id": "1382636480553087",
-      "caption": "Q0080E13638R  (Novaliches 2 - Susano St.,)\n1.2gms / 18K \nP 8,550",
-      "src": "/catalog-cutouts/1382636480553087.webp",
+      "id": "1398528752297193",
+      "caption": "E6 - Gold Hardware Link U-Shape Earrings - Pre-loved\n3.9gms/18K\nP 27,800",
+      "src": "/catalog-cutouts/1398528752297193.webp",
       "w": 900,
-      "h": 772
+      "h": 710
     },
     {
-      "id": "1382637123886356",
-      "caption": "MD0054R6832R (Novaliches 1 - Buenamar Dr.)\n2.2gms / 18K - Size 11 ½\nP 15,700",
-      "src": "/catalog-cutouts/1382637123886356.webp",
-      "w": 678,
-      "h": 535
+      "id": "1398528818963853",
+      "caption": "E8\n1.4gms/18K\nP 10,000",
+      "src": "/catalog-cutouts/1398528818963853.webp",
+      "w": 900,
+      "h": 476
     },
     {
-      "id": "1382637083886360",
-      "caption": "NV0048B9859R (Novaliches 1 - Buenamar Dr.)\n5.5gms / 18K - 7 ½ inches\nP 38,800",
-      "src": "/catalog-cutouts/1382637083886360.webp",
-      "w": 633,
-      "h": 900
+      "id": "1398528872297181",
+      "caption": "E12\n1.2gms/18K w/ titus\nP 9,900",
+      "src": "/catalog-cutouts/1398528872297181.webp",
+      "w": 722,
+      "h": 568
     },
     {
-      "id": "1382637103886358",
-      "caption": "NV0048CP9679R (Novaliches 1 - Buenamar Dr.) \n6.4gms / 18K - 20 inches\nP 45,150",
-      "src": "/catalog-cutouts/1382637103886358.webp",
+      "id": "1398528958963839",
+      "caption": "P4\n1.0gm/14K w/ titus\nP 8,800",
+      "src": "/catalog-cutouts/1398528958963839.webp",
+      "w": 308,
+      "h": 519
+    },
+    {
+      "id": "1398529075630494",
+      "caption": "B3 - Micro-Link Hardware Chain Bracelet - Pre-loved\n2.2gms/18K - 7 inches\nP 15,700",
+      "src": "/catalog-cutouts/1398529075630494.webp",
+      "w": 900,
+      "h": 718
+    },
+    {
+      "id": "1398529105630491",
+      "caption": "B4\n2.9gms/18K - 7.5 inches\nP 20,700",
+      "src": "/catalog-cutouts/1398529105630491.webp",
+      "w": 900,
+      "h": 632
+    },
+    {
+      "id": "1398529142297154",
+      "caption": "C2\n6.6gms/18K - 18 inches\nP 46,550",
+      "src": "/catalog-cutouts/1398529142297154.webp",
       "w": 425,
       "h": 900
     },
     {
-      "id": "1382637177219684",
-      "caption": "NV0048E10082RB (Novaliches 1 - Buenamar Dr.)\n1.3gms / 18K\nP 9,300",
-      "src": "/catalog-cutouts/1382637177219684.webp",
-      "w": 819,
-      "h": 611
-    },
-    {
-      "id": "1382638083886260",
-      "caption": "S0322R0178413LA (Don Gueco Ave., Mt. View Balibago)\n2.7gms / 18K - 8 ½ inches\nP 19,250",
-      "src": "/catalog-cutouts/1382638083886260.webp",
-      "w": 772,
-      "h": 696
-    },
-    {
-      "id": "1382638110552924",
-      "caption": "F0244C24740RA  (Don Gueco Ave., Mt. View Balibago)\n3.3gms / 14K - 18 inches\nP 18,350",
-      "src": "/catalog-cutouts/1382638110552924.webp",
-      "w": 446,
+      "id": "1398529168963818",
+      "caption": "C4\n4.9gms/18K - 20 inches\nP 34,950",
+      "src": "/catalog-cutouts/1398529168963818.webp",
+      "w": 417,
       "h": 900
-    },
-    {
-      "id": "1382638103886258",
-      "caption": "DG0066B13805R  (Don Gueco Ave., Mt. View Balibago)\n22.9gms / 14K - 8 inches\nP 125,950",
-      "src": "/catalog-cutouts/1382638103886258.webp",
-      "w": 900,
-      "h": 834
-    },
-    {
-      "id": "1382638197219582",
-      "caption": "DG0066E13823RA  (Don Gueco Ave., Mt. View Balibago)\n0.8gms / 18K \nP 4,750",
-      "src": "/catalog-cutouts/1382638197219582.webp",
-      "w": 900,
-      "h": 393
-    },
-    {
-      "id": "1382639067219495",
-      "caption": "C0150C21296R (Gil Puyat Ave. Mabalacat City)\n2.8gms / 18K - 19 ½ inches\nP 19,950",
-      "src": "/catalog-cutouts/1382639067219495.webp",
-      "w": 532,
-      "h": 900
-    },
-    {
-      "id": "1382639023886166",
-      "caption": "C0150R21538R  (Gil Puyat Ave. Mabalacat City)\n1.5gms / 18K - size 6 ¼\nP 10,700",
-      "src": "/catalog-cutouts/1382639023886166.webp",
-      "w": 740,
-      "h": 584
-    },
-    {
-      "id": "1382639033886165",
-      "caption": "C0150E21350RA (Gil Puyat Ave. Mabalacat City)\n1.6gms / 18K \nP 11,400",
-      "src": "/catalog-cutouts/1382639033886165.webp",
-      "w": 900,
-      "h": 524
     }
   ]
 }
