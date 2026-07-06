@@ -410,6 +410,7 @@ const upload = multer({ storage });
 // Routes
 const messageRoutes = require("./routes/messages");
 const guestRoutes = require("./routes/guest");
+const contactRoutes = require("./routes/contact"); // public Contact Us form (POST /api/contact)
 const analyticsRoutes = require("./routes/analytics");
 // Audit & compliance read API for the chat audit dashboard. Additive,
 // read-only (except a meta-audit event on CSV export); isolated from all
@@ -456,7 +457,25 @@ const guestContactLimiter = rateLimit({
 });
 app.use("/api/guest/contact", guestContactLimiter);
 
+// Public "Contact Us" form: per-IP anti-spam throttle. The submission is stored
+// in Firestore (+ optional email notify) with NO auth, so this limiter and the
+// optional Turnstile check are the abuse controls.
+const contactLimiter = rateLimit({
+  windowMs: Number(process.env.CONTACT_RL_WINDOW_MS) || 10 * 60 * 1000, // 10 min
+  max: Number(process.env.CONTACT_RL_MAX) || 5,                         // messages / IP / window
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
+  message: { error: "Too many messages from this network. Please wait a few minutes and try again." },
+  store: new RedisStore({
+    prefix: "rl:contact:",
+    sendCommand: (...args) => getRedis().call(...args),
+  }),
+});
+app.use("/api/contact", contactLimiter);
+
 app.use("/api/guest", guestRoutes);
+app.use("/api/contact", contactRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/audit", auditRoutes);
@@ -956,7 +975,7 @@ const LATEST_ALBUM_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 // (fine-grained); repo defaults to this project (override via GH_DISPATCH_REPO).
 async function fireCutoutRefresh(albumId) {
   const token = process.env.GH_DISPATCH_TOKEN;
-  if (!token) return; // not configured -> daily cron still covers it
+  if (!token) return false; // not configured -> daily cron still covers it
   const repo = process.env.GH_DISPATCH_REPO || "jmreyes777/magis-website";
   try {
     const r = await fetch(`https://api.github.com/repos/${repo}/dispatches`, {
@@ -973,12 +992,76 @@ async function fireCutoutRefresh(albumId) {
     if (!r.ok) {
       const body = await r.text().catch(() => "");
       console.error("[cutout-dispatch] GitHub dispatch failed:", r.status, body.slice(0, 200));
-    } else {
-      console.log("[cutout-dispatch] requested cutout refresh for album", albumId);
+      return false;
     }
+    console.log("[cutout-dispatch] requested cutout refresh for album", albumId);
+    return true;
   } catch (err) {
     console.error("[cutout-dispatch] error:", err?.message || err);
+    return false;
   }
+}
+
+// A NEW album must trigger cutouts EXACTLY ONCE and reliably. We remember the
+// last album we've already dispatched for in Firestore, so detection survives
+// restarts/deploys, is shared across autoscaled instances, and still fires if
+// the album changed while the server was down (an in-memory flag can't do any
+// of that). The live server performs NO image processing — it only asks the
+// off-site GitHub job to run. Fully DORMANT unless GH_DISPATCH_TOKEN is set.
+const cutoutStateRef = () => db.collection("system").doc("catalogCutouts");
+
+async function maybeDispatchCutoutRefresh(albumId) {
+  if (!albumId) return;
+  if (!process.env.GH_DISPATCH_TOKEN) return; // instant refresh not configured
+
+  let prevAlbumId = null;
+  let claimed = false;
+  try {
+    await db.runTransaction(async (tx) => {
+      const ref = cutoutStateRef();
+      const snap = await tx.get(ref);
+      prevAlbumId = snap.exists ? snap.get("lastAlbumId") || null : null;
+      if (prevAlbumId === albumId) return; // this album was already handled
+      tx.set(
+        ref,
+        { lastAlbumId: albumId, lastDispatchedAt: Date.now() },
+        { merge: true }
+      );
+      claimed = true;
+    });
+  } catch (err) {
+    console.error("[cutout-dispatch] state check failed:", err?.message || err);
+    return; // the daily cron remains the backstop
+  }
+  if (!claimed) return; // another instance / a prior run already dispatched
+
+  const ok = await fireCutoutRefresh(albumId);
+  if (ok === false) {
+    // The dispatch POST failed — roll the marker back so the next poll/request
+    // retries (best-effort; safe even if it races another instance).
+    try {
+      await cutoutStateRef().set({ lastAlbumId: prevAlbumId }, { merge: true });
+    } catch (_) {}
+  }
+}
+
+// Lightweight resolve of just the CURRENT latest album id (used by the poller).
+async function resolveLatestAlbumId() {
+  const pageId = process.env.FB_PAGE_ID;
+  const pageToken = process.env.FB_PAGE_ACCESS_TOKEN;
+  if (!pageId || !pageToken) return null;
+  const url =
+    `https://graph.facebook.com/v24.0/${encodeURIComponent(pageId)}/albums` +
+    `?fields=id,created_time&limit=25&access_token=${encodeURIComponent(pageToken)}`;
+  const r = await fetch(url);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.error?.message || `FB albums HTTP ${r.status}`);
+  const albums = Array.isArray(j?.data) ? j.data : [];
+  if (!albums.length) return null;
+  albums.sort(
+    (a, b) => new Date(b.created_time || 0).getTime() - new Date(a.created_time || 0).getTime()
+  );
+  return albums[0]?.id || null;
 }
 
 app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), async (req, res) => {
@@ -1068,16 +1151,16 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
         : [],
     }));
 
-    const prevAlbumId = latestAlbumCache.albumId;
     latestAlbumCache.at = Date.now();
     latestAlbumCache.albumId = albumId;
     latestAlbumCache.photos = norm;
 
-    // New album detected (and not just the first fill after a restart) -> ask
-    // the off-site job to (re)generate cutouts now. Fire-and-forget.
-    if (prevAlbumId && prevAlbumId !== albumId) {
-      fireCutoutRefresh(albumId).catch(() => {});
-    }
+    // If this is a NEW latest album, ask the off-site job to (re)generate the
+    // transparent cutouts now. The "already handled this album?" check is
+    // persisted in Firestore (maybeDispatchCutoutRefresh), so it fires exactly
+    // once across restarts/instances and isn't tied to this route being hit.
+    // Fire-and-forget: never affects the album response.
+    maybeDispatchCutoutRefresh(albumId).catch(() => {});
 
     return res.json({ albumId, photos: norm });
   } catch (err) {
@@ -1194,6 +1277,37 @@ app.use((err, req, res, next) => {
 
 // Start server
 server.listen(PORT);
+
+// ── Catalog cutouts: instant-refresh poller ──────────────────────────────────
+// Belt-and-suspenders so a NEW Facebook album triggers the off-site cutout job
+// even with zero visitor traffic (the album route only checks when it's hit).
+// Fully DORMANT unless GH_DISPATCH_TOKEN is set; dedup lives in Firestore
+// (maybeDispatchCutoutRefresh), so polling on every autoscaled instance is safe.
+// The live server still performs NO image processing — it only fires a dispatch.
+(function startCutoutAlbumPoller() {
+  if (process.env.NODE_ENV === "test") return;
+  if (!process.env.GH_DISPATCH_TOKEN) return;
+  if (!process.env.FB_PAGE_ID || !process.env.FB_PAGE_ACCESS_TOKEN) return;
+
+  const raw = Number(process.env.CUTOUT_POLL_MS);
+  if (raw === 0) return; // CUTOUT_POLL_MS=0 explicitly disables the poller
+  const intervalMs = Math.max(60_000, raw || 5 * 60_000);
+  const tick = async () => {
+    try {
+      const albumId = await resolveLatestAlbumId();
+      if (albumId) await maybeDispatchCutoutRefresh(albumId);
+    } catch (err) {
+      console.warn("[cutout-poll] tick failed:", err?.message || err);
+    }
+  };
+  const kickoff = setTimeout(tick, 30_000); // small delay so it doesn't race startup
+  const timer = setInterval(tick, intervalMs);
+  if (kickoff.unref) kickoff.unref();
+  if (timer.unref) timer.unref(); // don't keep the event loop alive just to poll
+  console.log(
+    `[cutout-poll] enabled — checking latest album every ${Math.round(intervalMs / 1000)}s`
+  );
+})();
 
 // ── Graceful shutdown ────────────────────────────────────────────────────────
 const gracefulShutdown = (signal) => {
