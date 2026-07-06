@@ -183,16 +183,18 @@ button:focus-visible,
   border-bottom: 1px solid #e5e7eb;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   position: fixed;
-  top: 56px;
+  top: var(--header-h);
   left: 0;
   right: 0;
+  height: var(--subnav-h);
   z-index: 9999;
 }
 
 .subnav .wrap {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 20px 20px;
+  padding: 0 20px;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -201,7 +203,7 @@ button:focus-visible,
 /* Breadcrumbs */
 .subnav nav[aria-label="Breadcrumb"] {
   font-size: 0.875rem;
-  margin: 16px 0 0 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -209,11 +211,18 @@ button:focus-visible,
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   color: #6b7280;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.subnav .breadcrumbs::-webkit-scrollbar {
+  display: none;
 }
 
 .subnav .breadcrumbs a {
@@ -410,11 +419,6 @@ body.menu-open .site-content { margin-left: 16px; }
     border-radius: 6px;
   }
 
-  .subnav {
-    top: 44px;
-    height: 50px;
-  }
-
   .subnav .wrap {
     padding: 0 16px;
     height: 100%;
@@ -422,7 +426,7 @@ body.menu-open .site-content { margin-left: 16px; }
 
   .subnav nav[aria-label="Breadcrumb"] {
     font-size: 0.8125rem;
-    margin: 12px 0 0 0;
+    margin: 0;
   }
 
   main {
@@ -446,11 +450,6 @@ body.menu-open .site-content { margin-left: 16px; }
     padding: 7px 24px;
   }
 
-  .subnav {
-    top: 54px;
-    height: 52px;
-  }
-
   .subnav .wrap {
     padding: 0 20px;
     height: 100%;
@@ -458,7 +457,7 @@ body.menu-open .site-content { margin-left: 16px; }
 
   .subnav nav[aria-label="Breadcrumb"] {
     font-size: 0.875rem;
-    margin: 14px 0 0 0;
+    margin: 0;
   }
 
   main {

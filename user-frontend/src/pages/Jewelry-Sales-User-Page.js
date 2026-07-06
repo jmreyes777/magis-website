@@ -148,47 +148,45 @@ function LayawayCalculator() {
       </div>
 
       <div className="jewelry-calculator-results">
-        <div className="jewelry-calculator-result-card">
-          <p className="jewelry-calculator-result-label">
-            Selected
-          </p>
-          <p className="jewelry-calculator-result-title">{res.label}</p>
-          {option === "opt2" ? (
-            <>
-              <p className="jewelry-calculator-result-item">
-                Principal + 4%: <strong>{peso(res.withFee)}</strong>
-              </p>
-              <p className="jewelry-calculator-result-item">
-                Rounded base: <strong>{peso(res.base)}</strong>
-              </p>
-              <p className="jewelry-calculator-result-item">
-                20% Down (₱50-round): <strong>{peso(res.down)}</strong>
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="jewelry-calculator-result-item">
-                Tag Price: <strong>{peso(res.base)}</strong>
-              </p>
-              <p className="jewelry-calculator-result-item">
-                10% Down: <strong>{peso(res.down)}</strong>
-              </p>
-            </>
-          )}
+        <div className="jewelry-calc-hero">
+          <span className="jewelry-calc-hero-label">Pay today (down)</span>
+          <span className="jewelry-calc-hero-amount">{peso(res.down)}</span>
+          <span className="jewelry-calc-hero-plan">{res.label}</span>
         </div>
 
-        <div className="jewelry-calculator-result-card">
-          <p className="jewelry-calculator-result-label">
-            Outstanding
-          </p>
-          <p className="jewelry-calculator-result-item">
-            Balance: <strong>{peso(res.balance)}</strong>
-          </p>
-          <p className="jewelry-calculator-result-item">{res.months}</p>
-          <p className="jewelry-calculator-disclaimer">
-            * Confirm final computation in-branch.
-          </p>
+        <div className="jewelry-calc-chips">
+          {option === "opt2" ? (
+            <>
+              <div className="jewelry-calc-chip">
+                <span className="jewelry-calc-chip-label">Principal + 4%</span>
+                <span className="jewelry-calc-chip-value">{peso(res.withFee)}</span>
+              </div>
+              <div className="jewelry-calc-chip">
+                <span className="jewelry-calc-chip-label">Rounded base</span>
+                <span className="jewelry-calc-chip-value">{peso(res.base)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="jewelry-calc-chip">
+              <span className="jewelry-calc-chip-label">Tag price</span>
+              <span className="jewelry-calc-chip-value">{peso(res.base)}</span>
+            </div>
+          )}
+
+          <div className="jewelry-calc-chip">
+            <span className="jewelry-calc-chip-label">Balance</span>
+            <span className="jewelry-calc-chip-value">{peso(res.balance)}</span>
+          </div>
+
+          <div className="jewelry-calc-chip jewelry-calc-chip-wide">
+            <span className="jewelry-calc-chip-label">Terms</span>
+            <span className="jewelry-calc-chip-value">{res.months}</span>
+          </div>
         </div>
+
+        <p className="jewelry-calculator-disclaimer">
+          * Confirm final computation in-branch.
+        </p>
       </div>
     </div>
   );
@@ -279,6 +277,11 @@ export default function JewelrySales() {
               >
                 Chat With Our Team <FaComments className="ml-2" />
               </button>
+            </div>
+            <div className="jewelry-hero-trust">
+              <span className="jewelry-hero-trust-item"><FaGem /> 10K–18K fine gold</span>
+              <span className="jewelry-hero-trust-item"><FaShieldAlt /> Gold-price-based pricing</span>
+              <span className="jewelry-hero-trust-item"><FaCheckCircle /> Layaway (hulugan) available</span>
             </div>
           </div>
         </section>

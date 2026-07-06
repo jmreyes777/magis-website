@@ -2,6 +2,7 @@ import React from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo";
+import "./FAQS-User-Page.css";
 
 // Single source of truth for the FAQ content. The visible JSX below AND the
 // FAQPage JSON-LD (for Google rich results) are both rendered from these arrays,
@@ -170,87 +171,97 @@ function FAQsUserPage() {
       />
       {/* Hero */}
       <section
-        className="relative h-64 bg-cover bg-center"
+        className="relative h-72 md:h-80 bg-cover bg-center"
         style={{ backgroundImage: "url('/images/hero.jpg')" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4 text-white">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Frequently Asked Questions</h1>
-          <p className="text-sm md:text-base opacity-90">Reviewed on {lastUpdated}</p>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
+        <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
+          <h1 className="mb-3 text-3xl font-extrabold tracking-tight md:text-5xl">
+            Frequently Asked Questions
+          </h1>
+          <p className="text-sm text-gray-300 md:text-base">Reviewed {lastUpdated}</p>
         </div>
       </section>
 
       {/* Main */}
       <main className="flex-grow">
         {/* Intro */}
-        <section className="py-10 bg-white">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <p className="text-sm text-gray-700">
+        <section className="bg-white py-10">
+          <div className="container mx-auto max-w-4xl px-4">
+            <p className="text-base leading-relaxed text-gray-600">
               These FAQs provide quick answers about our services and general rules for pawnshops in
               the Philippines. They do not replace the specific terms on your pawn ticket or the full
-              Terms & Conditions and Privacy Policy published on this site.
+              Terms &amp; Conditions and Privacy Policy published on this site.
             </p>
           </div>
         </section>
 
         {/* Company FAQs */}
-        <section className="py-6 bg-gray-50">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Company FAQs</h2>
-            <div className="space-y-5 text-gray-800">
+        <section className="bg-[#faf8f5] py-12">
+          <div className="container mx-auto max-w-4xl px-4">
+            <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-[#1a1a2e] md:text-3xl">
+              Company FAQs
+            </h2>
+            <div>
               {COMPANY_FAQS.map((item, index) => (
-                <div key={item.q}>
-                  <h3 className="font-semibold">{index + 1}. {item.q}</h3>
-                  <p className="text-sm">{item.a}</p>
-                </div>
+                <details key={item.q} className="faq-accordion">
+                  <summary>
+                    <h3>{index + 1}. {item.q}</h3>
+                  </summary>
+                  <p className="faq-answer">{item.a}</p>
+                </details>
               ))}
             </div>
           </div>
         </section>
 
         {/* Regulatory / Industry FAQs */}
-        <section className="py-6 bg-white">
-          <div className="container mx-auto px-4 max-w-4xl">
-            <h2 className="text-xl font-semibold mb-4 text-gray-900">Regulatory / Industry FAQs</h2>
-            <div className="space-y-5 text-gray-800">
+        <section className="bg-white py-12">
+          <div className="container mx-auto max-w-4xl px-4">
+            <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-[#1a1a2e] md:text-3xl">
+              Regulatory / Industry FAQs
+            </h2>
+            <div>
               {REGULATORY_FAQS.map((item, index) => (
-                <div key={item.q}>
-                  <h3 className="font-semibold">{COMPANY_FAQS.length + index + 1}. {item.q}</h3>
-                  <p className="text-sm">{item.a}</p>
-                </div>
+                <details key={item.q} className="faq-accordion">
+                  <summary>
+                    <h3>{COMPANY_FAQS.length + index + 1}. {item.q}</h3>
+                  </summary>
+                  <p className="faq-answer">{item.a}</p>
+                </details>
               ))}
             </div>
           </div>
         </section>
 
         {/* CTAs */}
-        <section className="py-10 bg-gray-50">
-          <div className="container mx-auto px-4 max-w-4xl text-center">
-            <p className="text-gray-700 mb-6">
+        <section className="bg-[#faf8f5] py-12">
+          <div className="container mx-auto max-w-4xl px-4 text-center">
+            <p className="mb-6 text-gray-600">
               Need more help? View our policies or contact us.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
                 to="/terms"
-                className="px-6 py-2 rounded-full bg-black text-yellow-500 font-semibold hover:bg-gray-800 transition"
+                className="rounded-full bg-[#1a1a2e] px-6 py-3 font-semibold text-[#d4a853] transition hover:bg-[#2d2d42]"
               >
                 Terms &amp; Conditions
               </Link>
               <Link
                 to="/privacy-policy"
-                className="px-6 py-2 rounded-full bg-yellow-500 text-black font-semibold hover:bg-yellow-600 transition"
+                className="rounded-full bg-gradient-to-br from-[#d4a853] to-[#c9a227] px-6 py-3 font-semibold text-[#1a1a2e] transition hover:brightness-95"
               >
                 Privacy Policy
               </Link>
               <Link
                 to="/contact-us"
-                className="px-6 py-2 rounded-full bg-white border font-semibold hover:bg-gray-100 transition"
+                className="rounded-full border border-[#d4a853]/40 bg-white px-6 py-3 font-semibold text-[#1a1a2e] transition hover:bg-[#d4a853]/10"
               >
                 Contact Us
               </Link>
               <Link
                 to="/branches"
-                className="px-6 py-2 rounded-full bg-white border font-semibold hover:bg-gray-100 transition"
+                className="rounded-full border border-[#d4a853]/40 bg-white px-6 py-3 font-semibold text-[#1a1a2e] transition hover:bg-[#d4a853]/10"
               >
                 Find a Branch
               </Link>

@@ -1,8 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import GuestChatBox from '../components/Guest-Chat-Box-Component'; // Ensure GuestChatBox is imported
 import Seo from '../components/Seo';
+import { getSocketInstance, connectSocket } from '../Shared/User-Utils-socket';
+import { getTurnstileToken, preloadTurnstile } from '../Shared/turnstile';
 import './ContactUs-User-Page.css'; // Ensure this file exists
+
+// API base: empty in dev (CRA proxy handles /api), absolute in production.
+const API_BASE =
+  (process.env.REACT_APP_API_URL &&
+    process.env.REACT_APP_API_URL.replace(/\/$/, '')) ||
+  '';
+
+// "Chat with Support" routes to a real, staff-monitored branch inbox. Override
+// via REACT_APP_SUPPORT_BRANCH_EMAIL; the value MUST exist in `branchAdmins`
+// (with staff) for the conversation to actually be received.
+const SUPPORT_BRANCH_EMAIL =
+  process.env.REACT_APP_SUPPORT_BRANCH_EMAIL || 'support@magisgold.com';
+const SUPPORT_BRANCH_NAME = 'Support';
+
+const socket = getSocketInstance();
 
 function ContactUs() {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
@@ -10,6 +27,13 @@ function ContactUs() {
   const [isSubmitting, setIsSubmitting] = useState(false); // Loading state for form submission
   const [isStartingChat, setIsStartingChat] = useState(false); // Loading state for chat initiation
   const [error, setError] = useState(null); // Error state
+
+  useEffect(() => {
+    // Warm up the Turnstile widget so a token is ready on submit / chat start.
+    try {
+      preloadTurnstile && preloadTurnstile();
+    } catch (_) {}
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -22,7 +46,13 @@ function ContactUs() {
     setError(null);
 
     try {
-      await axios.post('http://localhost:5000/api/contact', formData); // Adjust API endpoint as needed
+      let turnstileToken = null;
+      try { turnstileToken = await getTurnstileToken(); } catch (_) {}
+      await axios.post(
+        `${API_BASE}/api/contact`,
+        { ...formData, turnstileToken },
+        { withCredentials: true }
+      );
       alert('Thank you for reaching out! We will get back to you soon.');
       setFormData({ name: '', email: '', message: '' }); // Clear the form
     } catch (error) {
@@ -38,19 +68,64 @@ function ContactUs() {
     setError(null);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/chat/create-space', {
-        branchEmail: 'support@magisgold.com', // Replace with your support email
-        branchName: 'Support',
-      });
+      // Reuse an existing guest session only if it's already bound to Support;
+      // otherwise start a fresh one so messages route to the right inbox.
+      const existingBranch = sessionStorage.getItem('branchEmail');
+      let guestId =
+        sessionStorage.getItem('guestId') || localStorage.getItem('guestId');
+      let guestToken =
+        sessionStorage.getItem('guestToken') ||
+        localStorage.getItem('guestToken');
+      const canReuse =
+        guestId &&
+        guestToken &&
+        existingBranch &&
+        existingBranch.toLowerCase() === SUPPORT_BRANCH_EMAIL.toLowerCase();
 
-      const { spaceId, guestId } = response.data;
-      if (!spaceId || !guestId) {
+      if (!canReuse) {
+        let turnstileToken = null;
+        try { turnstileToken = await getTurnstileToken(); } catch (_) {}
+        const res = await fetch(`${API_BASE}/api/guest/init`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Support Chat Guest',
+            email: `${Date.now()}@guest.local`,
+            branchEmail: SUPPORT_BRANCH_EMAIL,
+            turnstileToken,
+          }),
+        });
+        if (!res.ok) throw new Error('Guest init failed');
+        const data = await res.json();
+        guestId = data.guestId;
+        guestToken = data.token;
+      }
+
+      if (!guestId || !guestToken) {
         throw new Error('Invalid chat session details received.');
       }
 
+      // Persist session + associate the Support branch (chat box + caches read these).
+      sessionStorage.setItem('guestId', guestId);
+      sessionStorage.setItem('guestToken', guestToken);
+      localStorage.setItem('guestId', guestId);
+      localStorage.setItem('guestToken', guestToken);
+      sessionStorage.setItem('branchEmail', SUPPORT_BRANCH_EMAIL);
+      sessionStorage.setItem('branchId', 'support');
+      sessionStorage.setItem('chatOpen', 'true');
+
+      // Socket + UI (mirrors the Branches page chat-open flow).
+      if (!localStorage.getItem('tabId'))
+        localStorage.setItem('tabId', crypto.randomUUID());
+      if (!window.name) window.name = crypto.randomUUID();
+      if (!socket.connected) connectSocket(guestId);
+
       setActiveChat({
-        branchName: 'Support',
-        spaceId,
+        branchId: 'support',
+        branchEmail: SUPPORT_BRANCH_EMAIL,
+        branchName: SUPPORT_BRANCH_NAME,
+        schedule: [],
         guestId,
       });
     } catch (error) {
@@ -74,6 +149,10 @@ function ContactUs() {
       />
       <div className="contact-card">
         <h1 className="contact-header">Contact Us</h1>
+        <p className="contact-subtitle">
+          Message us or start a live chat about pawning, jewelry, and branch
+          services — we’re happy to help.
+        </p>
 
         {/* Error Message */}
         {error && <p className="error-message">{error}</p>}
@@ -142,8 +221,11 @@ function ContactUs() {
       {/* Guest Chat Box */}
       {activeChat && (
         <GuestChatBox
+          key={`${activeChat.branchId}-${activeChat.guestId}`}
+          branchId={activeChat.branchId}
+          branchEmail={activeChat.branchEmail}
           branchName={activeChat.branchName}
-          spaceId={activeChat.spaceId}
+          schedule={activeChat.schedule || []}
           guestId={activeChat.guestId}
           onClose={() => setActiveChat(null)}
         />

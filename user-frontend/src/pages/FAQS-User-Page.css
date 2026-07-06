@@ -1,0 +1,71 @@
+/* FAQ page — flagship accordions (light + gold) */
+.faq-accordion {
+  background: linear-gradient(135deg, #ffffff 0%, #faf8f5 100%);
+  border: 1px solid rgba(212, 168, 83, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.faq-accordion[open] {
+  box-shadow: 0 8px 24px rgba(212, 168, 83, 0.16);
+  border-color: rgba(212, 168, 83, 0.4);
+}
+
+.faq-accordion summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+}
+
+.faq-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.faq-accordion summary h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #1a1a2e;
+}
+
+.faq-accordion summary::after {
+  content: '+';
+  flex-shrink: 0;
+  font-size: 1.6rem;
+  line-height: 1;
+  font-weight: 300;
+  color: #c9a227;
+}
+
+.faq-accordion[open] summary::after {
+  content: '\2212';
+}
+
+.faq-answer {
+  margin: 0;
+  padding: 0 20px 20px;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: #4b5563;
+}
+
+@media (max-width: 480px) {
+  .faq-accordion summary {
+    padding: 16px;
+  }
+
+  .faq-accordion summary h3 {
+    font-size: 0.95rem;
+  }
+
+  .faq-answer {
+    padding: 0 16px 16px;
+  }
+}

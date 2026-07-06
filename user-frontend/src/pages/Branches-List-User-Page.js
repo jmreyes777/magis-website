@@ -13,7 +13,7 @@ import {
   fitMapToBounds,
   MAX_ZOOM_LEVEL
 } from "../utils/mapUtils";
-import { FaMapMarkerAlt, FaPhoneAlt, FaClock } from "react-icons/fa";
+import { FaMapMarkerAlt, FaPhoneAlt, FaClock, FaSearch, FaTimes } from "react-icons/fa";
 import "./BranchesMapView.css";
 import { getSocketInstance, connectSocket, disconnectSocket } from "../Shared/User-Utils-socket";
 import { getTurnstileToken, preloadTurnstile } from "../Shared/turnstile";
@@ -418,7 +418,7 @@ function BranchesMapView() {
         ]}
       />
       <h1 className="sr-only">Find a Magis Gold &amp; Gems Pawnshop Branch</h1>
-      <div className="w-full max-w-5xl mx-auto h-[700px] bg-white rounded-lg shadow-md border flex flex-col items-stretch">
+      <div className="map-list-container">
         {/* 🌍 Google Map */}
         <div
           id="map"
@@ -440,7 +440,7 @@ function BranchesMapView() {
         {/* 🔍 Search & Filters */}
         <div className="search-filter-container w-full">
           <div className="search-box">
-            <span className="search-icon">🔍</span>
+            <FaSearch className="search-icon" aria-hidden="true" />
             <input
               type="text"
               placeholder="Search branches..."
@@ -449,8 +449,12 @@ function BranchesMapView() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
             {searchQuery && (
-              <button className="clear-btn" onClick={() => setSearchQuery("")}>
-                ✖
+              <button
+                className="clear-btn"
+                onClick={() => setSearchQuery("")}
+                aria-label="Clear search"
+              >
+                <FaTimes />
               </button>
             )}
           </div>

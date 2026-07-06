@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo";
+import "./legal-prose.css";
+import "./Terms-Conditions-User-Page.css";
 
 function Terms() {
   const [showPawnTerms, setShowPawnTerms] = useState(false);
@@ -37,17 +39,17 @@ function Terms() {
       />
       {/* Hero */}
       <section
-        className="relative h-64 bg-cover bg-center"
+        className="relative h-64 md:h-72 bg-cover bg-center"
         style={{ backgroundImage: "url('/images/hero.jpg')" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4 text-white">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Terms &amp; Conditions</h1>
-          <p className="text-sm md:text-base opacity-90">Last updated: {lastUpdated}</p>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
+        <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
+          <h1 className="mb-2 text-3xl font-extrabold tracking-tight md:text-5xl">Terms &amp; Conditions</h1>
+          <p className="text-sm text-gray-300 md:text-base">Last updated: {lastUpdated}</p>
         </div>
       </section>
 
-      <main className="flex-grow">
+      <main className="flex-grow legal-prose">
         {/* Intro & Acceptance */}
         <section className="py-10 bg-white">
           <div className="container mx-auto px-4 max-w-4xl">
@@ -65,7 +67,7 @@ function Terms() {
         {/* =========================
             Section 1: Website Usage
            ========================= */}
-        <section id="website-usage" className="py-8 bg-gray-50">
+        <section id="website-usage" className="py-8 bg-[#faf8f5]">
           <div className="container mx-auto px-4 max-w-4xl">
             <h2 className="text-2xl font-bold mb-4">Website Usage</h2>
             <ul className="list-disc pl-6 space-y-3 text-gray-800">
@@ -147,7 +149,7 @@ function Terms() {
                   General Terms
                   <button
                     type="button"
-                    className="text-xs md:text-sm underline text-yellow-700 hover:text-yellow-600"
+                    className="text-xs md:text-sm underline text-[#b8941f] hover:text-[#c9a227]"
                     onClick={() => setShowPawnTerms(true)}
                   >
                     See full terms
@@ -234,7 +236,7 @@ function Terms() {
         {/* =========================
             Section 3: Jewelry Sales (Pricing & Returns)
            ========================= */}
-        <section id="jewelry-sales" className="py-8 bg-gray-50">
+        <section id="jewelry-sales" className="py-8 bg-[#faf8f5]">
           <div className="container mx-auto px-4 max-w-4xl">
             <h2 className="text-2xl font-bold mb-4">
               Jewelry Sales (Pricing &amp; Returns)
@@ -279,13 +281,13 @@ function Terms() {
             <div className="flex flex-wrap items-center gap-3">
               <Link
                 to="/contact-us"
-                className="px-6 py-2 rounded-full bg-yellow-500 text-black font-semibold hover:bg-yellow-600 transition"
+                className="rounded-full bg-gradient-to-br from-[#d4a853] to-[#c9a227] px-6 py-3 font-semibold text-[#1a1a2e] transition hover:brightness-95"
               >
                 Contact Us
               </Link>
               <Link
                 to="/branches"
-                className="px-6 py-2 rounded-full bg-black text-yellow-500 font-semibold hover:bg-gray-800 transition"
+                className="rounded-full bg-[#1a1a2e] px-6 py-3 font-semibold text-[#d4a853] transition hover:bg-[#2d2d42]"
               >
                 Find a Branch
               </Link>
@@ -307,10 +309,10 @@ function Terms() {
           Modal: Full Pawning Terms  (SCROLLABLE)
           ========================= */}
       {showPawnTerms && (
-        <div className="fixed inset-0 z-[10050] grid place-items-center">
+        <div className="fixed inset-0 z-[10050] grid place-items-center p-4">
           {/* Backdrop */}
           <button
-            className="absolute inset-0 bg-black/60"
+            className="pawn-modal-overlay absolute inset-0 bg-[#1a1a2e]/70 backdrop-blur-sm"
             onClick={() => setShowPawnTerms(false)}
             aria-label="Close modal backdrop"
           />
@@ -319,15 +321,18 @@ function Terms() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="pawn-terms-title"
-            className="relative w-[92%] max-w-3xl max-h-[90svh] bg-white rounded-lg shadow-xl flex flex-col overflow-hidden"
+            className="pawn-modal-dialog relative flex w-[92%] max-w-lg max-h-[80svh] flex-col overflow-hidden rounded-2xl border border-[#d4a853]/30 bg-white shadow-[0_24px_64px_rgba(26,26,46,0.35)]"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b shrink-0">
-              <h4 id="pawn-terms-title" className="text-lg font-bold">
+            <div className="flex items-center justify-between gap-3 border-b border-[#d4a853]/20 bg-gradient-to-br from-white to-[#faf8f5] px-4 py-3 shrink-0">
+              <h4
+                id="pawn-terms-title"
+                className="text-base font-extrabold tracking-tight text-[#1a1a2e]"
+              >
                 Full Pawning Terms &amp; Conditions
               </h4>
               <button
-                className="text-2xl leading-none px-2 -m-2 hover:opacity-80"
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-xl leading-none text-[#1a1a2e] transition hover:bg-[#d4a853]/15 active:scale-95"
                 aria-label="Close modal"
                 onClick={() => setShowPawnTerms(false)}
               >
@@ -337,13 +342,13 @@ function Terms() {
 
             {/* Body (scrollable) */}
             <div
-              className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-6"
+              className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-5"
               style={{
                 WebkitOverflowScrolling: "touch",
                 scrollbarGutter: "stable",
               }}
             >
-              <ol className="list-decimal pl-6 space-y-3 text-sm text-gray-800">
+              <ol className="pawn-modal-list list-decimal space-y-2 pl-5">
                 <li>The pawner hereby accepts the pawnshop&apos;s appraisal as proper.</li>
                 <li>
                   The pawnshop hereby agrees not to collect advance interest for a period of more
@@ -431,9 +436,9 @@ function Terms() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t text-right shrink-0">
+            <div className="flex justify-end border-t border-[#d4a853]/20 bg-gradient-to-br from-white to-[#faf8f5] px-4 py-3 shrink-0">
               <button
-                className="px-4 py-2 rounded bg-black text-white hover:bg-gray-800"
+                className="min-h-[40px] rounded-lg bg-[#1a1a2e] px-5 py-2 text-sm font-semibold text-[#d4a853] transition hover:bg-[#2d2d42] active:scale-[0.98]"
                 onClick={() => setShowPawnTerms(false)}
               >
                 Close

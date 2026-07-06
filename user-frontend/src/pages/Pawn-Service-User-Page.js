@@ -1,47 +1,88 @@
-// user-frontend/src/pages/Pawning-User-Page.js
+// user-frontend/src/pages/Pawn-Service-User-Page.js
 import React, { useEffect, useState } from "react";
-import Footer from "../components/Footer-User-Component";
-import Seo from "../components/Seo";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
-  FaBoxOpen,
+  FaComments,
+  FaArrowRight,
+  FaRegIdCard,
   FaBalanceScale,
   FaClipboardCheck,
   FaMoneyBillAlt,
-  FaRegIdCard,
-  FaGavel,
-  FaUndo,
-  FaSearchLocation,
-  FaArrowRight,
-  FaShieldAlt,
-  FaCheckCircle,
-  FaExclamationTriangle,
   FaInfoCircle,
+  FaShieldAlt,
+  FaExclamationTriangle,
   FaCalculator,
 } from "react-icons/fa";
+import Footer from "../components/Footer-User-Component";
+import Seo, { SITE_ORIGIN } from "../components/Seo";
 import "./Pawn-Service-User-Page.css";
 
-function Pawning() {
-  // Simple in-page quick-nav config (anchors)
-  const location = useLocation();
-  const sections = [
-    { id: "how-to-pawn", label: "How to Pawn" },
-    { id: "accepted-items", label: "Accepted Items" },
-    { id: "how-to-renew", label: "How to Renew" },
-    { id: "how-to-redeem", label: "How to Redeem" },
-    { id: "interest-calculator", label: "Interest Calculator" },
-    { id: "terms-and-conditions", label: "Terms & Conditions" },
-  ];
+// ===========================================================================
+// STRUCTURED DATA (module scope) — Service + FAQPage. The FAQ answers mirror
+// visible on-page content (Google requires FAQ markup to match the page). The
+// Service provider references the homepage LocalBusiness node by @id.
+// ===========================================================================
+const PAWN_SERVICE_JSONLD = {
+  "@type": "Service",
+  "@id": `${SITE_ORIGIN}/pawning#service`,
+  name: "Pawn Loans (Sangla) on Gold & Jewelry",
+  serviceType: "Pawnbroker",
+  description:
+    "Pawn (sangla) your gold and jewelry for instant cash with low interest, easy renewal and redemption. BSP-regulated and AMLA-compliant.",
+  provider: { "@id": `${SITE_ORIGIN}/#business` },
+  areaServed: { "@type": "Country", name: "Philippines" },
+  url: `${SITE_ORIGIN}/pawning`,
+};
 
-  // Format today's date as YYYY-MM-DD in the user's local timezone
+const PAWN_FAQ_JSONLD = {
+  "@type": "FAQPage",
+  "@id": `${SITE_ORIGIN}/pawning#faq`,
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "What do I need to pawn my gold?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Bring your gold jewelry and one valid government-issued ID to any Magis branch. We appraise the karat, weight, and condition to determine a fair loan value.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How do I renew my pawn?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Visit any Magis branch on or before the maturity date, present your original pawn ticket and a valid ID, and pay the charges printed on your ticket to extend your term.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How do I redeem my item?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Present your original pawn ticket and a valid ID, then pay the principal plus the charges due. Authorized representatives also need an authorization letter.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "What happens to unredeemed items?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Unredeemed items may be auctioned following BSP rules and notices after the loan term and grace period lapse.",
+      },
+    },
+  ],
+};
+
+// Format today's date as YYYY-MM-DD in the user's local timezone
 const todayLocal = () => {
   const d = new Date();
-  const year  = d.getFullYear();
+  const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day   = String(d.getDate()).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
+function Pawning() {
   // ===== Sample Interest Calculator State & Logic =====
   const [principal, setPrincipal] = useState("");
   const [pawnDate, setPawnDate] = useState(() => todayLocal());
@@ -79,7 +120,7 @@ const todayLocal = () => {
 
     // if paymentDate before pawnDate → show error
     if (end < start) {
-      setCalcError("⚠️ Planned payment date cannot be earlier than the pawn date.");
+      setCalcError("Planned payment date cannot be earlier than the pawn date.");
       return;
     }
 
@@ -96,8 +137,11 @@ const todayLocal = () => {
   const totalPayable = Number(principal || 0) + interestAmount;
   const displayAmount = mode === "renew" ? interestAmount : totalPayable;
 
+  const peso = (n) =>
+    n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 text-gray-800">
+    <div className="pawn-page flex flex-col min-h-screen">
       <Seo
         title="Pawn Gold & Jewelry (Sangla) | Magis Gold & Gems"
         description="Pawn (sangla) your gold and jewelry for instant cash — see how much you can pawn 18k/21k gold for, with low interest, easy renewal and redemption. BSP-regulated."
@@ -106,481 +150,383 @@ const todayLocal = () => {
           { name: "Home", path: "/" },
           { name: "Pawning", path: "/pawning" },
         ]}
+        jsonLd={[PAWN_SERVICE_JSONLD, PAWN_FAQ_JSONLD]}
       />
 
-      <main className="flex-1">
-        {/* Hero */}
-        <section className="pawn-hero">
-          <div className="pawn-hero-content">
-            <h1 className="pawn-hero-title">
-              Pawn Your Gold with Confidence
-            </h1>
-            <p className="pawn-hero-subtitle">
-              Fast processing, transparent charges, and secure handling of your jewelry.
-              We operate under BSP rules and AMLA compliance for your peace of mind.
-            </p>
-            <div className="pawn-hero-cta-container">
-              <Link
-                to="/branches"
-                className="btn-primary-cta"
-              >
-                Find a Branch <FaSearchLocation className="ml-2" />
-              </Link>
-              <Link
-                to="/faqs"
-                className="btn-secondary-cta"
-              >
-                FAQs <FaArrowRight className="ml-2" />
-              </Link>
-            </div>
+      {/* Hero */}
+      <section className="pawn-hero">
+        <div className="pawn-shell pawn-hero__inner">
+          <p className="pawn-eyebrow">Sangla / Pawn loans</p>
+          <h1 className="pawn-hero__title">Pawn your gold with confidence.</h1>
+          <p className="pawn-hero__sub">
+            Quick, fair cash for your gold jewelry — often in minutes, with clear
+            terms and a private, secure experience.
+          </p>
+          <div className="pawn-cta-row">
+            <Link to="/branches" className="pawn-cta">
+              <FaComments aria-hidden="true" /> Chat with a Branch{" "}
+              <FaArrowRight aria-hidden="true" />
+            </Link>
+            <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
+              View FAQs <FaArrowRight aria-hidden="true" />
+            </Link>
           </div>
-        </section>
+        </div>
+      </section>
+
+      <main className="flex-1">
         {/* SECTION 1: How to Pawn */}
         <section id="how-to-pawn" className="pawn-section">
-          <div className="pawn-section-header">
-            <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
-              <FaBoxOpen className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="pawn-section-title">How to Pawn</h2>
+          <div className="pawn-shell">
+            <div className="pawn-section-head">
+              <p className="pawn-eyebrow">How to pawn</p>
+              <h2 className="pawn-h2">A simple, transparent process.</h2>
+              <p className="pawn-lead">
+                Secure and straightforward — get fair cash for your gold in just a few steps.
+              </p>
             </div>
-            <p className="pawn-section-subtitle">
-              Simple, secure, and transparent process to get cash for your gold
-            </p>
-          </div>
 
-          <div className="pawn-steps-grid">
-            {[
-              {
-                icon: <FaRegIdCard />,
-                title: "1) Bring Your Item",
-                text: "Visit any branch with your gold jewelry and one valid government-issued ID.",
-              },
-              {
-                icon: <FaBalanceScale />,
-                title: "2) Appraisal",
-                text: "We assess karat, weight, and condition to determine a fair loan value.",
-              },
-              {
-                icon: <FaClipboardCheck />,
-                title: "3) Offer & Ticket",
-                text: "Review the charges and terms. If accepted, sign your ticket and receive cash.",
-              },
-              {
-                icon: <FaMoneyBillAlt />,
-                title: "4) Secure Storage",
-                text: "We store your item safely until you redeem or renew, under BSP standards.",
-              },
-            ].map((step, i) => (
-              <div
-                key={i}
-                className="pawn-step-card"
-              >
-                <div className="pawn-step-icon">{step.icon}</div>
-                <h3 className="pawn-step-title">{step.title}</h3>
-                <p className="pawn-step-text">{step.text}</p>
-              </div>
-            ))}
-          </div>
+            <div className="pawn-cell-grid">
+              {[
+                {
+                  icon: <FaRegIdCard aria-hidden="true" />,
+                  num: "STEP 1",
+                  title: "Bring your item",
+                  text: "Visit any branch with your gold jewelry and one valid government-issued ID.",
+                },
+                {
+                  icon: <FaBalanceScale aria-hidden="true" />,
+                  num: "STEP 2",
+                  title: "Appraisal",
+                  text: "We assess karat, weight, and condition to determine a fair loan value.",
+                },
+                {
+                  icon: <FaClipboardCheck aria-hidden="true" />,
+                  num: "STEP 3",
+                  title: "Offer & ticket",
+                  text: "Review the charges and terms. If accepted, sign your ticket and receive cash.",
+                },
+                {
+                  icon: <FaMoneyBillAlt aria-hidden="true" />,
+                  num: "STEP 4",
+                  title: "Secure storage",
+                  text: "We store your item safely until you redeem or renew, under BSP standards.",
+                },
+              ].map((step, i) => (
+                <div key={i} className="pawn-cell">
+                  <span className="pawn-cell__icon">{step.icon}</span>
+                  <span className="pawn-cell__num">{step.num}</span>
+                  <h3 className="pawn-cell__title">{step.title}</h3>
+                  <p className="pawn-cell__text">{step.text}</p>
+                </div>
+              ))}
+            </div>
 
-          <div className="pawn-compliance-banner">
-            <FaShieldAlt className="pawn-compliance-icon" />
-            <p className="pawn-compliance-text">
-              <strong>Compliance:</strong> We follow BSP pawnshop regulations and implement
-              AMLA Know-Your-Customer (KYC) and record-keeping requirements.
-            </p>
+            <div className="pawn-note">
+              <FaShieldAlt aria-hidden="true" />
+              <p>
+                <strong>Your peace of mind:</strong> Every item is appraised by trained staff,
+                recorded on an official pawn ticket, and kept in secure storage until you redeem it.
+              </p>
+            </div>
           </div>
         </section>
 
         {/* SECTION 2: Accepted Items */}
-        <section id="accepted-items" className="pawn-section pawn-section-alt">
-          <div className="pawn-section-header">
-            <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
-              <FaGavel className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="pawn-section-title">Accepted Items</h2>
-            </div>
-            <p className="pawn-section-subtitle">
-              We accept various gold jewelry items for appraisal and pawning
-            </p>
-          </div>
-
-          <div className="pawn-items-grid">
-            <div className="pawn-item-card">
-              <div className="pawn-item-icon">
-                <FaMoneyBillAlt />
-              </div>
-              <h3 className="pawn-item-title">
-                Gold Jewelry
-              </h3>
-              <p className="pawn-item-text">
-                Rings, necklaces, bracelets, earrings, pendants. Appraised by karat and weight.
+        <section id="accepted-items" className="pawn-section pawn-section--navy">
+          <div className="pawn-shell">
+            <div className="pawn-section-head">
+              <p className="pawn-eyebrow">Accepted items</p>
+              <h2 className="pawn-h2">What we appraise and accept.</h2>
+              <p className="pawn-lead">
+                We accept a wide range of gold jewelry for appraisal and pawning.
               </p>
             </div>
 
-            <div className="pawn-item-card">
-              <div className="pawn-item-icon">
-                <FaBalanceScale />
+            <div className="pawn-cell-grid">
+              <div className="pawn-cell">
+                <span className="pawn-cell__icon"><FaMoneyBillAlt aria-hidden="true" /></span>
+                <h3 className="pawn-cell__title">Gold jewelry</h3>
+                <p className="pawn-cell__text">
+                  Rings, necklaces, bracelets, earrings, pendants — appraised by karat and weight.
+                </p>
               </div>
-              <h3 className="pawn-item-title">
-                With Stones
-              </h3>
-              <p className="pawn-item-text">
-                Gold jewelry with stones (e.g., diamonds) are carefully evaluated.
-              </p>
-            </div>
-
-            <div className="pawn-item-card">
-              <div className="pawn-item-icon">
-                <FaInfoCircle />
+              <div className="pawn-cell">
+                <span className="pawn-cell__icon"><FaBalanceScale aria-hidden="true" /></span>
+                <h3 className="pawn-cell__title">With stones</h3>
+                <p className="pawn-cell__text">
+                  Gold jewelry with stones (e.g., diamonds) is carefully evaluated.
+                </p>
               </div>
-              <h3 className="pawn-item-title">Ask Us</h3>
-              <p className="pawn-item-text">
-                Have something else? Acceptance depends on our appraiser's evaluation at the branch.
-              </p>
+              <div className="pawn-cell">
+                <span className="pawn-cell__icon"><FaInfoCircle aria-hidden="true" /></span>
+                <h3 className="pawn-cell__title">Ask us</h3>
+                <p className="pawn-cell__text">
+                  Have something else? Acceptance depends on our appraiser's evaluation at the branch.
+                </p>
+              </div>
             </div>
           </div>
         </section>
 
         {/* SECTION 3: How to Renew */}
         <section id="how-to-renew" className="pawn-section">
-          <div className="pawn-section-header">
-            <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
-              <FaUndo className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="pawn-section-title">How to Renew</h2>
+          <div className="pawn-shell">
+            <div className="pawn-section-head">
+              <p className="pawn-eyebrow">How to renew</p>
+              <h2 className="pawn-h2">Extend your term by paying interest.</h2>
+              <p className="pawn-lead">
+                Keep your item and push back the maturity date in three quick steps.
+              </p>
             </div>
-            <p className="pawn-section-subtitle">
-              Extend your pawn term by paying the interest charges
-            </p>
-          </div>
 
-          <div className="pawn-process-container">
-            <div className="pawn-process-card">
-              <h3 className="pawn-process-title">
-                Follow these simple steps:
-              </h3>
-              <ul className="pawn-process-list">
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>Visit the any Magis branch on or before the maturity date.</span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>Present your original pawn ticket and a valid ID.</span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>Pay the charges printed on your ticket to renew your term.</span>
-                </li>
+            <div className="pawn-feature pawn-feature--solo">
+              <h3 className="pawn-feature__title">Follow these simple steps</h3>
+              <ul className="pawn-checklist">
+                <li>Visit any Magis branch on or before the maturity date.</li>
+                <li>Present your original pawn ticket and a valid ID.</li>
+                <li>Pay the charges printed on your ticket to renew your term.</li>
               </ul>
             </div>
           </div>
         </section>
 
         {/* SECTION 4: How to Redeem */}
-        <section id="how-to-redeem" className="pawn-section pawn-section-alt">
-          <div className="pawn-section-header">
-            <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
-              <FaBoxOpen className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="pawn-section-title">How to Redeem</h2>
-            </div>
-            <p className="pawn-section-subtitle">
-              Reclaim your gold jewelry by paying the principal and charges
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-1000 mx-auto">
-            <div className="pawn-process-card">
-              <h3 className="pawn-process-title">
-                Requirements
-              </h3>
-              <ul className="pawn-process-list">
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>Original pawn ticket.</span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>Valid ID of the pawner or representative.</span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>Payment of principal plus charges due.</span>
-                </li>
-              </ul>
+        <section id="how-to-redeem" className="pawn-section pawn-section--navy">
+          <div className="pawn-shell">
+            <div className="pawn-section-head">
+              <p className="pawn-eyebrow">How to redeem</p>
+              <h2 className="pawn-h2">Reclaim your jewelry.</h2>
+              <p className="pawn-lead">
+                Settle the principal and charges due, then take your item home.
+              </p>
             </div>
 
-            <div className="pawn-process-card">
-              <h3 className="pawn-process-title">Reminders</h3>
-              <ul className="pawn-process-list">
-                <li>
-                  <FaExclamationTriangle className="pawn-warning-icon" />
-                  <span>
+            <div className="pawn-feature-grid">
+              <div className="pawn-feature">
+                <h3 className="pawn-feature__title">Requirements</h3>
+                <ul className="pawn-checklist">
+                  <li>Original pawn ticket.</li>
+                  <li>Valid ID of the pawner or representative.</li>
+                  <li>Payment of principal plus charges due.</li>
+                </ul>
+              </div>
+              <div className="pawn-feature">
+                <h3 className="pawn-feature__title">Reminders</h3>
+                <ul className="pawn-checklist">
+                  <li className="is-warn">
                     Representatives need an authorization letter, valid ID, and the original pawn ticket.
-                  </span>
-                </li>
-                <li>
-                  <FaExclamationTriangle className="pawn-warning-icon" />
-                  <span>
-                    After verification, your item will be released along with your redeemed ticket.
-                  </span>
-                </li>
-              </ul>
+                  </li>
+                  <li className="is-warn">
+                    After verification, your item is released along with your redeemed ticket.
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </section>
 
         {/* SECTION 5: Sample Interest Calculator */}
         <section id="interest-calculator" className="pawn-section">
-          <div className="pawn-section-header">
-            <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
-              <FaCalculator className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="pawn-section-title">Sample Interest Calculator</h2>
-            </div>
-            <p className="pawn-section-subtitle">
-              Estimate possible renewal or redemption charges for planning only.
-              Actual rates vary per branch and appear on your pawn ticket.
-            </p>
-          </div>
-
-          <div className="pawn-calculator-container">
-            {/* Mode selector (buttons) */}
-            <div className="pawn-calculator-modes">
-              <button
-                onClick={() => setMode("renew")}
-                className={`pawn-mode-btn ${mode === "renew" ? "active" : "inactive"}`}
-              >
-                Renew (Interest Only)
-              </button>
-              <button
-                onClick={() => setMode("redeem")}
-                className={`pawn-mode-btn ${mode === "redeem" ? "active" : "inactive"}`}
-              >
-                Redeem (Principal + Interest)
-              </button>
+          <div className="pawn-shell">
+            <div className="pawn-section-head">
+              <p className="pawn-eyebrow">Interest calculator</p>
+              <h2 className="pawn-h2">Estimate your charges.</h2>
+              <p className="pawn-lead">
+                For planning only — actual rates vary per branch and appear on your pawn ticket.
+              </p>
             </div>
 
-            {/* Inputs */}
-            <div className="pawn-calculator-inputs">
-              <div className="pawn-input-group">
-                <label
-                  htmlFor="principal"
-                  className="pawn-input-label"
+            <div className="pawn-calc">
+              <div className="pawn-calc__modes" role="tablist" aria-label="Calculation mode">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "renew"}
+                  onClick={() => setMode("renew")}
+                  className={`pawn-calc__mode ${mode === "renew" ? "is-active" : ""}`}
                 >
-                  Principal Amount (₱)
-                </label>
-                <input
-                  type="number"
-                  id="principal"
-                  min="0"
-                  placeholder="Enter amount"
-                  value={principal}
-                  onChange={(e) => setPrincipal(e.target.value)}
-                  className="pawn-input-field"
-                />
-              </div>
-              <div className="pawn-input-group">
-                <label
-                  htmlFor="pawnDate"
-                  className="pawn-input-label"
+                  Renew (interest only)
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === "redeem"}
+                  onClick={() => setMode("redeem")}
+                  className={`pawn-calc__mode ${mode === "redeem" ? "is-active" : ""}`}
                 >
-                  Pawn Date
-                </label>
-                <input
-                  type="date"
-                  id="pawnDate"
-                  value={pawnDate}
-                  onChange={(e) => setPawnDate(e.target.value)}
-                  className="pawn-input-field"
-                />
+                  Redeem (principal + interest)
+                </button>
               </div>
-              <div className="pawn-input-group">
-                <label
-                  htmlFor="paymentDate"
-                  className="pawn-input-label"
-                >
-                  Planned Payment Date
-                </label>
-                <input
-                  type="date"
-                  id="paymentDate"
-                  value={paymentDate}
-                  onChange={(e) => setPaymentDate(e.target.value)}
-                  className="pawn-input-field"
-                />
-              </div>
-            </div>
 
-            {/* Results */}
-            <div className="pawn-calculator-results">
-              {!principal || !pawnDate || !paymentDate ? (
-                <p className="text-sm text-gray-600 text-center">
-                  Please fill in all fields above to calculate.
-                </p>
-              ) : calcError ? (
-                <p className="text-sm text-red-600 text-center">{calcError}</p>
-              ) : (
-                <div className="pawn-results-grid">
-                  <p className="pawn-result-item">
-                    <strong>Days Elapsed:</strong> {daysElapsed} day
-                    {daysElapsed === 1 ? "" : "s"}
-                  </p>
-                  <p className="pawn-result-item">
-                    <strong>Applicable Interest Rate:</strong>{" "}
-                    {interestRate?.toFixed(1)}%
-                  </p>
-                  <p className="pawn-result-item">
-                    <strong>Estimated Interest:</strong>{" "}
-                    ₱
-                    {interestAmount.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                  </p>
-                  {mode === "redeem" ? (
-                    <p className="pawn-result-item">
-                      <strong>Total to Redeem (Principal + Interest):</strong>{" "}
-                      ₱
-                      {totalPayable.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  ) : (
-                    <p className="pawn-result-item">
-                      <strong>Estimated to Renew (Interest Only):</strong>{" "}
-                      ₱
-                      {interestAmount.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </p>
-                  )}
+              <div className="pawn-calc__inputs">
+                <div className="pawn-field">
+                  <label htmlFor="principal">Principal amount (₱)</label>
+                  <input
+                    type="number"
+                    id="principal"
+                    min="0"
+                    placeholder="Enter amount"
+                    value={principal}
+                    onChange={(e) => setPrincipal(e.target.value)}
+                  />
                 </div>
-              )}
-            </div>
+                <div className="pawn-field">
+                  <label htmlFor="pawnDate">Pawn date</label>
+                  <input
+                    type="date"
+                    id="pawnDate"
+                    value={pawnDate}
+                    onChange={(e) => setPawnDate(e.target.value)}
+                  />
+                </div>
+                <div className="pawn-field">
+                  <label htmlFor="paymentDate">Planned payment date</label>
+                  <input
+                    type="date"
+                    id="paymentDate"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                  />
+                </div>
+              </div>
 
-            <p className="pawn-calculator-disclaimer">
-              *For sample estimation only. Actual rates, maturity, and grace periods vary per branch.
-            </p>
+              <div className="pawn-calc__result" aria-live="polite">
+                {!principal || !pawnDate || !paymentDate ? (
+                  <div className="pawn-result-empty">
+                    <FaCalculator aria-hidden="true" />
+                    <p>Fill in the three fields above — your estimate appears here instantly.</p>
+                  </div>
+                ) : calcError ? (
+                  <p className="pawn-result-error">{calcError}</p>
+                ) : (
+                  <div className="pawn-result">
+                    <p className="pawn-result__label">
+                      {mode === "redeem" ? "Total to redeem" : "Estimated to renew"}
+                    </p>
+                    <span className="pawn-result__amount">
+                      <span className="pawn-result__cur">₱</span>
+                      {peso(displayAmount)}
+                    </span>
+                    <p className="pawn-result__sub">
+                      {mode === "redeem"
+                        ? "Principal + interest — pay in full to reclaim your item."
+                        : "Interest only — pay this to extend your pawn term."}
+                    </p>
+
+                    <div className="pawn-stats">
+                      <div className="pawn-stat">
+                        <span className="pawn-stat__label">Days elapsed</span>
+                        <span className="pawn-stat__value">
+                          {daysElapsed} day{daysElapsed === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <div className="pawn-stat">
+                        <span className="pawn-stat__label">Interest rate</span>
+                        <span className="pawn-stat__value">{interestRate?.toFixed(1)}%</span>
+                      </div>
+                      <div className="pawn-stat">
+                        <span className="pawn-stat__label">Est. interest</span>
+                        <span className="pawn-stat__value">₱{peso(interestAmount)}</span>
+                      </div>
+                      <div className="pawn-stat">
+                        <span className="pawn-stat__label">Principal</span>
+                        <span className="pawn-stat__value">₱{peso(Number(principal || 0))}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <p className="pawn-calc__note">
+                *For sample estimation only. Actual rates, maturity, and grace periods vary per branch.
+              </p>
+            </div>
           </div>
         </section>
 
         {/* SECTION 6: Terms & Conditions */}
-        <section id="terms-and-conditions" className="pawn-section pawn-section-alt">
-          <div className="pawn-section-header">
-            <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
-              <FaShieldAlt className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="pawn-section-title">Terms &amp; Conditions (Key Points)</h2>
+        <section id="terms-and-conditions" className="pawn-section pawn-section--navy">
+          <div className="pawn-shell">
+            <div className="pawn-section-head">
+              <p className="pawn-eyebrow">Terms &amp; conditions</p>
+              <h2 className="pawn-h2">Fair terms, clearly explained.</h2>
+              <p className="pawn-lead">A simple summary of how your pawn works — from your ticket to the day you redeem.</p>
             </div>
-            <p className="pawn-section-subtitle">
-              Important information about your pawn transaction
-            </p>
-          </div>
 
-          <div className="pawn-terms-grid">
-            <div className="pawn-terms-card">
-              <ul className="pawn-terms-list">
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
-                    <strong>Charges &amp; Periods:</strong> Exact interest,
-                    fees, and grace periods are printed on your pawn ticket.
-                  </span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
-                    <strong>Ticket is Your Contract:</strong> Keep it safe. It's required for renewals and redemption.
-                  </span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
+            <div className="pawn-feature-grid">
+              <div className="pawn-feature">
+                <h3 className="pawn-feature__title">Your transaction</h3>
+                <ul className="pawn-checklist">
+                  <li>
+                    <strong>Charges &amp; periods:</strong> Exact interest, fees, and grace
+                    periods are printed on your pawn ticket.
+                  </li>
+                  <li>
+                    <strong>Ticket is your contract:</strong> Keep it safe — it's required for
+                    renewals and redemption.
+                  </li>
+                  <li>
                     <strong>KYC / AMLA:</strong> Valid ID and documentation are required to comply with AMLA.
-                  </span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
-                    <strong>BSP-Regulated:</strong> We strictly follow Bangko Sentral ng Pilipinas regulations.
-                  </span>
-                </li>
-              </ul>
-            </div>
-
-            <div className="pawn-terms-card">
-              <ul className="pawn-terms-list">
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
-                    <strong>Redemption &amp; Renewals:</strong> Only the pawner or an authorized representative may redeem.
-                  </span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
-                    <strong>Unredeemed Items:</strong> May be auctioned following BSP rules and notices.
-                  </span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
-                    <strong>Care &amp; Liability:</strong> Items are stored securely per industry standards.
-                  </span>
-                </li>
-                <li>
-                  <FaCheckCircle className="pawn-check-icon" />
-                  <span>
+                  </li>
+                  <li>
+                    <strong>BSP-regulated:</strong> We strictly follow Bangko Sentral ng Pilipinas regulations.
+                  </li>
+                </ul>
+              </div>
+              <div className="pawn-feature">
+                <h3 className="pawn-feature__title">Redemption &amp; care</h3>
+                <ul className="pawn-checklist">
+                  <li>
+                    <strong>Redemption &amp; renewals:</strong> Only the pawner or an authorized
+                    representative may redeem.
+                  </li>
+                  <li>
+                    <strong>Unredeemed items:</strong> May be auctioned following BSP rules and notices.
+                  </li>
+                  <li>
+                    <strong>Care &amp; liability:</strong> Items are stored securely per industry standards.
+                  </li>
+                  <li>
                     <strong>Privacy:</strong> See our{" "}
-                    <Link
-                      to="/privacy-policy"
-                      className="pawn-terms-link"
-                    >
-                      Privacy Policy
-                    </Link>{" "}
+                    <Link to="/privacy-policy" className="pawn-link">Privacy Policy</Link>{" "}
                     for how your data is handled.
-                  </span>
-                </li>
-              </ul>
+                  </li>
+                </ul>
+              </div>
             </div>
-          </div>
 
-          <div className="pawn-terms-notice">
-            <FaExclamationTriangle className="pawn-warning-icon" />
-            <p className="pawn-compliance-text">
-              This summary is for convenience only. The{" "}
-              <strong>pawn ticket</strong> and applicable laws prevail.
-              For complete terms, visit{" "}
-              <Link
-                to="/terms"
-                className="pawn-terms-link"
-              >
-                Terms &amp; Conditions
-              </Link>.
-            </p>
+            <div className="pawn-note">
+              <FaExclamationTriangle aria-hidden="true" />
+              <p>
+                This summary is for convenience only. The <strong>pawn ticket</strong> and
+                applicable laws prevail. For complete terms, visit{" "}
+                <Link to="/terms" className="pawn-link">Terms &amp; Conditions</Link>.
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="pawn-cta-banner">
-          <h2 className="pawn-cta-title">
-            Visit Us for a Free Appraisal
-          </h2>
-          <p className="pawn-cta-subtitle">
-            Our appraisers will evaluate your jewelry and walk you through
-            all charges and terms clearly.
-          </p>
-          <div className="pawn-cta-buttons">
-            <Link
-              to="/branches"
-              className="pawn-cta-primary"
-            >
-              Find a Branch
-            </Link>
-            <Link
-              to="/faqs"
-              className="pawn-cta-secondary"
-            >
-              Read FAQs
-            </Link>
+        {/* Final CTA */}
+        <section className="pawn-section">
+          <div className="pawn-shell">
+            <div className="pawn-section-head">
+              <p className="pawn-eyebrow">Get started</p>
+              <h2 className="pawn-h2">Visit us for a free appraisal.</h2>
+              <p className="pawn-lead">
+                Our appraisers evaluate your jewelry and walk you through all charges and terms
+                clearly — no pressure, no obligation.
+              </p>
+            </div>
+            <div className="pawn-cta-row">
+              <Link to="/branches" className="pawn-cta">
+                <FaComments aria-hidden="true" /> Chat with a Branch{" "}
+                <FaArrowRight aria-hidden="true" />
+              </Link>
+              <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
+                Read FAQs <FaArrowRight aria-hidden="true" />
+              </Link>
+            </div>
           </div>
         </section>
       </main>

@@ -101,6 +101,14 @@
 - **Phase B:** expanded `/faqs` to **32 Q&As** (7 new bilingual + 4 enriched) feeding `FAQPage` schema — interest **as low as 1%/mo (select branches)**, gold-jewelry-only, **free on-the-spot appraisal**, full accepted-ID list, `tubos`/`patubo`, layaway (hulugan), and **BSP + AMLC-registered**.
 - **Deferred:** real search **volumes** (paid API e.g. DataForSEO, or free Google Ads Keyword Planner) and the post-launch **GSC Search Analytics** feedback loop (needs the live domain). Optional next: a gold-price/appraisal explainer for the large gold-price demand; `openingHoursSpecification` for "open now" intent.
 
+## Deployment — how SEO changes reach staging  *(reference, confirmed 2026-06-20)*
+FAQ + per-route titles verified live on the guest staging site after a Render build.
+
+- **Topology (staging):** the guest SPA is its **own** Render service `magis-guest-staging.onrender.com` (NOT served by the backend). Backend API = `magis-website.onrender.com`; admin = `magis-admin-staging.onrender.com`. The Cloudflare edge worker `magis-edge-worker-staging` routes `/api`→backend and pages→guest (URLs in `magis-edge-worker/deploy-api.mjs`).
+- **Frontend deploy:** Render builds `user-frontend` from GitHub `main` (Auto-Deploy = On Commit). **`git push` alone is not enough** — the build must *succeed on Render*; a failed build silently keeps the last good bundle live. `build/` is gitignored (nothing served from git). Render's content hashes differ from a local Windows build, so don't compare bundle filenames.
+- **Edge worker (SEPARATE deploy):** `node deploy-api.mjs` in `magis-edge-worker/` (needs `CF_API_TOKEN`). Required so per-route `<title>`/meta + static JSON-LD reach non-JS crawlers & social link-previews. **Status: PENDING 2026-06-20** — `CF_API_TOKEN` not present in the dev shell; run the one-liner below to ship it.
+- **Cache:** `index.html` updates immediately; `asset-manifest.json`/static chunks are edge-cached — hard-refresh (Ctrl+F5) to see changes.
+
 ---
 
 ## Side note (not SEO, flagged for awareness)

@@ -265,7 +265,7 @@ export default function FacebookAlbumCarousel({ albumId }) {
         <FaChevronRight size={20} />
       </button>
 
-      {/* Stage — NO isolation, so each photo's mix-blend-mode can blend with the page background */}
+      {/* Stage — transparent cutouts float directly on the page; items not yet processed show a clean white product card */}
       <div
         className="relative w-full flex items-center justify-center overflow-hidden"
         style={{ height: cardH + stagePadY * 2 }}
@@ -294,6 +294,24 @@ export default function FacebookAlbumCarousel({ albumId }) {
                 style={{
                   width: "100%",
                   height: "100%",
+                  // Cutouts float directly on the page. Items the off-site job
+                  // hasn't processed yet sit inside a clean white product card
+                  // (intentional framing) instead of a broken multiply blend.
+                  ...(p.cutout
+                    ? {}
+                    : {
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#fff",
+                        borderRadius: Math.max(10, Math.round(cardH * 0.045)),
+                        border: "1px solid rgba(2,6,23,0.06)",
+                        boxShadow: `0 ${Math.round(cardH * 0.03)}px ${Math.round(
+                          cardH * 0.06
+                        )}px rgba(2,6,23,0.18)`,
+                        padding: Math.max(8, Math.round(cardH * 0.06)),
+                        overflow: "hidden",
+                      }),
                 }}
               >
                 {/* The actual pixels — locally reset so global CSS can’t touch it */}
@@ -308,13 +326,12 @@ export default function FacebookAlbumCarousel({ albumId }) {
                     height: "100%",
                     objectFit: "contain",          // show FULL image; no crop
                     imageRendering: "auto",
-                    transform: `scale(${frameScale})`,  // uniform breathing room -> framed, never zoomed/distorted
                     transformOrigin: "center center",
-                    // Transparent cutouts float with a soft shape-shadow; the
-                    // live-FB fallback keeps the gentler multiply blend.
+                    // Cutouts get breathing room + a soft shape-shadow so they
+                    // float; carded fallbacks are framed by the card's padding.
                     ...(p.cutout
-                      ? { filter: shadow }
-                      : { mixBlendMode: "multiply" }),
+                      ? { transform: `scale(${frameScale})`, filter: shadow }
+                      : null),
                   }}
                 />
               </div>

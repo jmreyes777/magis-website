@@ -6,8 +6,22 @@
    Global Vars (match App.css)
    =============================== */
 :root {
-  --header-h: 72px;
+  --header-h: 76px;
   --subnav-h: 48px;
+}
+
+@media (max-width: 768px) {
+  :root {
+    --header-h: 64px;
+    --subnav-h: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --header-h: 54px;
+    --subnav-h: 40px;
+  }
 }
 
 /* ===============================
@@ -45,7 +59,8 @@ body {
 }
 
 .content {
-  @apply flex-1 p-6;
+  @apply flex-1;
+  padding: calc(var(--header-h) + var(--subnav-h)) 24px 24px;
 }
 
 footer {

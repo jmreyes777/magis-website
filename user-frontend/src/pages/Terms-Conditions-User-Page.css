@@ -1,0 +1,43 @@
+/* Full Pawning Terms modal — flagship entrance polish */
+@keyframes pawnModalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pawnModalDialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pawn-modal-overlay {
+  animation: pawnModalOverlayIn 0.2s ease both;
+}
+
+.pawn-modal-dialog {
+  animation: pawnModalDialogIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Compact legal list inside the modal (denser than .legal-prose) */
+.pawn-modal-list {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: #4b5563;
+}
+
+.pawn-modal-list li::marker {
+  color: #c9a227;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pawn-modal-overlay,
+  .pawn-modal-dialog {
+    animation: none;
+  }
+}

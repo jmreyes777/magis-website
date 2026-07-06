@@ -74,7 +74,7 @@
 .home-hero {
   background: var(--navy);
   color: #fff;
-  padding-top: 96px;
+  padding-top: calc(var(--header-h, 76px) + var(--subnav-h, 48px) + 56px);
   padding-bottom: 96px;
   border-bottom: 1px solid rgba(212, 168, 83, 0.18);
 }
@@ -345,7 +345,7 @@
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .home-section, .home-hero { padding-top: 56px; padding-bottom: 56px; }
-  .home-hero { padding-top: 64px; }
+  .home-hero { padding-top: calc(var(--header-h, 64px) + var(--subnav-h, 44px) + 24px); }
   .home-section-head { margin-bottom: 32px; }
   .home-cta { width: 100%; justify-content: center; }
   .countdown-item { min-width: 72px; padding: 14px 16px; }

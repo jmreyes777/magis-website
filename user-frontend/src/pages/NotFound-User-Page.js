@@ -28,13 +28,13 @@ const NotFound = () => {
 
       {/* Hero */}
       <section
-        className="relative h-64 bg-cover bg-center"
+        className="relative h-72 md:h-80 bg-cover bg-center"
         style={{ backgroundImage: "url('/images/hero.jpg')" }}
       >
-        <div className="absolute inset-0 bg-black/60" />
-        <div className="relative z-10 flex flex-col items-center justify-center h-full text-center px-4 text-white">
-          <h1 className="text-4xl md:text-5xl font-bold mb-2">404</h1>
-          <p className="text-base md:text-lg opacity-90">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
+        <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
+          <h1 className="mb-3 text-6xl md:text-7xl font-extrabold tracking-tight text-[#d4a853]">404</h1>
+          <p className="text-base text-gray-200 md:text-lg">
             Sorry, we couldn’t find that page.
           </p>
         </div>
@@ -53,7 +53,7 @@ const NotFound = () => {
                 <Link
                   key={link.to}
                   to={link.to}
-                  className="px-6 py-2 rounded-full bg-black text-yellow-500 font-semibold hover:bg-gray-800 transition"
+                  className="rounded-full border border-[#d4a853]/50 bg-white px-6 py-3 font-semibold text-[#1a1a2e] transition hover:border-[#d4a853] hover:bg-[#d4a853]/10"
                 >
                   {link.label}
                 </Link>
