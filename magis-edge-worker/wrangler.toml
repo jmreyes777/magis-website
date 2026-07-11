@@ -19,10 +19,12 @@ workers_dev = true
 # Non-secret runtime vars (exposed as globals in service-worker format).
 [vars]
 BACKEND_URL = "https://magis-website.onrender.com"
-# ADMIN_URL / GUEST_URL are only used for non-/api (frontend) routing + CORS.
-# Uncomment and set these once the staging frontends are deployed:
-# ADMIN_URL = "https://<admin-staging-url>"
-# GUEST_URL = "https://<guest-staging-url>"
+# ADMIN_URL / GUEST_URL are used for non-/api (frontend) routing + CORS.
+# These mirror what the LIVE staging worker serves (verified 2026-07-11):
+# /admin* -> staging admin SPA, everything else -> guest SPA (served by the
+# backend service). wrangler deploy REPLACES live [vars], so keep these set.
+ADMIN_URL = "https://magis-admin-staging.onrender.com"
+GUEST_URL = "https://magis-guest-staging.onrender.com"
 # P2-3: RSA public key for asymmetric (RS256) JWT verification. The backend
 # signs with the matching PRIVATE key; the edge only ever needs this PUBLIC key.
 # It is NOT a secret, so a [vars] entry is fine (or use `wrangler secret put
