@@ -295,7 +295,7 @@ function Home() {
               <div className="home-step">
                 <span className="home-step__num">STEP 2</span>
                 <h3 className="home-step__title">Fair appraisal</h3>
-                <p className="home-step__text">We evaluate your gold based on current market value and tell you the exact amount you can borrow.</p>
+                <p className="home-step__text">We appraise your gold by karat and weight at our posted branch rates and tell you the exact amount you can borrow.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 3</span>

@@ -459,7 +459,7 @@ function Pawning() {
                 <h3 className="pawn-feature__title">Your transaction</h3>
                 <ul className="pawn-checklist">
                   <li>
-                    <strong>Charges &amp; periods:</strong> Exact interest, fees, and grace
+                    <strong>Charges &amp; periods:</strong> Exact interest, charges, and grace
                     periods are printed on your pawn ticket.
                   </li>
                   <li>

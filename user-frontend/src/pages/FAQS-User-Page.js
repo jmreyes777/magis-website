@@ -18,7 +18,7 @@ const COMPANY_FAQS = [
   },
   {
     q: "How much can I pawn my gold for? (Magkano ang pwedeng isangla ng ginto?)",
-    a: "Your loan is based on the piece’s purity (karat), weight, and the current gold price—so higher-karat (18k, 21k, 22k) and heavier items appraise higher. Appraisal is free and on the spot, and the appraiser shows the amount before you decide.",
+    a: "Your loan is based on the piece’s purity (karat) and weight, valued at our posted appraisal rates—so higher-karat (18k, 21k, 22k) and heavier items appraise higher. Our rates are set below the prevailing gold market price so we can keep serving you sustainably; they are not a spot-market quote. Appraisal is free and on the spot, and the appraiser shows the amount before you decide.",
   },
   {
     q: "What is your interest rate? (Magkano ang patubo/interest?)",
@@ -46,15 +46,15 @@ const COMPANY_FAQS = [
   },
   {
     q: "How is my gold appraised? Is appraisal free?",
-    a: "Appraisal is free and on the spot, based on authenticity, weight, and karat (purity) measured against the current gold price. The appraiser explains the offer before you decide.",
+    a: "Appraisal is free and on the spot, based on authenticity, weight, and karat (purity) at our posted appraisal rates (set below the prevailing gold market price). The appraiser explains the offer before you decide.",
   },
   {
     q: "What ID do I need to pawn? (Anong valid ID ang tinatanggap?)",
     a: "Any one (1) valid government-issued ID—for example: PhilID/National ID, Passport, Driver’s License, UMID, PRC, SSS, GSIS, Postal ID, Voter’s ID, PhilHealth, TIN, Pag-IBIG, Senior Citizen or PWD ID, NBI or Police Clearance, or a Barangay Certification with photo and signature, among others. Some transactions may require additional documents for regulatory (AMLA) checks.",
   },
   {
-    q: "How are interest and fees computed?",
-    a: "Rates/fees are posted in-branch and disclosed before you proceed. Your pawn ticket shows the final computation for the chosen term.",
+    q: "How is interest computed?",
+    a: "Rates are posted in-branch and disclosed before you proceed. Your pawn ticket shows the final computation for the chosen term.",
   },
   {
     q: "What is the loan term and when is the due date?",
@@ -66,7 +66,7 @@ const COMPANY_FAQS = [
   },
   {
     q: "How do I redeem my item?",
-    a: "Bring your pawn ticket, a valid ID, and the amount due (principal, interest, applicable fees). We’ll process the release at the branch.",
+    a: "Bring your pawn ticket, a valid ID, and the amount due shown on your ticket (principal plus interest). We’ll process the release at the branch.",
   },
   {
     q: "What if I lose my pawn ticket?",

@@ -78,7 +78,7 @@ function Terms() {
               </li>
               <li>
                 <strong>Key Definitions.</strong> Terms such as pawn, pledge, pawn ticket, redemption,
-                renewal, auction, and service fees follow their ordinary regulatory meanings.
+                renewal, and auction follow their ordinary regulatory meanings.
               </li>
               <li>
                 <strong>Branch Info &amp; Maps.</strong> Locations, hours, directions, and availability
