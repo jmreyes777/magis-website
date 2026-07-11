@@ -384,6 +384,47 @@ window.addEventListener("online", async () => {
   }
 });
 
+// ────────────────────────────────────────────────────────────────
+// Electron desktop app only: OS power transitions (see preload.js).
+// Mirrors the offline/online strategy across system sleep:
+//   suspend → clean disconnect so the server parks the session and queues
+//             undelivered messages instead of waiting for heartbeat timeout;
+//   resume  → forced clean reconnect (passive) so queued messages replay
+//             INSTANTLY. `connected` can be stale-true after a sleep the
+//             suspend event never announced, so we always cycle.
+if (window.electronAPI?.onPowerEvent) {
+  const reconnectAfterWake = async (attempt = 0) => {
+    const email = sessionStorage.getItem("branchEmail");
+    if (!email) return; // not logged in — nothing to revive
+    try {
+      await connectSocket(email, /* isPassive */ true);
+      console.log("[POWER] 🔄 Admin socket reconnected after system wake");
+    } catch (err) {
+      if (attempt < 2) {
+        console.warn(`[POWER] ⚠️ Wake reconnect failed (attempt ${attempt + 1}/3) — retrying in 5s`);
+        setTimeout(() => reconnectAfterWake(attempt + 1), 5000);
+      } else {
+        console.error("[POWER] ❌ Failed to reconnect admin socket after wake:", err);
+      }
+    }
+  };
+
+  window.electronAPI.onPowerEvent(({ event }) => {
+    if (event === "suspend") {
+      console.warn("[POWER] 💤 System suspending — parking admin socket cleanly");
+      if (socketInstance?.connected) socketInstance.disconnect();
+    } else if (event === "resume") {
+      console.info("[POWER] ⏰ System resumed — reviving admin socket");
+      if (socketInstance?.connected) socketInstance.disconnect();
+      setTimeout(() => reconnectAfterWake(), 2000); // give the NIC a moment to come back
+    } else if (event === "unlock-screen") {
+      // Screen lock alone doesn't kill the socket — only heal if it's down.
+      if (!socketInstance?.connected) reconnectAfterWake();
+    }
+  });
+  console.log("[POWER] 🔌 Electron power-event bridge active");
+}
+
 // --------------------
 // Connect, Disconnect, and Tab Close Functions
 // --------------------

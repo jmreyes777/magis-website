@@ -482,14 +482,21 @@ app.use("/api/audit", auditRoutes);
 app.use("/api/mfa", mfaRoutes);
 
 // Login Rate Limiting (NOW using Redis store for multi-instance correctness)
+// skipSuccessfulRequests: only FAILED attempts consume the budget (OWASP-style
+// brute-force limiting). Without it, 5 requests/15min/IP — shared across BOTH
+// admin login routes and successful logins — locked out legitimate admins who
+// simply retried, surfacing as inexplicable 429s ("Server error") in the apps.
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5,
+  max: 5,                    // failed attempts / IP / window
+  skipSuccessfulRequests: true,
   keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many login attempts. Please try again later." },
-  headers: true,
+  standardHeaders: true, // RateLimit-* + Retry-After so clients can show a real wait time
+  legacyHeaders: false,
   // Cluster-safe store backed by Redis:
   store: new RedisStore({
+    prefix: "rl:login:", // explicit bucket (was default "rl:")
     // ioredis adapter: delegate commands to the shared client
     sendCommand: (...args) => getRedis().call(...args),
   }),

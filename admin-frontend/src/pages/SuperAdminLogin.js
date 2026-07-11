@@ -52,6 +52,15 @@ function SuperAdminLogin() {
       console.error("[ERROR] Token exchange failed:", err);
       if (err.response && err.response.status === 403) {
         setError("Access forbidden. Check your credentials and permissions.");
+      } else if (err.response && err.response.status === 429) {
+        const retryAfter = Number(err.response.headers?.["retry-after"]);
+        setError(
+          `Too many login attempts. Please wait ${
+            Number.isFinite(retryAfter) && retryAfter > 0
+              ? Math.ceil(retryAfter / 60) + " minute(s)"
+              : "about 15 minutes"
+          } and try again.`
+        );
       } else {
         setError("Server error. Please contact the administrator.");
       }

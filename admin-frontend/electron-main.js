@@ -1,5 +1,5 @@
 // electron-main.js
-const { app, BrowserWindow, powerSaveBlocker, ipcMain, dialog, shell } = require("electron");
+const { app, BrowserWindow, powerSaveBlocker, powerMonitor, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
 
 let mainWindow;
@@ -26,8 +26,8 @@ function createWindow() {
   // ─── Load from the same HTTP(S) origin as your browser ─────────
   const startURL = process.env.ELECTRON_START_URL ||
     (app.isPackaged
-      ? "https://admin.yoursite.com"    // ← replace with your live admin URL
-      : "https://localhost:3001");      // ← your React dev server URL
+      ? "https://magis-admin-staging.onrender.com"  // ← admin dashboard (staging; swap when prod URL exists)
+      : "http://localhost:3001");       // ← CRA dev server (npm start passes ELECTRON_START_URL anyway)
 
   mainWindow.loadURL(startURL);
 
@@ -51,9 +51,12 @@ function createWindow() {
     return { action: "deny" };
   });
 
-  // Acquire OS‐level wake lock
-  blockerId = powerSaveBlocker.start("prevent-display-sleep");
-  console.log("🪄 Wake lock acquired, id=", blockerId);
+  // Acquire OS-level wake lock. "prevent-app-suspension" keeps the SYSTEM (and
+  // therefore sockets/timers) awake through inactivity timeouts while still
+  // letting the DISPLAY sleep — chat persistence without a screen burning 24/7.
+  // (The old "prevent-display-sleep" kept the monitor on permanently.)
+  blockerId = powerSaveBlocker.start("prevent-app-suspension");
+  console.log("🪄 Wake lock acquired (prevent-app-suspension), id=", blockerId);
 
   // Intercept the very first close event
   mainWindow.on("close", (e) => {
@@ -89,7 +92,26 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+
+  // Sleep can still happen despite the blocker (lid close, manual sleep, OS
+  // power policies). Forward power transitions to the renderer so the chat
+  // socket can park cleanly on suspend and revive INSTANTLY on resume instead
+  // of waiting for a heartbeat timeout. Handled in Admin-Utils-socket.js via
+  // window.electronAPI.onPowerEvent (see preload.js).
+  const sendPowerEvent = (event) => {
+    console.log(`⚡ powerMonitor: ${event}`);
+    BrowserWindow.getAllWindows().forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send("power-event", { event, at: Date.now() });
+      }
+    });
+  };
+  powerMonitor.on("suspend", () => sendPowerEvent("suspend"));
+  powerMonitor.on("resume", () => sendPowerEvent("resume"));
+  powerMonitor.on("unlock-screen", () => sendPowerEvent("unlock-screen"));
+});
 
 // Listen for renderer updates
 ipcMain.on("active-chats-updated", (_, hasActive) => {
