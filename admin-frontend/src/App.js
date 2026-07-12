@@ -19,6 +19,7 @@ const BranchPasswords = lazy(() => import("./pages/Admin-Page-Branch-Passwords")
 const BranchChatDashboard = lazy(() => import("./pages/Branch-Chat-Dashboard"));
 const BranchAdminAnalytics = lazy(() => import("./pages/BranchAdmin-Analytics-Page"));
 const AuditDashboard = lazy(() => import("./pages/Audit-Dashboard-Page"));
+const PasskeySettings = lazy(() => import("./pages/Passkey-Settings-Page")); // Phase 5 (flag-gated)
 const LandingPage = lazy(() => import("./pages/LandingPage")); // Neutral landing page
 
 function App() {
@@ -142,6 +143,17 @@ const RoutesComponent = () => {
                   </ProtectedRoute>
                 }
               />
+
+              {process.env.REACT_APP_ENABLE_PASSKEYS === "true" && (
+                <Route
+                  path="/admin/passkeys"
+                  element={
+                    <ProtectedRoute requiredRole="branchadmin">
+                      <PasskeySettings />
+                    </ProtectedRoute>
+                  }
+                />
+              )}
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

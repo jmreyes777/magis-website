@@ -665,6 +665,11 @@ async function handle(request, event) {
     (request.method === "POST" && pathname.startsWith("/api/branch/login")) ||
     (request.method === "POST" && pathname === "/api/branch/forgot") ||
     (request.method === "POST" && pathname === "/api/branch/reset") ||
+    // Passkey sign-in (Phase 5): same treatment as /api/branch/login above.
+    // Enrollment/management (/api/webauthn/register*, /credentials*) stays on
+    // the normal admin path below.
+    (request.method === "POST" && pathname === "/api/webauthn/login-options") ||
+    (request.method === "POST" && pathname === "/api/webauthn/login-verify") ||
     // Super-admin branch password management (/api/branch/admin*): a superadmin
     // token would be 403'd by the edge's branchadmin gate, so bypass like
     // /api/admin/staff — the backend's authenticateSuperAdmin authorizes it and

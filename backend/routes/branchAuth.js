@@ -177,7 +177,7 @@ async function mintFirebaseToken(account) {
   }
 }
 
-async function writeMfaSession(req, email, sessionId) {
+async function writeMfaSession(req, email, sessionId, via = "branch_email_otp") {
   const { ip, country } = getClientGeo(req);
   await db
     .collection(MFA_SESSION_COLLECTION)
@@ -191,7 +191,7 @@ async function writeMfaSession(req, email, sessionId) {
       country: country || null,
       geoLocked: false,
       userAgent: req.headers["user-agent"] || null,
-      via: "branch_email_otp",
+      via,
     });
 }
 
@@ -629,3 +629,14 @@ router.get("/admin/list", authenticateSuperAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+// Shared session-issuance helpers (megaplan Phase 5): the WebAuthn/passkey
+// route reuses these so a passkey login yields EXACTLY the same session
+// artifacts as the OTP path — same HMAC token shape, same cookie attributes,
+// same mfa_sessions doc, same Firebase custom token. Attached as named props
+// on the router export (require() returns the router object).
+module.exports.issueBranchAdminToken = issueBranchAdminToken;
+module.exports.setBranchAdminCookie = setBranchAdminCookie;
+module.exports.writeMfaSession = writeMfaSession;
+module.exports.mintFirebaseToken = mintFirebaseToken;
+module.exports.sessionIdFrom = sessionIdFrom;

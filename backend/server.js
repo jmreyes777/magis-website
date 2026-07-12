@@ -434,6 +434,9 @@ const staffAuthRoutes = require("./routes/staffAuth");
 const staffAdminRoutes = require("./routes/staffAdmin");
 // Branch login (email + password vs `branchAdmins` + emailed OTP on every login).
 const branchAuthRoutes = require("./routes/branchAuth");
+// Phase 5: passkeys / WebAuthn for branch admins — additive, feature-flagged
+// (PASSKEYS_ENABLED); existing login flows untouched.
+const webauthnRoutes = require("./routes/webauthn");
 // P1-4: per-IP throttle on guest-session creation — bot/abuse mitigation on the
 // public /init endpoint. Redis-backed for multi-instance correctness (degrades
 // to in-memory if Redis is down); tunable via env. NOTE: effectiveness depends
@@ -528,6 +531,11 @@ const loginLimiter = rateLimit({
 });
 app.use("/api/branchadmin/login", loginLimiter);
 app.use("/api/superadmin/login", loginLimiter);
+// Phase 5: the public passkey sign-in endpoints share the same failed-attempt
+// budget (skipSuccessfulRequests — successful options/verifies are free).
+app.use("/api/webauthn/login-options", loginLimiter);
+app.use("/api/webauthn/login-verify", loginLimiter);
+app.use("/api/webauthn", webauthnRoutes);
 
 // ── Staff (password + email-OTP) access — additive, isolated from Firebase auth.
 // The flow is multi-step (login → verify-otp → optional resend), so this allows

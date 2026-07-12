@@ -47,6 +47,9 @@ import { QRCodeCanvas } from "qrcode.react";
 
 const API = process.env.REACT_APP_API_URL || "";
 const TRUSTED_KEY = "staffTrustedDeviceToken";
+// Phase 5: passkey sign-in is opt-in via build flag; when off, this page is
+// byte-identical to the previous behavior.
+const PASSKEYS_ON = process.env.REACT_APP_ENABLE_PASSKEYS === "true";
 const RESEND_SECONDS = 45;
 const isValidEmail = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -199,6 +202,36 @@ function BranchUnifiedLogin() {
     }
     goToDashboard(session);
   }, [establishStaffSession, goToDashboard]);
+
+  // Phase 5: passkey sign-in. Same finalizer as the OTP path — the server
+  // response has the identical shape ({ token, firebaseToken, branchName }).
+  const handlePasskeyLogin = useCallback(async () => {
+    setError(""); setInfo(""); setBusy(true);
+    try {
+      const { startAuthentication } = await import("@simplewebauthn/browser");
+      const opts = await post("/api/webauthn/login-options", {
+        email: email.trim().toLowerCase() || undefined,
+      });
+      if (!opts.ok) { setError(opts.data.error || "Could not start passkey sign-in."); return; }
+      let assertion;
+      try {
+        assertion = await startAuthentication({ optionsJSON: opts.data.options });
+      } catch (e) {
+        if (e?.name !== "NotAllowedError") console.warn("[PASSKEY]", e?.message);
+        return; // user cancelled the browser prompt — not an error banner
+      }
+      const { ok, data } = await post("/api/webauthn/login-verify", {
+        challengeId: opts.data.challengeId,
+        assertion,
+      });
+      if (!ok) { setError(data.error || "Passkey sign-in failed."); return; }
+      await completeStaffLogin(data.token, data);
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }, [post, email, completeStaffLogin]);
 
   const submitOtp = useCallback(async (theCode) => {
     setError(""); setBusy(true);
@@ -594,6 +627,16 @@ function BranchUnifiedLogin() {
             >
               {busy ? "Signing in…" : "Sign in"}
             </button>
+            {PASSKEYS_ON && (
+              <button
+                type="button"
+                onClick={handlePasskeyLogin}
+                disabled={busy}
+                className="w-full mt-3 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+              >
+                Sign in with a passkey
+              </button>
+            )}
             <button
               type="button"
               onClick={() => { setError(""); setInfo(""); setView("forgot"); }}
