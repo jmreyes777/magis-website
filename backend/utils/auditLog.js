@@ -29,6 +29,7 @@
 //     expireAt: Date              // for an optional Firestore TTL policy
 //   }
 
+const crypto = require("crypto");
 const { db } = require("./firebase");
 
 const COLLECTION = process.env.AUDIT_COLLECTION || "auditLogs";
@@ -44,6 +45,86 @@ const ACTOR_TYPES = ["guest", "branchadmin", "superadmin", "staff", "system"];
 // self-view). Security/auth/admin-governance remain super-admin only. The read
 // API enforces this; it is exported so the route and tests share one source.
 const BRANCH_VISIBLE_CATEGORIES = ["chat", "access"];
+
+// ── Tamper-evident hash chain (megaplan Phase 4) ────────────────────────────
+// Forensic categories are written as a hash chain: each event stores
+// chain.seq, chain.prevHash and chain.hash = sha256(prevHash + canonical(evt)),
+// with the head tracked in system/auditChainHead via a transaction. Deleting
+// or editing any chained entry breaks recomputation from genesis, which the
+// verifier (verifyAuditChain / scripts/verify-audit-chain.js) detects.
+//
+// Chat/access events are deliberately NOT chained: they are high-volume hot
+// paths and the extra transaction would add latency where it matters most.
+// Chain writes FAIL OPEN to a plain (unchained) write, so an audit event is
+// never lost and the caller is never blocked.
+const CHAINED_CATEGORIES = new Set(
+  (process.env.AUDIT_CHAIN_CATEGORIES || "security,auth,admin")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+);
+const CHAIN_HEAD_REF = () => db.collection("system").doc("auditChainHead");
+
+/** Stable serialization of the fields protected by the chain. */
+function canonicalForHash(doc) {
+  return JSON.stringify([
+    doc.ts,
+    doc.tsMs,
+    doc.category,
+    doc.action,
+    doc.severity,
+    doc.outcome,
+    doc.actor?.type || null,
+    doc.actor?.email || null,
+    doc.branchEmail || null,
+    doc.context?.ip || null,
+    JSON.stringify(doc.meta || {}),
+  ]);
+}
+
+function chainHash(prevHash, doc) {
+  return crypto
+    .createHash("sha256")
+    .update(String(prevHash || "genesis"))
+    .update(canonicalForHash(doc))
+    .digest("hex");
+}
+
+/**
+ * Verify the chain by walking chained events in seq order and recomputing
+ * every hash. Returns { ok, checked, breaks: [{seq, id, reason}] }.
+ * Used by scripts/verify-audit-chain.js; safe to run anytime (read-only).
+ */
+async function verifyAuditChain({ limit = 50000 } = {}) {
+  const snap = await db
+    .collection(COLLECTION)
+    .where("chain.seq", ">=", 1)
+    .orderBy("chain.seq", "asc")
+    .limit(limit)
+    .get();
+  const breaks = [];
+  let prevHash = "genesis";
+  let prevSeq = 0;
+  let checked = 0;
+  for (const d of snap.docs) {
+    const doc = d.data();
+    const seq = doc.chain?.seq;
+    if (seq !== prevSeq + 1) {
+      breaks.push({ seq, id: d.id, reason: `sequence gap (expected ${prevSeq + 1})` });
+    }
+    if ((doc.chain?.prevHash || "genesis") !== prevHash) {
+      breaks.push({ seq, id: d.id, reason: "prevHash mismatch" });
+    }
+    const expect = chainHash(doc.chain?.prevHash, doc);
+    if (doc.chain?.hash !== expect) {
+      breaks.push({ seq, id: d.id, reason: "content hash mismatch (record altered)" });
+    }
+    prevHash = doc.chain?.hash || prevHash;
+    prevSeq = typeof seq === "number" ? seq : prevSeq;
+    checked++;
+  }
+  return { ok: breaks.length === 0, checked, breaks };
+}
 
 // Canonical action catalog (keeps action strings consistent across the codebase
 // and feeds the dashboard filter dropdowns via GET /api/audit/meta).
@@ -236,7 +317,38 @@ async function recordAuditEvent(evt = {}) {
       expireAt: new Date(nowMs + RETENTION_DAYS * 86400000),
     };
 
-    await db.collection(COLLECTION).add(doc);
+    if (CHAINED_CATEGORIES.has(doc.category)) {
+      // Chained write: seq/prevHash/hash assigned inside a transaction on the
+      // head pointer so concurrent writers serialize. Falls back to a plain
+      // write on any failure — the event itself is never lost.
+      try {
+        await db.runTransaction(async (tx) => {
+          const headSnap = await tx.get(CHAIN_HEAD_REF());
+          const head = headSnap.exists ? headSnap.data() : { seq: 0, hash: "genesis" };
+          const seq = (head.seq || 0) + 1;
+          const prevHash = head.hash || "genesis";
+          const hash = chainHash(prevHash, doc);
+          tx.set(db.collection(COLLECTION).doc(), { ...doc, chain: { seq, prevHash, hash } });
+          tx.set(CHAIN_HEAD_REF(), { seq, hash, updatedAt: doc.ts });
+        });
+      } catch (chainErr) {
+        console.warn("[AUDIT] chain write failed, falling back to unchained:", chainErr?.message);
+        await db.collection(COLLECTION).add(doc);
+      }
+    } else {
+      await db.collection(COLLECTION).add(doc);
+    }
+
+    // R1 (Phase 4): central failed-login spike detection — every instrumented
+    // login-failure event feeds the alert counters, no per-route wiring needed.
+    if (doc.action === ACTIONS.AUTH_LOGIN_FAILURE) {
+      try {
+        const { noteLoginFailure } = require("./securityAlerts");
+        noteLoginFailure({ ip: doc.context.ip, email: doc.actor.email, route: doc.meta?.route });
+      } catch {
+        /* alerting is best-effort */
+      }
+    }
 
     if (IS_DEV) {
       console.log(
@@ -254,6 +366,7 @@ async function recordAuditEvent(evt = {}) {
 module.exports = {
   recordAuditEvent,
   auditContextFromReq,
+  verifyAuditChain,
   maskEmail,
   COLLECTION,
   CATEGORIES,

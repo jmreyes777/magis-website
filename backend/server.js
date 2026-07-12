@@ -75,6 +75,17 @@ process.on("unhandledRejection", (reason, p) => {
           "(failing open; per-instance/in-memory only). Provision REDIS_URL to restore. Last error:",
         msg
       );
+      // R4 (Phase 4): page the operator - brute-force protection and logout
+      // revocation are weakened while this persists. Rides the 60s log throttle
+      // plus the alerter's own per-hour cap.
+      try {
+        const { sendSecurityAlert } = require("./utils/securityAlerts");
+        sendSecurityAlert("redis-degraded", "Redis DEGRADED - rate limits & token revocation weakened", [
+          `error: ${msg.slice(0, 200)}`,
+          "impact: login brute-force limits and logout/force-close revocation are per-instance only",
+          "action: check the Redis provider / REDIS_URL",
+        ]);
+      } catch { /* best-effort */ }
     }
     return; // do not crash; degradation is logged (throttled) above
   }
@@ -494,6 +505,20 @@ const loginLimiter = rateLimit({
   message: { error: "Too many login attempts. Please try again later." },
   standardHeaders: true, // RateLimit-* + Retry-After so clients can show a real wait time
   legacyHeaders: false,
+  // R5 (Phase 4): alert when an IP trips the admin-login limiter — a live
+  // brute-force signal. Default 429 behavior is preserved verbatim below.
+  handler: (req, res, _next, options) => {
+    try {
+      const { sendSecurityAlert } = require("./utils/securityAlerts");
+      const ip = rateLimitKey(req);
+      sendSecurityAlert(`login-429:${ip}`, "Admin login rate limit tripped", [
+        `source IP: ${ip}`,
+        `route: ${req.method} ${req.originalUrl}`,
+        "meaning: 5+ failed admin logins in 15 min from this IP",
+      ]);
+    } catch { /* best-effort */ }
+    res.status(options.statusCode).json(options.message);
+  },
   // Cluster-safe store backed by Redis:
   store: new RedisStore({
     prefix: "rl:login:", // explicit bucket (was default "rl:")

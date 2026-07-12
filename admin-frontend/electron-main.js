@@ -1,6 +1,24 @@
 // electron-main.js
-const { app, BrowserWindow, powerSaveBlocker, powerMonitor, ipcMain, dialog, shell } = require("electron");
+const { app, BrowserWindow, Menu, powerSaveBlocker, powerMonitor, ipcMain, dialog, shell } = require("electron");
 const path = require("path");
+
+// ── Phase 4 hardening ────────────────────────────────────────────────────
+// Chromium OS-level sandbox for every renderer (the preload only uses
+// contextBridge/ipcRenderer, which remain available in sandboxed preloads).
+app.enableSandbox();
+
+// Single-instance lock: a second launch focuses the existing window instead of
+// spawning a parallel session (duplicate sockets/notifications).
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+}
+app.on("second-instance", () => {
+  const win = BrowserWindow.getAllWindows()[0];
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.focus();
+  }
+});
 
 let mainWindow;
 let blockerId;
@@ -19,9 +37,17 @@ function createWindow() {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false
+      backgroundThrottling: false,
+      // Packaged builds get no DevTools (staff machines); dev keeps them.
+      devTools: !app.isPackaged,
     },
   });
+
+  // Packaged builds: drop the default menu (File/Edit/View… incl. the
+  // DevTools accelerator). Dev keeps the menu + shortcuts untouched.
+  if (app.isPackaged) {
+    Menu.setApplicationMenu(null);
+  }
 
   // ─── Load from the same HTTP(S) origin as your browser ─────────
   const startURL = process.env.ELECTRON_START_URL ||

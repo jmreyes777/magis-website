@@ -14,6 +14,7 @@
 const crypto = require("crypto");
 const { db } = require("./firebase");
 const { recordAuditEvent, ACTIONS } = require("./auditLog");
+const { sendSecurityAlert } = require("./securityAlerts");
 
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 const GEO_ANOMALY_ENABLED = String(process.env.GEO_ANOMALY_ENABLED || "true") === "true";
@@ -93,13 +94,35 @@ function requireEdgeAuth(req, res, next) {
   if (provided && safeEqual(provided, EDGE_SHARED_SECRET)) return next();
 
   const now = Date.now();
+  const ip =
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "";
   if (now - __lastEdgeAuthLogAt > 30_000) {
     __lastEdgeAuthLogAt = now;
-    const ip =
-      (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip || "";
     console.warn(
       `[SECURITY] 🚧 Non-edge origin request (${EDGE_AUTH_MODE}) ${req.method} ${req.originalUrl} from ${ip || "?"}` +
         (EDGE_AUTH_MODE === "enforce" ? " — BLOCKED (403)" : " — allowed (monitor)")
+    );
+    // R2 (Phase 4): chained audit event + throttled alert. Inside the 30s log
+    // throttle so a direct-to-origin scan can't flood Firestore or the inbox
+    // (sendSecurityAlert additionally applies its own per-hour cap).
+    recordAuditEvent({
+      category: "security",
+      action: ACTIONS.SECURITY_EDGE_AUTH_BLOCKED,
+      severity: EDGE_AUTH_MODE === "enforce" ? "critical" : "warning",
+      outcome: EDGE_AUTH_MODE === "enforce" ? "blocked" : "success",
+      actor: { type: "system" },
+      context: { ip: ip || null, userAgent: req.headers["user-agent"] || null },
+      meta: { mode: EDGE_AUTH_MODE, method: req.method, path: req.originalUrl },
+    });
+    sendSecurityAlert(
+      "edge-auth-violation",
+      `Non-edge /api request ${EDGE_AUTH_MODE === "enforce" ? "BLOCKED" : "observed (monitor)"}`,
+      [
+        `source IP: ${ip || "?"}`,
+        `request: ${req.method} ${req.originalUrl}`,
+        `mode: ${EDGE_AUTH_MODE}`,
+        "meaning: something is hitting the Render origin directly, bypassing the Cloudflare edge",
+      ]
     );
   }
 
@@ -207,6 +230,14 @@ async function logGeoAnomaly({ email, sessionId, fromCountry, toCountry, ip, use
   } catch (e) {
     console.warn("[SECURITY] Failed to log geo anomaly:", e.message);
   }
+
+  // R3 (Phase 4): real-time notification on top of the audit record.
+  sendSecurityAlert(`geo-anomaly:${email || ip || "unknown"}`, "Admin session country change", [
+    `account: ${email || "?"}`,
+    `change: ${fromCountry || "?"} → ${toCountry || "?"}`,
+    `source IP: ${ip || "?"}`,
+    `mode: ${GEO_ANOMALY_MODE}${GEO_ANOMALY_MODE === "enforce" ? " (MFA re-verification forced)" : ""}`,
+  ]);
 
   // Mirror into the unified audit trail so geo anomalies surface in the
   // compliance dashboard alongside chat/auth events (best-effort).
