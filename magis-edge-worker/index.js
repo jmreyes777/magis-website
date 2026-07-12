@@ -331,7 +331,7 @@ const ROUTE_META = {
   "/jewelry-sales": {
     title: "Gold Jewelry for Sale (Alahas) | Magis Gold & Gems",
     description:
-      "Buy fine gold jewelry (alahas) in the Philippines — rings, necklaces, earrings and bracelets at fair, gold-price-based prices, with layaway (hulugan) options.",
+      "Buy fine gold jewelry (alahas) in the Philippines — rings, necklaces, earrings and bracelets at fair, transparent prices, with layaway (hulugan) options.",
   },
   "/pawning": {
     title: "Pawn Gold & Jewelry (Sangla) | Magis Gold & Gems",

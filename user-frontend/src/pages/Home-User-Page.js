@@ -227,9 +227,9 @@ function Home() {
             <FaArrowRight aria-hidden="true" />
           </Link>
           <div className="home-trustline">
-            <span><FaCertificate className="mr-2" aria-hidden="true" /> Serving customers since 1996</span>
+            <span><FaCertificate className="mr-2" aria-hidden="true" /> Serving since 1996</span>
             <span><FaBalanceScale className="mr-2" aria-hidden="true" /> Fair appraisals</span>
-            <span><FaClock className="mr-2" aria-hidden="true" /> Cash in 15 minutes</span>
+            <span><FaClock className="mr-2" aria-hidden="true" /> Cash in minutes</span>
           </div>
         </div>
       </section>
@@ -310,7 +310,7 @@ function Home() {
               <div className="home-step">
                 <span className="home-step__num">STEP 5</span>
                 <h3 className="home-step__title">Get your cash</h3>
-                <p className="home-step__text">If you accept, receive your funds in as fast as 15 minutes.</p>
+                <p className="home-step__text">If you accept, receive your funds within minutes.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 6</span>

@@ -210,7 +210,7 @@ export default function JewelrySales() {
   const faqs = [
     {
       q: "What karat gold do you sell?",
-      a: "Most pieces are 10K–18K. Ask our staff for the karat and weight marked on the tag.",
+      a: "Most pieces are 10K–24K. Ask our staff for the karat and weight marked on the tag.",
     },
     {
       q: "Are prices negotiable?",
@@ -241,7 +241,7 @@ export default function JewelrySales() {
     <div className="flex flex-col min-h-screen bg-white text-gray-800">
       <Seo
         title="Gold Jewelry for Sale (Alahas) | Magis Gold & Gems"
-        description="Buy fine gold jewelry (alahas) in the Philippines — rings, necklaces, earrings and bracelets at fair, gold-price-based prices, with layaway (hulugan) options."
+        description="Buy fine gold jewelry (alahas) in the Philippines — rings, necklaces, earrings and bracelets at fair, transparent prices, with layaway (hulugan) options."
         path="/jewelry-sales"
         breadcrumbs={[
           { name: "Home", path: "/" },
@@ -279,8 +279,8 @@ export default function JewelrySales() {
               </button>
             </div>
             <div className="jewelry-hero-trust">
-              <span className="jewelry-hero-trust-item"><FaGem /> 10K–18K fine gold</span>
-              <span className="jewelry-hero-trust-item"><FaShieldAlt /> Gold-price-based pricing</span>
+              <span className="jewelry-hero-trust-item"><FaGem /> 10K–24K gold</span>
+              <span className="jewelry-hero-trust-item"><FaShieldAlt /> Actual pricing</span>
               <span className="jewelry-hero-trust-item"><FaCheckCircle /> Layaway (hulugan) available</span>
             </div>
           </div>
