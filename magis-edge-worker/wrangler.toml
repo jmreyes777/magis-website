@@ -65,12 +65,8 @@ GUEST_URL = "https://magis-guest-staging.onrender.com"
 # JWT_ISSUER = "magis-api"
 # JWT_AUD_ADMIN = "magis-admin"
 
-# P2-1: KV namespace for edge rate-limiting. While UNBOUND, edge rate-limiting
-# auto-skips (the origin still applies its own Redis-backed limits). To ACTIVATE
-# edge limiting:
-#   1) wrangler kv namespace create RATE_LIMIT_KV
-#   2) copy the printed id into the binding below and uncomment the block
-#   3) wrangler deploy
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT_KV"
-# id = "<kv-namespace-id>"
+# P2-1: KV namespace for edge rate-limiting — ACTIVE (created 2026-07-12 via CF
+# API; this repo deploys with deploy-api.mjs, which carries the same binding).
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "cf4fbc55e27a44a0b2a867c4847a6e97"

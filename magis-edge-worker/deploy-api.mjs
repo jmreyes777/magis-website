@@ -20,6 +20,16 @@ if (!TOKEN) {
 
 const code = fs.readFileSync(new URL("./index.js", import.meta.url), "utf8");
 
+// P2-3 (RS256 cutover): if JWT_PUBLIC_KEY is present in .env (SPKI PEM, NOT a
+// secret), bind it so the edge can verify RS256 tokens. Multi-line PEM must be
+// stored in .env with literal \n escapes; we unescape here.
+let JWT_PUBLIC_KEY = "";
+try {
+  const envText = fs.readFileSync(new URL("./.env", import.meta.url), "utf8");
+  const m = envText.match(/^\s*JWT_PUBLIC_KEY\s*=\s*(.+?)\s*$/m);
+  if (m) JWT_PUBLIC_KEY = m[1].replace(/^["']|["']$/g, "").replace(/\\n/g, "\n").trim();
+} catch {}
+
 const metadata = {
   body_part: "worker.js",
   compatibility_date: "2026-06-01",
@@ -29,6 +39,10 @@ const metadata = {
     { name: "BACKEND_URL", text: "https://magis-website.onrender.com", type: "plain_text" },
     { name: "EDGE_SHARED_SECRET", type: "inherit" },
     { name: "JWT_SECRET", type: "inherit" },
+    // P2-1/P1.7: KV-backed edge rate limiting (namespace created 2026-07-12).
+    { name: "RATE_LIMIT_KV", type: "kv_namespace", namespace_id: "cf4fbc55e27a44a0b2a867c4847a6e97" },
+    // P2-3: RS256 verify key, bound only once provided (see .env note above).
+    ...(JWT_PUBLIC_KEY ? [{ name: "JWT_PUBLIC_KEY", text: JWT_PUBLIC_KEY, type: "plain_text" }] : []),
   ],
 };
 

@@ -1,0 +1,47 @@
+name: CodeQL
+
+# Static analysis (SAST) for the whole JS monorepo: backend, both frontends,
+# edge worker, tools. Runs on pushes/PRs to main plus a weekly sweep so newly
+# published CodeQL queries re-scan unchanged code.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "user-frontend/public/catalog-cutouts/**"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "user-frontend/public/catalog-cutouts/**"
+  schedule:
+    - cron: "41 19 * * 0" # weekly, Sunday 19:41 UTC (Monday 03:41 PH)
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (javascript)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # upload SARIF results
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript
+          # security-extended adds lower-confidence but valuable queries;
+          # alerts land in the Security tab, they never block deploys.
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"

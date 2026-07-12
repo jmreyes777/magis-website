@@ -1,0 +1,91 @@
+name: Security audit
+
+# Weekly + on-push dependency audit for RUNTIME dependencies (--omit=dev)
+# across every package, plus a CycloneDX SBOM artifact for the backend.
+#
+# Grace-period design (per SECURITY plan Phase 3): starts as WARN-ONLY so the
+# check can be added to branch protection without blocking existing work;
+# flip STRICT to "true" after the initial two-week triage window so NEW
+# high/critical findings fail the check.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**/package.json"
+      - "**/package-lock.json"
+      - ".github/workflows/security-audit.yml"
+  schedule:
+    - cron: "17 20 * * 0" # weekly, Sunday 20:17 UTC (Monday 04:17 PH)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  # Flip to "true" after the triage window to make high/critical findings fail CI.
+  STRICT: "false"
+
+jobs:
+  npm-audit:
+    name: npm audit (runtime deps)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir:
+          - backend
+          - admin-frontend
+          - user-frontend
+          - magis-edge-worker
+          - tools/catalog-cutouts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Audit ${{ matrix.dir }}
+        working-directory: ${{ matrix.dir }}
+        shell: bash
+        run: |
+          set -o pipefail
+          echo "── npm audit --omit=dev --audit-level=high ── ${{ matrix.dir }}"
+          if npm audit --omit=dev --audit-level=high; then
+            echo "✅ no high/critical runtime findings"
+          else
+            echo "⚠️ high/critical runtime findings above"
+            if [ "$STRICT" = "true" ]; then
+              exit 1
+            else
+              echo "(warn-only mode: not failing the build — flip STRICT after triage)"
+            fi
+          fi
+
+  sbom:
+    name: SBOM (backend, CycloneDX)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate CycloneDX SBOM
+        working-directory: backend
+        run: |
+          npm install --no-audit --no-fund --ignore-scripts
+          npx --yes @cyclonedx/cyclonedx-npm --omit dev --output-file sbom-backend.cdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-backend
+          path: backend/sbom-backend.cdx.json
+          retention-days: 90
