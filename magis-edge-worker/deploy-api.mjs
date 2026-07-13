@@ -57,12 +57,30 @@ const res = await fetch(
 
 const text = await res.text();
 console.log("HTTP", res.status);
+let deployOk = false;
 try {
   const j = JSON.parse(text);
+  deployOk = Boolean(j.success);
   console.log("success:", j.success);
   if (j.errors?.length) console.log("errors:", JSON.stringify(j.errors));
   if (j.messages?.length) console.log("messages:", JSON.stringify(j.messages));
   if (j.result?.id) console.log("deployed id:", j.result.id, "modified:", j.result.modified_on);
 } catch {
   console.log(text.slice(0, 800));
+}
+
+// SPD1-1 (speed megaplan): keep-warm cron. Idempotent PUT of the full schedule
+// list on every deploy; the worker's `scheduled` handler pings BACKEND_URL
+// /health so the Render free-tier instance never idles into a 30-60s cold start.
+if (deployOk) {
+  const cronRes = await fetch(
+    `https://api.cloudflare.com/client/v4/accounts/${ACCOUNT}/workers/scripts/${SCRIPT}/schedules`,
+    {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+      body: JSON.stringify([{ cron: "*/10 * * * *" }]),
+    }
+  );
+  const cronJson = await cronRes.json().catch(() => ({}));
+  console.log("cron schedule:", cronRes.status, cronJson.success ? "*/10 * * * * registered" : JSON.stringify(cronJson.errors || cronJson).slice(0, 300));
 }

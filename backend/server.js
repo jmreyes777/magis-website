@@ -1336,6 +1336,28 @@ app.use((err, req, res, next) => {
 // Start server
 server.listen(PORT);
 
+// ── SPD1-2 (speed megaplan): connection warm-up on boot ─────────────────────
+// The first Firestore call after a (re)start pays gRPC channel + TLS setup
+// (~300-800ms) and the first Redis command pays connect. Prime both right
+// after listen — non-blocking, fire-and-forget, zero effect on failure —
+// so the first real visitor request (often right after the keep-warm cron
+// revives a fresh instance) doesn't carry it.
+(async () => {
+  if (process.env.NODE_ENV === "test") return;
+  try {
+    await db.collection("branches").limit(1).get();
+    console.log("[warmup] Firestore channel primed");
+  } catch (e) {
+    console.warn("[warmup] Firestore prime failed:", e.message);
+  }
+  try {
+    await getRedis().ping();
+    console.log("[warmup] Redis connection primed");
+  } catch (e) {
+    console.warn("[warmup] Redis prime failed:", e.message);
+  }
+})();
+
 // ── Catalog cutouts: instant-refresh poller ──────────────────────────────────
 // Belt-and-suspenders so a NEW Facebook album triggers the off-site cutout job
 // even with zero visitor traffic (the album route only checks when it's hit).

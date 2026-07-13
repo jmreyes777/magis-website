@@ -470,6 +470,27 @@ addEventListener("fetch", (event) =>
   event.respondWith(handle(event.request, event))
 );
 
+// ── SPD1-1 (speed megaplan): keep-warm cron ──────────────────────────────────
+// Render free-tier services spin down after ~15 min idle; the first visitor
+// then waits 30-60s. A */10 cron ping keeps the backend (and its Firestore/
+// Redis connections) warm for $0. Trigger is registered by deploy-api.mjs.
+// Static hosts don't spin down, so only BACKEND_URL needs the ping.
+addEventListener("scheduled", (event) => {
+  event.waitUntil(keepWarm());
+});
+
+async function keepWarm() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/health`, {
+      headers: { "User-Agent": "magis-edge-keepwarm" },
+      signal: AbortSignal.timeout(50_000), // survive a cold start once
+    });
+    console.log(`[keep-warm] /health -> ${res.status}`);
+  } catch (e) {
+    console.log(`[keep-warm] failed: ${e.message}`);
+  }
+}
+
 async function handle(request, event) {
   const url = new URL(request.url);
   const pathname = url.pathname;

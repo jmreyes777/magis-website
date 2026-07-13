@@ -497,15 +497,32 @@ export const connectSocket = async (guestIdParam) => {
     } else {
       console.warn("[SOCKET] 🧩 No guestId — initializing via /api/guest/init");
       try {
-        const res = await fetch(
-          `${process.env.REACT_APP_API_URL}/api/guest/init`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: "Guest", branchEmail, turnstileToken: await getTurnstileToken() }), // P1-4: bot check
+        // SPD1-3 (speed megaplan): bounded attempt + ONE patient retry. If the
+        // backend was asleep (rare after the keep-warm cron), the first fetch
+        // can hang for the whole cold start — abort at 12s and retry once with
+        // a longer budget and a FRESH Turnstile token (tokens are single-use).
+        const initOnce = async (timeoutMs) => {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+          try {
+            return await fetch(`${process.env.REACT_APP_API_URL}/api/guest/init`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: "Guest", branchEmail, turnstileToken: await getTurnstileToken() }), // P1-4: bot check
+              signal: ctrl.signal,
+            });
+          } finally {
+            clearTimeout(timer);
           }
-        );
+        };
+        let res;
+        try {
+          res = await initOnce(12_000);
+        } catch (firstErr) {
+          console.warn("[SOCKET] ⏳ guest/init slow (server waking?) — retrying once:", firstErr.name);
+          res = await initOnce(60_000);
+        }
         const data = await res.json();
         if (res.ok && data.token && data.guestId) {
           token   = data.token;
