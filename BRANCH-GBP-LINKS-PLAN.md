@@ -4,7 +4,7 @@
 - **Owner:** Magis (operator) + dev
 - **Scope:** Make each branch's Google "Website" link (from Google Business Profile / Maps) land on a branch-specific destination on `www.magispawnshop.com` that highlights that branch and offers live chat.
 - **Cross-reference:** `SEO-OPTIMIZATION-PLAN.md` (Wave 2 deferred per-branch `PawnShop` schema; Wave 4 edge-worker meta; deployment topology), `user-frontend/src/pages/Branches-List-User-Page.js`, `user-frontend/src/components/Seo.js`, `magis-edge-worker/index.js`.
-- **Status:** PLANNING — no code written yet (per decision 2026-06-21, "guidance only / save plan first").
+- **Status (2026-07-13):** DEV HALF SHIPPED — Option B live (commits `9a02b99` site, `f441c7a` worker; staging-verified). **Operator half pending:** Appendix C real NAP → Phase 1 GBP listings → Phase 4 point Website fields at the URLs below.
 
 ---
 
@@ -104,18 +104,18 @@ Both halves are required. This plan sequences them so we never publish a dead li
 - [ ] Temporarily set each **Website** field to `https://www.magispawnshop.com/branches` (working page) until routes ship.
 - [ ] (If category supports it) set Appointment/Booking link to the `?chat=1` URL.
 
-### Phase 2 — Site implementation  *(dev — Option B)*
-- [ ] Add `slug` to Firestore branches (or implement derive+fallback).
-- [ ] Add route `/branches/:slug` in `App.js`.
-- [ ] In `BranchesMapView`: resolve slug → branch; `handleBranchClickFromList`; honor `?chat=1` → `openChatBox`.
-- [ ] Per-branch `<Seo>` (title/description/canonical) + `PawnShop` `jsonLd` (geo + `openingHoursSpecification`).
-- [ ] Unknown slug → `NotFound` (`noindex`).
-- [ ] Verify `npm run build` clean (no new eslint warnings); CSP untouched; perf hints intact.
+### Phase 2 — Site implementation  *(dev — Option B)*  ✅ 2026-07-13
+- [x] Slug resolution shipped as `user-frontend/src/utils/branchSeo.js`: Firestore `slug` field (wins when added later) → static Appendix-A table → `slugify(name)` → doc id. No Firestore writes needed to go live.
+- [x] Route `/branches/:slug` in `App.js` (reuses `BranchesMapView`).
+- [x] `BranchesMapView`: slug → branch focus (list scroll + map center, both effect- and post-map-init paths); `?chat=1` → `openChatBox` exactly once.
+- [x] Per-branch `<Seo>` via `buildBranchSeo` + `PawnShop` `jsonLd` (geo + `openingHoursSpecification`; placeholder phones filtered out).
+- [x] Unknown slug → `NotFound` (`noindex`), only after branches load (no 404 flash).
+- [x] `npm run build` clean.
 
-### Phase 3 — Crawl infrastructure  *(dev)*
-- [ ] Add every `/branches/<slug>` to `user-frontend/public/sitemap.xml` (prefer a generator so it stays in sync with Firestore).
-- [ ] (If chosen) extend `magis-edge-worker/index.js` `injectRouteMeta` for `/branches/*` (needs a branch→meta source: deploy-time export from Firestore, or worker fetch). Keep nonce/CSP bytes untouched; `node --check` clean.
-- [ ] Re-deploy worker via `node deploy-api.mjs` (needs `CF_API_TOKEN`).
+### Phase 3 — Crawl infrastructure  *(dev)*  ✅ 2026-07-13
+- [x] All 11 `/branches/<slug>` URLs added to `user-frontend/public/sitemap.xml` (static, matching the static slug table; revisit a generator only if branches churn).
+- [x] `magis-edge-worker/index.js`: `BRANCH_META` (static Appendix-A table) + `branchRouteMeta()` feeding the existing `injectRouteMeta`; unknown slugs untouched; nonce/CSP substitution unchanged; `node --check` clean.
+- [x] Worker re-deployed (`node deploy-api.mjs`) and staging-verified: branch URL returns per-branch `<title>`/OG/canonical, zero `xyz123` placeholder nonces; unknown slug returns default meta.
 
 ### Phase 4 — Point GBP to final URLs  *(operator)*
 - [ ] After routes are **live on Render**, switch each listing's **Website** field from `/branches` → final `/branches/<slug>`.
@@ -155,11 +155,11 @@ Both halves are required. This plan sequences them so we never publish a dead li
 - **Worker/CSP regression** — meta injection must not touch nonce/script bytes.
 - **Render deploy** — `git push` isn't enough; the Render build must succeed.
 
-## 12) Open decisions (need confirmation)
-- [ ] Slug source: Firestore `slug` field vs derived.
-- [ ] Social previews for branch pages: extend worker vs Google-only.
-- [ ] Auto-open-chat default (proposed: off unless `?chat=1`).
-- [ ] Ship Option A first, or go straight to B.
+## 12) Open decisions — RESOLVED 2026-07-13
+- [x] Slug source: **hybrid** — Firestore `slug` field wins when present; until then the static Appendix-A table in `branchSeo.js` is authoritative; `slugify(name)`/doc-id as inbound-URL fallbacks.
+- [x] Social previews: **worker extended** (CF_API_TOKEN blocker was stale — deploys work).
+- [x] Auto-open chat: **off unless `?chat=1`** (fires once per landing).
+- [x] **Straight to B** — no listings existed yet, so Option A bought nothing.
 
 ## 13) Acceptance criteria
 - [ ] Every active branch has a verified GBP listing with Website → its `/branches/<slug>`.
