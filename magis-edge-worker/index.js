@@ -345,6 +345,39 @@ const ROUTE_META = {
   },
 };
 
+// Per-branch pages (BRANCH-GBP-LINKS-PLAN.md — GBP Website deep links).
+// Slugs + copy MUST mirror user-frontend/src/utils/branchSeo.js (Appendix A);
+// unknown slugs match nothing and fall through to the static defaults (the
+// SPA renders the real noindex 404 client-side).
+const BRANCH_META = {
+  "dolores-san-fernando":            { name: "Dolores",       area: "Dolores, San Fernando, Pampanga",   jewelry: true },
+  "mabalacat":                       { name: "Mabalacat",     area: "Mabalacat, Pampanga",               jewelry: true },
+  "balibago-angeles":                { name: "Balibago",      area: "Balibago, Angeles City",            jewelry: false },
+  "pandacaqui-mexico":               { name: "Pandacaqui",    area: "Pandacaqui, Mexico, Pampanga",      jewelry: false },
+  "madapdap-mabalacat":              { name: "Madapdap",      area: "Madapdap, Mabalacat, Pampanga",     jewelry: false },
+  "rizal-angeles":                   { name: "Rizal",         area: "Rizal St, Angeles City",            jewelry: true },
+  "dau-mabalacat":                   { name: "Dau",           area: "Dau, Mabalacat, Pampanga",          jewelry: false },
+  "don-gueco-angeles":               { name: "Don Gueco",     area: "Aniceto Gueco St, Angeles City",    jewelry: true },
+  "novaliches-buenamar-quezon-city": { name: "Novaliches 1",  area: "Novaliches (Buenamar), Quezon City", jewelry: true },
+  "novaliches-susano-quezon-city":   { name: "Novaliches 2",  area: "Novaliches (Susano), Quezon City",  jewelry: false },
+  "amoranto-quezon-city":            { name: "N.S Amoranto",  area: "La Loma, Quezon City",              jewelry: true },
+};
+
+// Meta for /branches/<slug> paths (same title/description templates as
+// buildBranchSeo so scrapers and the hydrated SPA agree byte-for-byte).
+function branchRouteMeta(key) {
+  const m = /^\/branches\/([a-z0-9-]+)$/.exec(key);
+  if (!m) return null;
+  const b = BRANCH_META[m[1]];
+  if (!b) return null;
+  return {
+    title: `Pawnshop in ${b.area} | Magis Gold & Gems`,
+    description:
+      `Magis Gold & Gems ${b.name} branch in ${b.area} — pawn (sangla) gold & jewelry, free appraisal` +
+      `${b.jewelry ? ", jewelry sales" : ""}. Address, opening hours, directions, and live chat.`,
+  };
+}
+
 // Escape a value for safe embedding in an HTML attribute / text node. Inputs
 // here are static + trusted; this is defense-in-depth so a stray character can
 // never break out of the tag we build.
@@ -367,7 +400,7 @@ function seoReplaceFirst(html, re, replacement) {
 function injectRouteMeta(html, pathname) {
   let key = pathname || "/";
   if (key.length > 1 && key.endsWith("/")) key = key.slice(0, -1); // /x/ → /x
-  const meta = ROUTE_META[key];
+  const meta = ROUTE_META[key] || branchRouteMeta(key);
   if (!meta) return html;
 
   const title = seoEscape(meta.title);
