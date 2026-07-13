@@ -11,7 +11,10 @@
 const express = require("express");
 const router = express.Router();
 
-const METRICS = new Set(["LCP", "INP", "CLS", "FCP", "TTFB"]);
+// SCT (SPD4-3): socket connect fast-path — ms from socket.connect() to the
+// server's joinRoom ack, beaconed by the guest chat client. Same pipeline,
+// same clamps as the Web Vitals.
+const METRICS = new Set(["LCP", "INP", "CLS", "FCP", "TTFB", "SCT"]);
 const RATINGS = new Set(["good", "needs-improvement", "poor"]);
 // Log sampling keeps the log stream bounded under traffic spikes (rate limit
 // is the hard cap; this is the soft one). 1 = log everything.

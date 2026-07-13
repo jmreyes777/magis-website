@@ -355,6 +355,23 @@ Phase 0  ──►  Phase 1  ──►  Phase 5
 
 ---
 
+## 5.5 Latency budgets — SPD4-1 (speed megaplan W4, 2026-07-13)
+
+p95 budgets derived from the 2026-07-13 baseline (§3 PERF0-1 table; warm origin, via staging edge). CI/RUM don't enforce these automatically — they are the review thresholds for `backend/perf/baseline.mjs` re-runs and the RUM log stream. Regression = two consecutive captures over budget.
+
+| Endpoint | Baseline p50 / p95 | p95 budget | Lever if exceeded |
+| --- | --- | --- | --- |
+| `GET /` (HTML via edge) | 58 / 140 ms | **200 ms** | SPD2-1 edge template cache hit-rate (check `x-html-cache` header) |
+| `GET /health` | 62 / 505 ms | **300 ms** | keep-warm cron cadence (SPD1-1) |
+| `GET /api/branch-status` | 518 / 978 ms | **400 ms** | Redis fast path added in W1; check Redis health / `CACHE_DISABLED` |
+| `GET /api/site-config/auction` | new in W2 (edge+Redis cached) | **150 ms** | 60 s edge TTL + Redis read-through; both fail-open to Firestore |
+| `POST /api/guest/init` | dominated by Turnstile RTT | **1200 ms** (hard ceiling `TURNSTILE_TIMEOUT_MS`=3000 + ~100 ms) | SPD4-2 landed: parallel JWT sign + bounded verify + `turnstile=/total=` timing log |
+| Socket connect → `joinRoom` ack (SCT) | not previously measured | **p50 ≤ 1000 ms** (doc target) | SPD4-3 RUM metric `SCT` now beacons from the guest client |
+
+**SPD4 status:** SPD4-1 ✅ (this table; auction endpoint already Redis+edge cached in W2 — no further cache extension warranted without RUM evidence). SPD4-2 ✅ (guest-init: `signJWT` parallelized with Turnstile verify — enforcement order unchanged, token only used after the captcha gate; verify bounded at 3 s with the same fail-open path; timing evidence logged per issue). SPD4-3 ✅ (`SCT` metric: guest client beacons connect→ack ms to `/api/rum`, once per page load, prod-only; server acks `joinRoom` on every path). SPD4-4 ✅ audited, no action (all outbound Graph/Turnstile calls use global `fetch` → undici keep-alive pooling by default; no axios in `backend/`).
+
+---
+
 ## 6. Measurement & verification
 
 - **Per item:** re-run the relevant Phase 0 measurement before/after and record the delta in the item's entry (mirroring the "Resolution/Verified" style used in `SECURITY-REMEDIATION-PLAN.md`).

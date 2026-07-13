@@ -439,6 +439,24 @@ const socket = getSocketInstance();
 // Connect, Disconnect, and Tab Close Functions
 // -----------------------------------------------------------------------------
 
+// SPD4-3 (speed megaplan): one socket-connect-time sample per page load,
+// measured from socket.connect() to the server's joinRoom ack and beaconed
+// through the same /api/rum pipeline as the Web Vitals. Telemetry only —
+// wrapped so it can never affect the chat connect path.
+let sctSent = false;
+const beaconSocketConnectTime = (ms) => {
+  if (sctSent || process.env.NODE_ENV !== "production") return;
+  sctSent = true;
+  try {
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(
+        `${API_URL}/api/rum`,
+        JSON.stringify({ name: "SCT", value: Math.round(ms), path: window.location.pathname })
+      );
+    }
+  } catch { /* never let telemetry break chat */ }
+};
+
 export const connectSocket = async (guestIdParam) => {
   // 0️⃣ Proactively refresh the JWT if it's about to expire
   try {
@@ -555,6 +573,7 @@ export const connectSocket = async (guestIdParam) => {
   socket.auth = { token, guestId, branchEmail, tabId, sessionTabId };
   isConnecting = true;
   console.log(`[SOCKET] 🔄 Connecting socket with guestId: ${guestId}`);
+  const sctStart = performance.now(); // SPD4-3
   socket.connect();
   startHeartbeat();
   startBroadcastHeartbeat();
@@ -567,7 +586,11 @@ export const connectSocket = async (guestIdParam) => {
 
     const rawId     = guestId.replace(/^guest-/, "");
     const guestRoom = `guest-${rawId}`;
-    socket.emit("joinRoom", guestRoom);
+    // SPD4-3: ack callback is additive — the server invokes it on every path;
+    // room-join behavior is unchanged.
+    socket.emit("joinRoom", guestRoom, () => {
+      beaconSocketConnectTime(performance.now() - sctStart);
+    });
     console.log(`[SOCKET] 🏠 Joined guest room: ${guestRoom}`);
 
     initializeSocketListeners(socket);
