@@ -97,6 +97,7 @@ Both halves are required. This plan sequences them so we never publish a dead li
 - [ ] Decide social-preview need for branch pages: extend worker (full reach) vs Google-only JS render (simpler).
 
 ### Phase 1 — GBP listings  *(operator; can run in parallel with Phase 2)*
+- [ ] **FIRST — inventory existing Maps listings (Appendix D).** Several branches already appear on Google Maps. **Claim-first rule: never create a listing where one already exists** — claiming keeps the pin's accumulated reviews, photos, and ranking; creating a twin triggers duplicate suppression/suspension. Walk Appendix D before touching the bulk sheet.
 - [ ] Create/claim **one verified listing per physical branch** at `business.google.com`.
 - [ ] Complete Google **verification** for each (link won't show until verified).
 - [ ] Set **primary category** `Pawn shop`; add `Jewelry store`/`Jeweler` where applicable.
@@ -257,3 +258,39 @@ Fill this in from official branch records, then we sync it to Firestore + `index
 | 9 | Novaliches 1 |  |  |  |  |
 | 10 | Novaliches 2 |  |  |  |  |
 | 11 | N.S Amoranto |  |  |  |  |
+
+---
+
+## Appendix D — Existing Google/Maps listings: alignment tracker (operator)
+
+Branches already on Google Maps are existing Business Profiles in one of three states. Search each branch on Maps (exact name + street), open the pin, and record its state; the required action follows mechanically:
+
+| State on Maps | How to recognize it | Action |
+|---|---|---|
+| **Unclaimed** | Pin shows **"Claim this business"** / "Own this business?" link | `business.google.com` → search that exact name+address → claim → verify. The pin, its reviews and photos become yours. |
+| **Claimed by us** (old/personal account) | No claim link; you know who set it up | Transfer it into the **owner account / location group** used for the bulk import (Business Profile → Admins → transfer Primary ownership), then normalize (below). |
+| **Claimed by someone else** (ex-staff, agency) | No claim link; "Suggest an edit" only | "Own this business?" → **Request ownership**: Google emails the current owner (3 business days to answer) → no reply lets you verify and take over; contested → appeal with proof (signage photos, utility bill). Start these EARLY — it's the slowest path. |
+
+**After every claim/transfer — normalize to this plan (the actual "alignment"):**
+1. **Store code** = the Appendix A slug (makes GBP Performance reporting match our URL scheme).
+2. **Name** = exact signage name (fix any "Magis Pawnshop Angeles branch near me" keyword-stuffed variants — suspension bait).
+3. **Category** = `Pawn shop` primary (+ `Jewelry store` per Appendix A).
+4. **NAP + hours** = Appendix C values — correct whatever Google auto-scraped; expect possible re-verification after big edits (normal).
+5. **Website** = the Appendix A `/branches/<slug>` URL (after Phase 3.5 cutover; interim `/branches`).
+6. **Pin position** = drag to the exact storefront door.
+
+**Bulk-sheet interaction:** keep all 11 rows in `seo-research/gbp-bulk-import.csv`. Google's importer matches rows to existing Maps places by name+address — matched rows attach to the existing listing (or surface an ownership conflict to resolve via the table above) instead of creating twins. Rows with no match create fresh listings. Do the Appendix D inventory first so conflicts are expected, not surprises.
+
+| # | Branch | On Maps? (Y/N) | State (unclaimed / ours / other) | Reviews ⭐ count | Claimed into owner acct? | Normalized (1–6 above)? |
+|---|--------|----------------|----------------------------------|------------------|--------------------------|---------------------------|
+| 1 | Dolores |  |  |  | ☐ | ☐ |
+| 2 | Mabalacat |  |  |  | ☐ | ☐ |
+| 3 | Balibago |  |  |  | ☐ | ☐ |
+| 4 | Pandacaqui |  |  |  | ☐ | ☐ |
+| 5 | Madapdap |  |  |  | ☐ | ☐ |
+| 6 | Rizal |  |  |  | ☐ | ☐ |
+| 7 | Dau |  |  |  | ☐ | ☐ |
+| 8 | Don Gueco |  |  |  | ☐ | ☐ |
+| 9 | Novaliches 1 |  |  |  | ☐ | ☐ |
+| 10 | Novaliches 2 |  |  |  | ☐ | ☐ |
+| 11 | N.S Amoranto |  |  |  | ☐ | ☐ |
