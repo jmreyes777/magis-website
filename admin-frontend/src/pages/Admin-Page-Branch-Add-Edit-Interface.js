@@ -105,6 +105,33 @@ function BranchManagement() {
         });
       });
 
+      // ✅ Places autocomplete on the "Google Maps Address" input — picking a
+      // suggestion moves the pin (map re-centers via the location effect).
+      // Guarded so re-inits (map click → location change → effect) don't stack
+      // duplicate autocomplete widgets on the same input element.
+      if (
+        autocompleteRef.current &&
+        loadedGoogleMaps.places &&
+        !autocompleteRef.current.dataset.acReady
+      ) {
+        const ac = new loadedGoogleMaps.places.Autocomplete(autocompleteRef.current, {
+          fields: ["formatted_address", "geometry"],
+          componentRestrictions: { country: "ph" },
+        });
+        ac.addListener("place_changed", () => {
+          const place = ac.getPlace();
+          if (!place?.geometry?.location) return;
+          const { lat, lng } = place.geometry.location.toJSON();
+          setBranch((prev) => ({
+            ...prev,
+            address: place.formatted_address || prev.address,
+            location: { lat, lng },
+          }));
+          setIsDirty(true);
+        });
+        autocompleteRef.current.dataset.acReady = "1";
+      }
+
       mapRef.current.map = map;
     } catch (err) {
       setError("Failed to load Google Maps API. Ensure your API key is valid.");
@@ -299,6 +326,40 @@ function BranchManagement() {
             className="border p-2 w-full"
           />
         </label>
+        <label className="block">
+          Actual Address:
+          <input
+            type="text"
+            name="actualAddress"
+            value={branch.actualAddress || ""}
+            onChange={handleChange}
+            placeholder="Street, barangay, city — as posted at the branch"
+            required
+            className="border p-2 w-full"
+          />
+        </label>
+        <label className="block">
+          Google Maps Address:
+          <input
+            type="text"
+            name="address"
+            value={branch.address || ""}
+            onChange={handleChange}
+            ref={autocompleteRef}
+            placeholder="Search a place, or click the map below to set it"
+            required
+            className="border p-2 w-full"
+          />
+        </label>
+        <label className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            name="hasJewelryDisplay"
+            checked={!!branch.hasJewelryDisplay}
+            onChange={handleChange}
+          />
+          <span>Jewelry display at this branch</span>
+        </label>
   
         {/* ✅ Read-Only Interest Rate Management Section */}
         <div className="mt-6">
@@ -465,7 +526,14 @@ function BranchManagement() {
           ))}
         </div>
   
-        <div id="map-container" style={mapContainerStyle} ref={mapRef} />
+        {/* ✅ Map location editor — click to drop the pin (reverse-geocodes into the Google Maps Address field) */}
+        <div>
+          <h2 className="text-xl font-semibold mb-2">Map Location</h2>
+          <p className="text-sm text-gray-600 mb-2">
+            Click the map to set the exact branch location — the pin and the Google Maps Address update automatically.
+          </p>
+          <div id="map-container" style={mapContainerStyle} ref={mapRef} />
+        </div>
         <button
           type="submit"
           className={`w-full px-6 py-2 text-white rounded ${
