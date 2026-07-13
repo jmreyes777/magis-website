@@ -20,6 +20,7 @@ import {
   emitTyping,
   offTyping,
   onTyping,
+  isHeartbeatActive,
 } from "../components/Admin-Utils-socket";
 import AdminMessageItem from "../components/Admin-Message-Item-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
@@ -2131,18 +2132,27 @@ const BranchChatDashboard = () => {
 
       try {
         if (window.socketInstance?.connected) {
-          window.socketInstance.emit("heartbeat");
-          window.socketInstance.emit("tabAlive", {
-            tabId,
-            sessionTabId,
-            timestamp,
-          });
-          window.socketInstance.emit("broadcastAlive", payload);
+          // SPD5-4 (speed megaplan): while connected, the 2s socket-utils
+          // heartbeat already emits these exact three events on this same
+          // socket (window.socketInstance IS the utils instance). Skip the
+          // duplicate 5s emits when that heartbeat is verifiably running —
+          // presence cadence stays 2s, total emit volume drops. This branch
+          // still emits as a safety net if the heartbeat is ever stopped
+          // while the socket remains connected.
+          if (!isHeartbeatActive()) {
+            window.socketInstance.emit("heartbeat");
+            window.socketInstance.emit("tabAlive", {
+              tabId,
+              sessionTabId,
+              timestamp,
+            });
+            window.socketInstance.emit("broadcastAlive", payload);
 
-          console.log("[BROADCAST] 📡 Emitted from tab", {
-            ...payload,
-            socketConnected: true,
-          });
+            console.log("[BROADCAST] 📡 Emitted from tab", {
+              ...payload,
+              socketConnected: true,
+            });
+          }
         } else if (document.visibilityState === "visible") {
           console.warn(
             "[BROADCAST] ⚠️ No socket — triggering passive connect",

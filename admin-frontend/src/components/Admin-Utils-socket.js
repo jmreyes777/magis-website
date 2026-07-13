@@ -800,6 +800,11 @@ const stopHeartbeat = () => {
   }
 };
 
+// SPD5-4 (speed megaplan): lets the dashboard's 5s presence broadcast skip its
+// duplicate heartbeat/tabAlive/broadcastAlive emits while THIS 2s heartbeat is
+// already emitting the same three events on the same socket.
+export const isHeartbeatActive = () => !!state.heartbeatInterval;
+
 /**
  * Attempts a direct Firestore update only for superadmins,
  * then always falls back to the backend REST API for everyone.

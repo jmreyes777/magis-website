@@ -23,7 +23,14 @@ const looksLikeCiphertext = (t) => {
 };
 const toDisplayText = (t) => (looksLikeCiphertext(t) ? '[Encrypted message]' : t);
 
-const AdminMessageItem = ({ message, sender, isLatest }) => {
+// SPD5-3 (speed megaplan): memoized — the dashboard re-renders on EVERY
+// keystroke in the reply input (controlled input state lives in the page
+// component), which previously re-rendered all N message rows each time. The
+// parent updates message arrays immutably (`prev.map` replaces only changed
+// items, unchanged rows keep object identity), so React.memo's shallow prop
+// compare is exact: a row re-renders only when its message object, sender, or
+// isLatest actually changed. No behavior change.
+const AdminMessageItem = React.memo(({ message, sender, isLatest }) => {
   const isUnsent = message.status === 'failed' || message.pendingRetry;
   // Format timestamp as "MMM DD, YYYY at hh:mm AM/PM"
   const ts = new Date(message.timestamp);
@@ -172,7 +179,9 @@ const AdminMessageItem = ({ message, sender, isLatest }) => {
       </div>
     </div>
   );
-};
+});
+
+AdminMessageItem.displayName = 'AdminMessageItem';
 
 AdminMessageItem.propTypes = {
   message: PropTypes.shape({

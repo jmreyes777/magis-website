@@ -360,41 +360,56 @@ function BranchUnifiedLogin() {
     const mfaSessionId = `sess_${Date.now()}_${crypto.randomUUID()}`;
     sessionStorage.setItem("mfaSessionId", mfaSessionId);
 
-    // Exchange the Firebase ID token for the short-lived HMAC fallback token
-    // FIRST — the edge worker only verifies HMAC fallback tokens, not RS256
-    // Firebase ID tokens, so this must exist before any protected API call.
-    try {
-      const res = await fetch(`${API}/api/issue-fallback-token`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${firebaseToken}` },
-        body: JSON.stringify({ branchEmail }),
-      });
-      const body = await res.json();
-      if (res.ok && body.token) {
-        sessionStorage.setItem("branchAdminToken", body.token);
-        localStorage.setItem("branchAdminToken", body.token);
-      } else {
-        console.warn("[LOGIN] Could not fetch fallback token:", body.error);
+    // SPD5-2 (speed megaplan): these two calls are independent, so they run in
+    // PARALLEL (previously sequential — one full network RTT saved per login).
+    //   • issue-fallback-token: exchanges the Firebase ID token for the
+    //     short-lived HMAC fallback token the edge worker verifies. Must exist
+    //     before any protected API call — and it does: we await BOTH below
+    //     before the SW postMessage / dashboard navigation.
+    //   • mfa/session-verify: records the MFA session using the RS256 Firebase
+    //     bearer (fresh TOTP proof). The edge allowlists this exact POST through
+    //     without an HMAC token, and the backend authenticates the bearer
+    //     directly — it never reads the fallback token, so there is no ordering
+    //     dependency between the two.
+    // Each branch keeps its own try/catch (same soft-fail semantics as before),
+    // so Promise.all can never reject.
+    const issueFallback = (async () => {
+      try {
+        const res = await fetch(`${API}/api/issue-fallback-token`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${firebaseToken}` },
+          body: JSON.stringify({ branchEmail }),
+        });
+        const body = await res.json();
+        if (res.ok && body.token) {
+          sessionStorage.setItem("branchAdminToken", body.token);
+          localStorage.setItem("branchAdminToken", body.token);
+        } else {
+          console.warn("[LOGIN] Could not fetch fallback token:", body.error);
+        }
+      } catch (err) {
+        console.error("[LOGIN] Error issuing fallback token:", err);
       }
-    } catch (err) {
-      console.error("[LOGIN] Error issuing fallback token:", err);
-    }
+    })();
 
-    // Record the MFA session (needs the RS256 Firebase token w/ fresh TOTP).
-    try {
-      await fetch(`${API}/api/mfa/session-verify`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${firebaseToken}`,
-          "X-Session-Id": mfaSessionId,
-        },
-      });
-    } catch (err) {
-      console.warn("[MFA] Could not record session verification:", err);
-    }
+    const recordMfaSession = (async () => {
+      try {
+        await fetch(`${API}/api/mfa/session-verify`, {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${firebaseToken}`,
+            "X-Session-Id": mfaSessionId,
+          },
+        });
+      } catch (err) {
+        console.warn("[MFA] Could not record session verification:", err);
+      }
+    })();
+
+    await Promise.all([issueFallback, recordMfaSession]);
 
     if (navigator.serviceWorker?.controller) {
       navigator.serviceWorker.controller.postMessage({
