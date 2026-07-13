@@ -4,7 +4,8 @@
 - **Owner:** Magis (operator) + dev
 - **Scope:** Make each branch's Google "Website" link (from Google Business Profile / Maps) land on a branch-specific destination on `www.magispawnshop.com` that highlights that branch and offers live chat.
 - **Cross-reference:** `SEO-OPTIMIZATION-PLAN.md` (Wave 2 deferred per-branch `PawnShop` schema; Wave 4 edge-worker meta; deployment topology), `user-frontend/src/pages/Branches-List-User-Page.js`, `user-frontend/src/components/Seo.js`, `magis-edge-worker/index.js`.
-- **Status (2026-07-13):** DEV HALF SHIPPED — Option B live (commits `9a02b99` site, `f441c7a` worker; staging-verified). **Operator half pending:** Appendix C real NAP → Phase 1 GBP listings → Phase 4 point Website fields at the URLs below.
+- **Status (2026-07-13):** DEV HALF SHIPPED — Option B live (commits `9a02b99` site, `f441c7a` worker; staging-verified end-to-end: Render build serves the slug chunk, edge injects per-branch meta). **Operator half pending:** Appendix C real NAP → Phase 1 GBP listings → Phase 3.5 domain cutover → Phase 4 Website fields.
+- **⚠ DOMAIN BLOCKER (discovered 2026-07-13):** `www.magispawnshop.com` currently serves a **Squarespace "Coming Soon" parking page** (`noindex`; DNS: `CNAME www → ext-sq.squarespace.com`). Every URL in this plan — and every canonical/sitemap/JSON-LD URL already shipped — points at that domain. **Phase 4 and all SEO indexing are blocked until the domain is cut over to the app** (see Phase 3.5).
 
 ---
 
@@ -117,8 +118,17 @@ Both halves are required. This plan sequences them so we never publish a dead li
 - [x] `magis-edge-worker/index.js`: `BRANCH_META` (static Appendix-A table) + `branchRouteMeta()` feeding the existing `injectRouteMeta`; unknown slugs untouched; nonce/CSP substitution unchanged; `node --check` clean.
 - [x] Worker re-deployed (`node deploy-api.mjs`) and staging-verified: branch URL returns per-branch `<title>`/OG/canonical, zero `xyz123` placeholder nonces; unknown slug returns default meta.
 
+### Phase 3.5 — Domain cutover  *(operator + dev — BLOCKS Phase 4)*
+The app stack (edge worker → Render origins) is live but only on staging hostnames; the real domain is parked at Squarespace. Cutover steps:
+- [ ] **Cloudflare:** add `magispawnshop.com` as a zone on the existing CF account (`8cf3…b9f`, same one running the worker). Free plan suffices.
+- [ ] **Squarespace (registrar):** replace the nameservers with the two Cloudflare gives. (Domain stays registered at Squarespace; only DNS moves. The Coming Soon page disappears with the old DNS.)
+- [ ] **Cloudflare DNS:** after the zone activates, add proxied records for `www` and apex (worker routes need the hostname to resolve through CF — a proxied `AAAA 100::` / dummy `A 192.0.2.1` placeholder is the standard pattern for worker-only hostnames).
+- [ ] **Worker routes:** attach `www.magispawnshop.com/*` (+ apex redirect → `www`) to the worker. Decide whether to keep the `magis-edge-worker-staging` script name or clone to a `magis-edge-worker-prod` script with prod env vars first.
+- [ ] **Third-party allowlists** (dev can prepare, operator owns consoles): Firebase Auth authorized domains, Google Maps API key HTTP-referrer restrictions, Turnstile widget hostnames, backend CORS/`FRONTEND_URL(S)` env on Render — all must include `www.magispawnshop.com` before cutover.
+- [ ] **Verify:** `https://www.magispawnshop.com/branches/balibago-angeles` returns the branch title with a fresh CSP nonce; chat + Turnstile + map all function on the real domain.
+
 ### Phase 4 — Point GBP to final URLs  *(operator)*
-- [ ] After routes are **live on Render**, switch each listing's **Website** field from `/branches` → final `/branches/<slug>`.
+- [ ] After **Phase 3.5 is verified live** on the real domain, switch each listing's **Website** field from `/branches` → final `/branches/<slug>`.
 
 ### Phase 5 — Verify & measure
 - [ ] Click the **Website** button on each listing → lands on correct branch.
@@ -212,7 +222,8 @@ Source: `backend/branches.json` (11 branches; names + addresses). Slugs are **pr
 
 **Faster for 11 branches — bulk upload**
 - In Business Profile Manager: create a **location group** → **Add locations → Import locations** using Google's spreadsheet template. The template's columns map to name / address / phone / **website** / category / hours, so you set all 11 per-branch URLs in one pass.
-- Then request **bulk verification** (a brand with 10+ same-owner locations is typically eligible). *(I can pre-fill this import sheet from Appendix A + C on request.)*
+- Then request **bulk verification** (a brand with 10+ same-owner locations is typically eligible).
+- **Pre-filled sheet ready (2026-07-13):** `seo-research/gbp-bulk-import.csv` — store codes = slugs, Website URLs, categories, lat/lng and draft addresses filled from branch data. **Before upload:** fill `Primary phone` + the seven hours columns from Appendix C, fix rows labeled `ADDRESS-WAS-PLUSCODE` (Google forbids plus-codes), and confirm each `Business name` matches the storefront signage (`CONFIRM-NAME` label).
 
 **Guidelines (avoid suspension)**
 - One listing per physical branch; flag/merge any duplicates.
