@@ -1,0 +1,78 @@
+name: Performance budget
+
+# SPD0-3 (speed megaplan): fail PRs that regress the public site's performance.
+# Two gates:
+#   1. Bundle budget - gzip size of the user-frontend build vs committed limits.
+#   2. Lighthouse CI - audits a locally-served production build (no staging
+#      dependency, no secrets) against budgets derived from the 2026-07-13
+#      baseline (mobile score 69 / LCP 4.3s) with headroom so only real
+#      regressions fail.
+
+on:
+  pull_request:
+    paths:
+      - "user-frontend/**"
+      - ".github/workflows/perf-budget.yml"
+  push:
+    branches: [main]
+    paths:
+      - "user-frontend/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-budget-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  perf:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: user-frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: user-frontend/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Build (production)
+        run: npm run build
+        env:
+          CI: "false" # CRA treats warnings as errors with CI=true; match Render
+
+      # Gate 1: bundle budgets (gzip). Baseline 2026-07-13: main 72.7 KB,
+      # total JS 301.3 KB. Budgets = baseline + ~10% headroom; tighten after W2.
+      - name: Bundle budget
+        run: |
+          node -e "
+          const fs = require('fs'), path = require('path'), zlib = require('zlib');
+          const BUDGET = { main: 82 * 1024, total: 335 * 1024 };
+          const dir = 'build/static/js';
+          let total = 0, main = 0;
+          for (const f of fs.readdirSync(dir).filter(f => f.endsWith('.js'))) {
+            const gz = zlib.gzipSync(fs.readFileSync(path.join(dir, f))).length;
+            total += gz;
+            if (f.startsWith('main.')) main = gz;
+          }
+          console.log('main gzip:', (main/1024).toFixed(1) + ' KB (budget ' + BUDGET.main/1024 + ')');
+          console.log('total gzip:', (total/1024).toFixed(1) + ' KB (budget ' + BUDGET.total/1024 + ')');
+          if (main > BUDGET.main || total > BUDGET.total) {
+            console.error('BUNDLE BUDGET EXCEEDED');
+            process.exit(1);
+          }
+          "
+
+      # Gate 2: Lighthouse against the local production build. Budgets live in
+      # user-frontend/lighthouserc.json (baseline + headroom; tighten after W2).
+      - name: Lighthouse CI
+        run: |
+          npm install -g @lhci/cli@0.14.x
+          lhci autorun

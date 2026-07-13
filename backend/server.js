@@ -437,6 +437,8 @@ const branchAuthRoutes = require("./routes/branchAuth");
 // Phase 5: passkeys / WebAuthn for branch admins — additive, feature-flagged
 // (PASSKEYS_ENABLED); existing login flows untouched.
 const webauthnRoutes = require("./routes/webauthn");
+// SPD0-2 (speed megaplan): Web Vitals RUM intake (public, log-only, tiny).
+const rumRoutes = require("./routes/rum");
 // P1-4: per-IP throttle on guest-session creation — bot/abuse mitigation on the
 // public /init endpoint. Redis-backed for multi-instance correctness (degrades
 // to in-memory if Redis is down); tunable via env. NOTE: effectiveness depends
@@ -470,6 +472,22 @@ const guestContactLimiter = rateLimit({
   }),
 });
 app.use("/api/guest/contact", guestContactLimiter);
+
+// SPD0-2: RUM beacons — cheap (204 + one log line) but public, so cap per IP.
+// A page emits ~5 metrics/view; 60/10min accommodates real browsing patterns.
+const rumLimiter = rateLimit({
+  windowMs: Number(process.env.RUM_RL_WINDOW_MS) || 10 * 60 * 1000,
+  max: Number(process.env.RUM_RL_MAX) || 60,
+  standardHeaders: false,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  message: "",
+  store: new RedisStore({
+    prefix: "rl:rum:",
+    sendCommand: (...args) => getRedis().call(...args),
+  }),
+});
+app.use("/api/rum", rumLimiter, rumRoutes);
 
 // Public "Contact Us" form: per-IP anti-spam throttle. The submission is stored
 // in Firestore (+ optional email notify) with NO auth, so this limiter and the

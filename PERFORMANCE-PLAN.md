@@ -68,22 +68,27 @@ None of the recommended changes require removing features, degrading UX, or weak
 - **Web Vitals (LCP/INP/CLS/FCP/TTFB)** — run a SPA in dev and read the `[web-vitals] …` console lines; production builds stay silent (`NODE_ENV` guard).
 - *Note:* `user-frontend` needs `npm install` once to pick up `web-vitals@4` (the reporter still works on v2 meanwhile, just without INP).
 
-**Baseline results (fill in once captured):**
+**Baseline results — captured 2026-07-13 (start of the speed megaplan, `max-speed-megaplan-a6de5f`):**
 
 | Metric | user-frontend | admin-frontend |
 | --- | --- | --- |
-| Main JS chunk (gzip) | _TBD_ | _TBD_ |
-| Total JS (gzip) | _TBD_ | _TBD_ |
-| LCP | _TBD_ | _TBD_ |
-| INP | _TBD_ | _TBD_ |
-| CLS | _TBD_ | _TBD_ |
+| Main JS chunk (gzip) | 72.7 KB | 234.2 KB |
+| Total JS (gzip) | 301.3 KB (17 chunks) | 410.1 KB (20 chunks) |
+| Total CSS (gzip) | 31.4 KB | 12.2 KB |
+| Largest chunk | 105.3 KB — `@firebase/firestore`+`auth` (loads on homepage for one auction date) | 102.9 KB — recharts (lazy, analytics only) |
+| Lighthouse perf (mobile, staging) | **69** | _not captured (auth-gated)_ |
+| FCP / LCP (mobile) | 2.0 s / **4.3 s** | — |
+| TBT / CLS / SI | 470 ms / **0** / 4.6 s | — |
+| Main-thread breakdown | Script eval 2252 ms · Other 1572 ms · Style/Layout 1048 ms | — |
 
-| API endpoint | p50 (ms) | p95 (ms) | p99 (ms) |
+| API endpoint (via staging edge, warm) | first (ms) | p50 (ms) | p95 (ms) |
 | --- | --- | --- | --- |
-| GET /health | _TBD_ | _TBD_ | _TBD_ |
-| POST /api/guest/init | _TBD_ | _TBD_ | _TBD_ |
-| GET /api/messages | _TBD_ | _TBD_ | _TBD_ |
-| GET /api/analytics | _TBD_ | _TBD_ | _TBD_ |
+| GET /health | 505 | 62 | 505 |
+| GET /api/branch-status | 978 | **518** | 978 |
+| GET / (HTML via edge) | 140 | 58 | 140 |
+| Cold start (Render free-tier idle spin-down) | — | — | **30–60 s** (documented behavior; W1 target) |
+
+Top Lighthouse opportunities: server-response-time (−366 ms), unused CSS (−110 ms), unused JS (−110 ms). LCP bottleneck = mobile script evaluation (React boot + homepage pulling the Firebase SDK chunk).
 
 ### PHASE 1 — Backend quick wins
 

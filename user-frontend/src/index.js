@@ -97,12 +97,31 @@ if (
   console.log('[SW] Service worker disabled — unregistered any existing workers.');
 }
 
-// ── Web Vitals (PERF0-1 baseline) ────────────────────────────────────────────
-// Dev-only: logs LCP/INP/CLS/FCP/TTFB to the console. No-op in production so
-// there is no runtime/security impact on shipped builds.
+// ── Web Vitals ───────────────────────────────────────────────────────────────
+// Dev: logs LCP/INP/CLS/FCP/TTFB to the console (PERF0-1).
+// Production (SPD0-2, speed megaplan): beacons each metric once to /api/rum via
+// sendBeacon (fire-and-forget, no CORS preflight, survives page unload). No
+// PII: metric + route + connection type only. Fails silently by design.
 if (process.env.NODE_ENV !== "production") {
   reportWebVitals((metric) => {
     const v = Math.round((metric.value + Number.EPSILON) * 100) / 100;
     console.log(`[web-vitals] ${metric.name} = ${v} (${metric.rating || "n/a"})`, metric);
+  });
+} else if (process.env.REACT_APP_RUM_DISABLED !== "true") {
+  reportWebVitals((metric) => {
+    try {
+      const payload = JSON.stringify({
+        name: metric.name,
+        value: metric.value,
+        rating: metric.rating,
+        path: window.location.pathname,
+        conn: navigator.connection?.effectiveType || "",
+      });
+      const url = `${process.env.REACT_APP_API_URL || ""}/api/rum`;
+      if (navigator.sendBeacon) navigator.sendBeacon(url, payload);
+      else fetch(url, { method: "POST", body: payload, keepalive: true }).catch(() => {});
+    } catch {
+      /* never interfere with the page */
+    }
   });
 }

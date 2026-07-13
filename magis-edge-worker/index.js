@@ -670,6 +670,9 @@ async function handle(request, event) {
     // the normal admin path below.
     (request.method === "POST" && pathname === "/api/webauthn/login-options") ||
     (request.method === "POST" && pathname === "/api/webauthn/login-verify") ||
+    // SPD0-2 (speed megaplan): Web Vitals RUM beacons (sendBeacon, no auth,
+    // 204-only responses; backend applies its own rate-limit bucket).
+    (request.method === "POST" && pathname === "/api/rum") ||
     // Super-admin branch password management (/api/branch/admin*): a superadmin
     // token would be 403'd by the edge's branchadmin gate, so bypass like
     // /api/admin/staff — the backend's authenticateSuperAdmin authorizes it and
