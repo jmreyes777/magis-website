@@ -19,6 +19,12 @@ const TURNSTILE_SECRET = process.env.TURNSTILE_SECRET || "";
 // — useful while validating the widget/hostname setup. Default: enforce.
 const TURNSTILE_ENFORCE = process.env.TURNSTILE_ENFORCE !== "false";
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+// SPD4-2 (speed megaplan): bound the external verify call. Baseline showed the
+// Turnstile round-trip dominates guest-init latency; an unbounded slow verify
+// (verifier brown-out) previously hung the whole request. On timeout we take
+// the SAME fail-open path as a verifier outage (rate-limit still applies), so
+// the security posture is unchanged — only the tail latency is now bounded.
+const TURNSTILE_TIMEOUT_MS = Number(process.env.TURNSTILE_TIMEOUT_MS) || 3000;
 async function verifyTurnstile(token, ip) {
   if (!TURNSTILE_SECRET) return { ok: true, skipped: true };
   if (!token) return { ok: false, reason: "missing-token" };
@@ -31,6 +37,7 @@ async function verifyTurnstile(token, ip) {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: body.toString(),
+      signal: AbortSignal.timeout(TURNSTILE_TIMEOUT_MS),
     });
     const data = await r.json();
     return { ok: !!data.success, data };
@@ -66,23 +73,13 @@ function escapeHtml(str) {
  * Initialize a new guest session, issue JWT in a Secure, HTTP-only cookie.
  */
 router.post("/init", async (req, res) => {
+  const t0 = Date.now();
   const { name, email, phone, branchEmail } = req.body;
 
   if (!name || !branchEmail) {
     return res
       .status(400)
       .json({ error: "Name and branchEmail are required." });
-  }
-
-  // P1-4 (Part B): bot check — no-op until TURNSTILE_SECRET is configured.
-  const turnstileToken =
-    req.body.turnstileToken || req.body["cf-turnstile-response"] || null;
-  const captcha = await verifyTurnstile(turnstileToken, req.ip);
-  if (!captcha.ok) {
-    console.warn(`[GUEST INIT] ${TURNSTILE_ENFORCE ? "🚫 BLOCK" : "👀 monitor"} Turnstile (${captcha.reason || "verify-failed"}) ip=${req.ip}`);
-    if (TURNSTILE_ENFORCE) {
-      return res.status(403).json({ error: "Bot verification failed. Please reload and try again." });
-    }
   }
 
   // P1-4: unguessable, non-enumerable guest id (was `guest-${Date.now()}`).
@@ -97,9 +94,38 @@ router.post("/init", async (req, res) => {
     issuedAt: Date.now(),
   };
 
+  // SPD4-2 (speed megaplan): the JWT sign and the Turnstile verify are
+  // independent — start the sign while the (network-bound) verify runs.
+  // ENFORCEMENT ORDER IS UNCHANGED: the signed token is only *used* after the
+  // captcha gate passes below; on a 403 it is discarded (never delivered, no
+  // revocation state exists at sign time). Result wrapper avoids an unhandled
+  // rejection if the sign fails while the captcha path returns early.
+  const signPromise = signJWT(payload, { expiresIn: "1h" }).then(
+    (token) => ({ token }),
+    (err) => ({ err })
+  );
+
+  // P1-4 (Part B): bot check — no-op until TURNSTILE_SECRET is configured.
+  const turnstileToken =
+    req.body.turnstileToken || req.body["cf-turnstile-response"] || null;
+  const captcha = await verifyTurnstile(turnstileToken, req.ip);
+  const tCaptcha = Date.now();
+  if (!captcha.ok) {
+    console.warn(`[GUEST INIT] ${TURNSTILE_ENFORCE ? "🚫 BLOCK" : "👀 monitor"} Turnstile (${captcha.reason || "verify-failed"}) ip=${req.ip}`);
+    if (TURNSTILE_ENFORCE) {
+      return res.status(403).json({ error: "Bot verification failed. Please reload and try again." });
+    }
+  }
+
   try {
-    const token = await signJWT(payload, { expiresIn: "1h" });
-    console.log(`[GUEST INIT] ✅ Token issued for guestId: ${guestId}`);
+    const signed = await signPromise;
+    if (signed.err) throw signed.err;
+    const token = signed.token;
+    // SPD4-2: timing evidence — turnstile RTT vs total handler time.
+    console.log(
+      `[GUEST INIT] ✅ Token issued for guestId: ${guestId} ` +
+      `(turnstile=${tCaptcha - t0}ms total=${Date.now() - t0}ms)`
+    );
 
     // Audit: a new guest chat session started (best-effort, PII-minimized).
     recordAuditEvent({
