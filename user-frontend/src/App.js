@@ -81,6 +81,10 @@ function App() {
                 {/* Public User Routes */}
                 <Route path="/" element={<Home branchStatuses={branchStatuses} />} />
                 <Route path="/branches" element={<BranchesMapView branchStatuses={branchStatuses} />} />
+                {/* Per-branch deep link (GBP Website targets — BRANCH-GBP-LINKS-PLAN.md).
+                    Same page component; it resolves :slug → branch, focuses it,
+                    emits per-branch SEO, and honors ?chat=1. */}
+                <Route path="/branches/:slug" element={<BranchesMapView branchStatuses={branchStatuses} />} />
 
                 <Route path="/contact-us" element={<ContactUs branchStatuses={branchStatuses} />} />
                 <Route path="/terms" element={<Terms branchStatuses={branchStatuses} />} />

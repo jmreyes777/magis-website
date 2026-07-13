@@ -1,8 +1,8 @@
 import "../utils/patchPassiveTouchListeners";  // must come before any React import
 import Footer from '../components/Footer-User-Component';
 import Seo from "../components/Seo";
-import React, { useState, useEffect, useRef,useMemo } from "react";
-import { useLocation } from "react-router-dom";
+import React, { useState, useEffect, useRef, useMemo, lazy } from "react";
+import { useLocation, useParams } from "react-router-dom";
 import { collection, getDocs } from "firebase/firestore";
 import GuestChatBox from "../components/Guest-Chat-Box-Component";
 
@@ -17,7 +17,14 @@ import { FaMapMarkerAlt, FaPhoneAlt, FaClock, FaSearch, FaTimes } from "react-ic
 import "./BranchesMapView.css";
 import { getSocketInstance, connectSocket, disconnectSocket } from "../Shared/User-Utils-socket";
 import { getTurnstileToken, preloadTurnstile } from "../Shared/turnstile";
+import { findBranchBySlug, buildBranchSeo } from "../utils/branchSeo";
+import { SITE_ORIGIN } from "../components/Seo";
 const socket = getSocketInstance();
+
+// Unknown /branches/<slug> must render the real 404 (noindex) — lazy so the
+// NotFound chunk isn't pulled into this page's bundle on the happy path.
+// Suspension bubbles to the route-level <Suspense> boundary in App.js.
+const NotFoundPage = lazy(() => import("./NotFound-User-Page"));
 
 // Utility function for formatting schedules
 const formatSchedule = (schedule) => {
@@ -66,6 +73,8 @@ const highlightMatch = (text, query) => {
 function BranchesMapView() {
   // Read initial filter from URL
   const location = useLocation();
+  // GBP deep link (BRANCH-GBP-LINKS-PLAN.md): /branches/:slug (+ optional ?chat=1)
+  const { slug } = useParams();
   useEffect(() => {
     console.log("[DEBUG] location.search =", location.search);
   }, [location.search]);
@@ -102,6 +111,18 @@ function BranchesMapView() {
   const [filter, setFilter] = useState(initialFilter);
   const [openingBranchId, setOpeningBranchId] = useState(null);
   const [openingStage, setOpeningStage] = useState(""); // "verifying" | "connecting"
+
+  // Branch matched from the :slug URL segment (null until branches load).
+  const slugBranch = useMemo(
+    () => (slug && branches.length > 0 ? findBranchBySlug(branches, slug) : null),
+    [slug, branches]
+  );
+  // True only once branches HAVE loaded and the slug matched nothing — never
+  // flash the 404 while the list is still fetching.
+  const slugNotFound = !!slug && branches.length > 0 && !slugBranch;
+  // ?chat=1 auto-opens the chat ONCE per landing (plan §9: never auto-open by
+  // default — it fires the bot check and creates a guest session).
+  const autoChatFiredRef = useRef(false);
 
   // Start map init immediately on mount — map is above the fold
   useEffect(() => { setMapReady(true); }, []);
@@ -145,6 +166,17 @@ function BranchesMapView() {
         });
         if (cancelled) return;
         fitMapToBounds(initList, mapRef);
+
+        // GBP deep link: the slug-focus effect can run before this async map
+        // init resolves, so re-apply the branch centering here where the map
+        // instance is guaranteed to exist.
+        if (slug) {
+          const focus = findBranchBySlug(data, slug);
+          if (focus?.location && mapRef.current?.map) {
+            mapRef.current.map.setCenter(focus.location);
+            mapRef.current.map.setZoom(MAX_ZOOM_LEVEL);
+          }
+        }
       } catch (err) {
         if (!cancelled) {
           console.error("[ERROR] Failed to load branches:", err);
@@ -197,6 +229,31 @@ function BranchesMapView() {
   useEffect(() => {
     handleSearchAndFilter();
   }, [searchQuery, filter, memoizedBranches]);
+
+  // Deep-link focus: when landing on /branches/<slug>, highlight + scroll the
+  // branch (runs after the list renders so branchRefs are populated) and honor
+  // ?chat=1 exactly once. Reuses the same click handler as the list/marker UI.
+  useEffect(() => {
+    if (!slugBranch) return;
+    handleBranchClickFromList(slugBranch);
+    const wantsChat = new URLSearchParams(location.search).get("chat") === "1";
+    if (wantsChat && !autoChatFiredRef.current) {
+      autoChatFiredRef.current = true;
+      openChatBox(slugBranch);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slugBranch]);
+
+  // The map initializes after the list; re-center on the slug branch once the
+  // map instance exists (markers/bounds are set inside fetchAndInit).
+  useEffect(() => {
+    if (!slugBranch?.location) return;
+    const map = mapRef.current?.map;
+    if (map) {
+      map.setCenter(slugBranch.location);
+      map.setZoom(MAX_ZOOM_LEVEL);
+    }
+  }, [slugBranch, mapReady]);
 
   // 3️⃣ Focus marker on list click
   const handleBranchClickFromList = branch => {
@@ -406,17 +463,28 @@ function BranchesMapView() {
     setActiveChat(null);
   };
 
+  // Unknown slug → real 404 (noindex), no soft-200 branch page (plan §6B).
+  if (slugNotFound) {
+    return <NotFoundPage />;
+  }
+
   return (
     <div className="flex flex-col min-h-screen ">
-      <Seo
-        title="Pawnshop Branches Near You | Magis Gold & Gems"
-        description="Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, directions, and live chat."
-        path="/branches"
-        breadcrumbs={[
-          { name: "Home", path: "/" },
-          { name: "Find a Branch", path: "/branches" },
-        ]}
-      />
+      {slugBranch ? (
+        // Per-branch meta + PawnShop JSON-LD; canonical is the clean
+        // /branches/<slug> (the ?chat=1 variant canonicals here too).
+        <Seo {...buildBranchSeo(slugBranch, SITE_ORIGIN)} />
+      ) : (
+        <Seo
+          title="Pawnshop Branches Near You | Magis Gold & Gems"
+          description="Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, directions, and live chat."
+          path={slug ? `/branches/${slug}` : "/branches"}
+          breadcrumbs={[
+            { name: "Home", path: "/" },
+            { name: "Find a Branch", path: "/branches" },
+          ]}
+        />
+      )}
       <h1 className="sr-only">Find a Magis Gold &amp; Gems Pawnshop Branch</h1>
       <div className="map-list-container">
         {/* 🌍 Google Map */}
