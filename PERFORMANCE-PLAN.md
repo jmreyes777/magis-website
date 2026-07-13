@@ -379,6 +379,33 @@ p95 budgets derived from the 2026-07-13 baseline (§3 PERF0-1 table; warm origin
 
 ---
 
+## 5.7 Performance invariants — SPD6-3 (speed megaplan W6, 2026-07-13)
+
+These are the rules that keep the speed work from ever regressing security or correctness. **Any PR that touches caching, the service worker, HTML delivery, or the CI budgets must re-verify the relevant invariant.**
+
+1. **HTML / CSP nonce rule.** `index.html` carries a per-request CSP nonce. Nothing may serve stale HTML: the SW never handles navigations (`public/sw.js` ignores `request.mode === 'navigate'`), and the edge worker's SPD2-1 template cache stores the **pre-nonce template only** — every response gets a fresh nonce + CSP header injected per request. If you change HTML delivery, verify a hard refresh returns a new nonce and zero CSP console errors.
+2. **Cache allowlist process.** Edge/Redis/browser caching applies **only** to public, non-personalized GETs, added explicitly to the allowlist (edge worker `PUBLIC_CACHE_PATHS` / `publicCache()` middleware). Never cache: auth-gated responses, decrypted message content, revocation state, `/api/csrf-token`, or anything varying per user. New cache entries require: (a) endpoint is anonymous, (b) `Cache-Control` set at origin, (c) explicit TTL, (d) fail-open to source on cache errors.
+3. **SW scope.** The service worker caches only same-origin hashed `/static/*` assets, images, and fonts — never navigations, non-GET, cross-origin, or `/api/*`. It stays gated behind `REACT_APP_ENABLE_SW`.
+4. **Budget change procedure.** CI budgets live in `.github/workflows/perf-budget.yml` (gzip bundle caps) and `user-frontend/lighthouserc.json` (Lighthouse assertions). Raising a budget requires: the PR description states the user-facing feature that justifies it, the delta, and a before/after Lighthouse run. Budgets are ratchets — lower them when a win lands (they should track ~10% above current reality, never more).
+5. **Security controls are never a perf lever.** Turnstile, rate limits, JWT verification, MFA rechecks, audit logging: frequency/enforcement changes are security decisions, not performance ones. Timeouts may *bound* an external security call only when the timeout path is identical to the pre-existing outage path (e.g. SPD4-2 Turnstile fail-open).
+6. **Polls & heartbeats.** No presence/heartbeat cadence may be loosened without server-side TTL evidence; dedupe (skip identical concurrent emits) is allowed, removal is not (SPD5-4 pattern: keep the safety-net branch).
+
+## 5.8 Speed megaplan W0–W6 — closing status (2026-07-13)
+
+| Phase | Outcome |
+| --- | --- |
+| W0 baseline + RUM + CI budgets | ✅ §3 baseline table; `/api/rum` intake + Web Vitals beacon; `perf-budget.yml` + `lighthouserc.json` |
+| W1 cold-start kill | ✅ edge cron keep-warm (5 min) + backend boot warm-up (Firestore/Redis) + guest-init retry |
+| W2 first paint | ✅ edge HTML template cache w/ fresh nonce, self-hosted Inter (−1 render-blocking chain), Early Hints, Firebase-free homepage (−105 KB gz chunk off the critical path), deferred FB carousel, SW enable flag ready |
+| W3 polish | ✅ idle-time route prefetch; react-icons + Tailwind purge audited (no action needed); srcset skipped w/ rationale |
+| W4 API/chat | ✅ §5.5 budgets; guest-init parallel sign + bounded verify; `SCT` socket RUM metric; outbound pooling audited |
+| W5 admin | ✅ §5.6: parallel login finalization, memoized message rows, poll dedupe |
+| W6 guardrails | ✅ §5.7 invariants; CI workflow live. **Operator step (SPD6-1):** mark `perf-budget` as a *required* status check in GitHub branch protection (Settings → Branches → main → require status checks) — repo code cannot toggle this |
+
+**SPD6-2 note:** per-item before/after numbers beyond the W0 baseline require a staging deploy + traffic; the RUM stream (`/api/rum` log lines, `t:"rum"`) and `backend/perf/baseline.mjs` re-runs are the designated capture tools. Record deltas in this file per item as they land.
+
+---
+
 ## 6. Measurement & verification
 
 - **Per item:** re-run the relevant Phase 0 measurement before/after and record the delta in the item's entry (mirroring the "Resolution/Verified" style used in `SECURITY-REMEDIATION-PLAN.md`).
