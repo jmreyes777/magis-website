@@ -119,13 +119,21 @@ Both halves are required. This plan sequences them so we never publish a dead li
 - [x] Worker re-deployed (`node deploy-api.mjs`) and staging-verified: branch URL returns per-branch `<title>`/OG/canonical, zero `xyz123` placeholder nonces; unknown slug returns default meta.
 
 ### Phase 3.5 — Domain cutover  *(operator + dev — BLOCKS Phase 4)*
-The app stack (edge worker → Render origins) is live but only on staging hostnames; the real domain is parked at Squarespace. Cutover steps:
-- [ ] **Cloudflare:** add `magispawnshop.com` as a zone on the existing CF account (`8cf3…b9f`, same one running the worker). Free plan suffices.
-- [ ] **Squarespace (registrar):** replace the nameservers with the two Cloudflare gives. (Domain stays registered at Squarespace; only DNS moves. The Coming Soon page disappears with the old DNS.)
-- [ ] **Cloudflare DNS:** after the zone activates, add proxied records for `www` and apex (worker routes need the hostname to resolve through CF — a proxied `AAAA 100::` / dummy `A 192.0.2.1` placeholder is the standard pattern for worker-only hostnames).
-- [ ] **Worker routes:** attach `www.magispawnshop.com/*` (+ apex redirect → `www`) to the worker. Decide whether to keep the `magis-edge-worker-staging` script name or clone to a `magis-edge-worker-prod` script with prod env vars first.
-- [ ] **Third-party allowlists** (dev can prepare, operator owns consoles): Firebase Auth authorized domains, Google Maps API key HTTP-referrer restrictions, Turnstile widget hostnames, backend CORS/`FRONTEND_URL(S)` env on Render — all must include `www.magispawnshop.com` before cutover.
-- [ ] **Verify:** `https://www.magispawnshop.com/branches/balibago-angeles` returns the branch title with a fresh CSP nonce; chat + Turnstile + map all function on the real domain.
+The app stack (edge worker → Render origins) is live but only on staging hostnames; the real domain is parked at Squarespace.
+
+**Dev prep ✅ 2026-07-13 (deployed):** worker now (a) allowlists `https://www.magispawnshop.com` + apex in `ALLOWED_ORIGINS` — without this the `/api` CORS gate would hard-403 the site on its own domain, since same-origin POSTs still send an `Origin` header — and (b) 301-redirects apex → `www` (fires only once the apex route exists). One-button script: **`magis-edge-worker/cutover.mjs`** (dry-run by default, `--apply` to execute; idempotent) — finds the zone, creates proxied `AAAA 100::` records for apex+www, attaches worker routes `www.magispawnshop.com/*` + `magispawnshop.com/*`, and prints the remaining console checklist. It currently reports "zone not on account" — correct until step 1 below.
+
+- [ ] **Operator — Cloudflare:** dash.cloudflare.com → Add a domain → `magispawnshop.com` (Free plan) on the same account running the worker (`8cf3…b9f`) → note the two nameservers.
+- [ ] **Operator — Squarespace:** Settings → Domains → `magispawnshop.com` → Nameservers → replace with Cloudflare's two. (Registration stays at Squarespace; the Coming Soon page dies with the old DNS.)
+- [ ] **Operator — token perms (once):** extend the `CF_API_TOKEN` in `magis-edge-worker/.env` with zone-scoped `Zone:Read`, `DNS:Edit`, `Workers Routes:Edit` for `magispawnshop.com` (the script 403s with exact instructions otherwise).
+- [ ] **Dev — run `node cutover.mjs` (dry), then `node cutover.mjs --apply`** once the zone shows Active.
+- [ ] **Operator consoles (before or right after apply):**
+  - Render backend env: `FRONTEND_ORIGINS` += `https://www.magispawnshop.com`
+  - Render guest + admin frontend env: `REACT_APP_API_URL` = `https://www.magispawnshop.com` + redeploy (CSP `connect-src 'self'` requires the API to be same-origin)
+  - Firebase Console → Authentication → Authorized domains += `www.magispawnshop.com`
+  - Google Cloud → Maps API key referrer restrictions += `https://www.magispawnshop.com/*`
+  - Cloudflare Turnstile widget hostnames += `www.magispawnshop.com`
+- [ ] **Verify:** `https://www.magispawnshop.com/branches/balibago-angeles` returns the branch title with a fresh CSP nonce; apex 301s to www; chat (Turnstile + socket) + map work on the real domain; then Search Console property + sitemap submit.
 
 ### Phase 4 — Point GBP to final URLs  *(operator)*
 - [ ] After **Phase 3.5 is verified live** on the real domain, switch each listing's **Website** field from `/branches` → final `/branches/<slug>`.

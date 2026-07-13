@@ -188,6 +188,13 @@ const { ADMIN_URL, GUEST_URL, BACKEND_URL, JWT_SECRET, RATE_LIMIT_KV, EDGE_SHARE
 const ALLOWED_ORIGINS = [
   ADMIN_URL,
   GUEST_URL,
+  // Public production domain (Phase 3.5 cutover — BRANCH-GBP-LINKS-PLAN.md).
+  // Same-origin POSTs from the SPA send `Origin: https://www.magispawnshop.com`,
+  // and the /api CORS gate below hard-403s any Origin not in this list — so the
+  // site would break on its own domain without these. Safe to list before the
+  // domain is live (an origin only matters once browsers actually send it).
+  "https://www.magispawnshop.com",
+  "https://magispawnshop.com",
   // Local dev origins (CRA's default scheme is http) — used when running the
   // admin frontend locally against this worker for staging testing.
   "http://localhost:3000",
@@ -543,6 +550,16 @@ async function handle(request, event) {
   const allowedOrigin = isAllowedOrigin(origin) ? origin : "";
   const isLocal = isLocalHost(host);
   const isProd = !isLocal;
+
+  // Apex → www canonical redirect (Phase 3.5). Only fires when the apex route
+  // is attached to this worker; every canonical/OG/sitemap URL is www, so apex
+  // must never serve duplicate content.
+  if (url.hostname === "magispawnshop.com") {
+    return Response.redirect(
+      `https://www.magispawnshop.com${pathname}${url.search}`,
+      301
+    );
+  }
 
   // 0) Raw WebSocket upgrades → pass-through in prod
   if (request.headers.get("Upgrade") === "websocket") {
