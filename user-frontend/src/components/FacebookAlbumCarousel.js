@@ -26,6 +26,37 @@ export default function FacebookAlbumCarousel({ albumId }) {
   const mounted = useRef(false);
   const wrapRef = useRef(null);
 
+  // SPD2-5 (speed megaplan): the carousel sits at the BOTTOM of the homepage;
+  // don't spend network/main-thread on it during first paint. Start loading
+  // when the container is within ~1 viewport of scroll (or immediately in
+  // browsers without IntersectionObserver).
+  const [shouldLoad, setShouldLoad] = useState(
+    typeof IntersectionObserver === "undefined"
+  );
+  // Observe the LOADING PLACEHOLDER (it renders immediately; the real
+  // container only mounts after loading clears — observing wrapRef alone
+  // would deadlock the deferral).
+  const deferRef = useRef(null);
+  useEffect(() => {
+    if (shouldLoad) return;
+    const el = deferRef.current || wrapRef.current;
+    if (!el) {
+      setShouldLoad(true); // defensive: never strand the section unloaded
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setShouldLoad(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "100% 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [shouldLoad]);
+
   // measured container width -> fully responsive sizing (seeded from the
   // viewport so the very first paint is already correct on mobile)
   const [cw, setCw] = useState(() =>
@@ -48,8 +79,9 @@ export default function FacebookAlbumCarousel({ albumId }) {
   const frameScale = 0.84;                      // shrink each piece inside its slide -> framed, not zoomed
   const shadow     = `drop-shadow(0 ${Math.round(cardH * 0.04)}px ${Math.round(cardH * 0.05)}px rgba(0,0,0,0.22))`;
 
-  // load photos
+  // load photos (deferred until near-viewport — SPD2-5)
   useEffect(() => {
+    if (!shouldLoad) return;
     mounted.current = true;
 
     const fetchJSON = async (url, opts = {}, timeoutMs = 7000) => {
@@ -142,7 +174,7 @@ export default function FacebookAlbumCarousel({ albumId }) {
       mounted.current = false;
       clearInterval(autoTimer.current);
     };
-  }, [albumId]);
+  }, [albumId, shouldLoad]);
 
   // Measure the carousel via a CALLBACK ref. The container renders only AFTER
   // the loading state clears, so a plain mount effect would see a null ref and
@@ -219,7 +251,7 @@ export default function FacebookAlbumCarousel({ albumId }) {
       )
     : [];
 
-  if (loading) return <div className="text-gray-500 py-4 text-center">Loading catalog…</div>;
+  if (loading) return <div ref={deferRef} className="text-gray-500 py-4 text-center">Loading catalog…</div>;
   if (error)   return <div className="text-red-500 py-4 text-center">{error}</div>;
   if (!len)    return <div className="text-gray-500 py-4 text-center">No catalog items found.</div>;
 

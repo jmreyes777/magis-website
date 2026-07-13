@@ -891,6 +891,10 @@ app.post(
 // Branch-status public endpoint
 const branchStatusRoutes = require("./routes/branchStatus");
 app.use("/api", branchStatusRoutes);
+// SPD2-4 (speed megaplan): public auction schedule (Redis + edge cached) so the
+// homepage no longer needs the client Firestore SDK for one document read.
+const siteConfigRoutes = require("./routes/siteConfig");
+app.use("/api/site-config", siteConfigRoutes);
 
 // --- Facebook latest video with cache + rate limiter ---
 const fbLimiter = rateLimit({

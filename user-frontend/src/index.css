@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* SPD2-2 (speed megaplan): Inter is self-hosted via an inline @font-face in
+   public/index.html (CRA's css-loader can't reference public/ assets from
+   bundled CSS). See index.html for the declaration + preload. */
+
 /* ===============================
    Global Vars (match App.css)
    =============================== */

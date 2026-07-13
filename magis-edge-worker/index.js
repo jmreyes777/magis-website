@@ -418,6 +418,17 @@ function injectRouteMeta(html, pathname) {
 }
 // ==== SEO-INJECT (end) ====
 
+// SPD2-3: extract the CRA entry assets (hashed filenames only known at build
+// time) from the built HTML so they can be announced as Link preloads.
+function entryAssetLinks(html) {
+  const links = [];
+  const js = html.match(/src="(\/static\/js\/main\.[a-f0-9]+\.js)"/);
+  if (js) links.push(`<${js[1]}>; rel=preload; as=script`);
+  const css = html.match(/href="(\/static\/css\/main\.[a-f0-9]+\.css)"/);
+  if (css) links.push(`<${css[1]}>; rel=preload; as=style`);
+  return links;
+}
+
 function minimalResponse(
   body,
   status,
@@ -546,17 +557,49 @@ async function handle(request, event) {
     const target = pathname.startsWith("/admin") ? ADMIN_URL : GUEST_URL;
     const destUrl = target + pathname + url.search;
 
-    // Scrub auth on static fetches
-    const outHeaders = new Headers(request.headers);
-    outHeaders.delete("Cookie");
-    outHeaders.delete("Authorization");
+    // SPD2-1 (speed megaplan): edge-cache the guest HTML *template* — the
+    // pre-nonce, pre-SEO-rewrite origin bytes — for 5 minutes, keyed per path.
+    // Every response still gets a FRESH per-request nonce + CSP below (the
+    // security property is untouched; only the origin round-trip is skipped).
+    // GET + guest host + prod only; kill switch: HTML_EDGE_CACHE="off".
+    const htmlCacheOn =
+      typeof HTML_EDGE_CACHE === "undefined" ||
+      String(HTML_EDGE_CACHE).toLowerCase() !== "off";
+    const wantsTemplateCache =
+      htmlCacheOn &&
+      isProd &&
+      request.method === "GET" &&
+      !pathname.startsWith("/admin") &&
+      !isHashedAsset(pathname) &&
+      !url.search; // query strings bypass (avoid variant explosion)
+    const templateCacheKey = new Request(`https://html-template.internal${pathname}`);
+    let resp = null;
+    let templateHit = false;
+    if (wantsTemplateCache) {
+      try {
+        const hit = await caches.default.match(templateCacheKey);
+        if (hit) {
+          resp = hit;
+          templateHit = true;
+        }
+      } catch (_) {
+        /* cache API hiccup → fall through to origin */
+      }
+    }
 
-    const resp = await fetch(destUrl, {
-      method: request.method,
-      headers: outHeaders,
-      body: request.body,
-      redirect: "follow",
-    });
+    if (!resp) {
+      // Scrub auth on static fetches
+      const outHeaders = new Headers(request.headers);
+      outHeaders.delete("Cookie");
+      outHeaders.delete("Authorization");
+
+      resp = await fetch(destUrl, {
+        method: request.method,
+        headers: outHeaders,
+        body: request.body,
+        redirect: "follow",
+      });
+    }
 
     const h = new Headers(resp.headers);
     if (isProd && isHashedAsset(pathname)) {
@@ -583,7 +626,27 @@ async function handle(request, event) {
 
     if (isHtml && cspMode !== "legacy") {
       const nonce = generateNonce();
-      let html = (await resp.text())
+      const rawHtml = await resp.text();
+
+      // SPD2-1: store the template on a cache miss (200s only). Stored bytes
+      // are pre-nonce/pre-SEO, so a hit goes through the exact same per-request
+      // substitutions as an origin fetch.
+      if (wantsTemplateCache && !templateHit && resp.status === 200) {
+        const putPromise = caches.default
+          .put(
+            templateCacheKey,
+            new Response(rawHtml, {
+              headers: {
+                "Content-Type": "text/html; charset=utf-8",
+                "Cache-Control": "public, max-age=300",
+              },
+            })
+          )
+          .catch(() => {});
+        if (event && event.waitUntil) event.waitUntil(putPromise);
+      }
+
+      let html = rawHtml
         .replaceAll('nonce="xyz123"', `nonce="${nonce}"`)
         .replaceAll("'nonce-xyz123'", `'nonce-${nonce}'`)
         .replaceAll('__CSP_NONCE="xyz123"', `__CSP_NONCE="${nonce}"`)
@@ -593,6 +656,10 @@ async function handle(request, event) {
       html = injectRouteMeta(html, pathname);
       h.set("Content-Security-Policy", cspForSpa({ nonce }));
       h.delete("Content-Length"); // body length changed by the substitution
+      // SPD2-3: preload the entry JS/CSS via Link headers — Cloudflare turns
+      // these into 103 Early Hints where supported, so the browser starts the
+      // main-bundle downloads before the HTML body even arrives.
+      for (const link of entryAssetLinks(rawHtml)) h.append("Link", link);
       addSecurityHeaders(h);
       return new Response(html, { status: resp.status, headers: h });
     }
@@ -639,6 +706,9 @@ async function handle(request, event) {
     (request.method === "GET" &&
       pathname === "/api/facebook/latest-video") ||
     (request.method === "GET"  && pathname.startsWith("/api/facebook/albums/latest")) || // ✅ NEW: album route
+    // SPD2-4 (speed megaplan): public auction schedule — replaces the homepage's
+    // client-Firestore read so the Firebase SDK stays out of the critical path.
+    (request.method === "GET" && pathname === "/api/site-config/auction") ||
     (request.method === "GET" &&
       pathname.startsWith("/api/branch-status")) ||
     (request.method === "POST" && pathname.startsWith("/api/guest")) ||
@@ -731,7 +801,9 @@ async function handle(request, event) {
     const edgeCacheable =
       request.method === "GET" &&
       (pathname === "/api/facebook/latest-video" ||
-        pathname.startsWith("/api/facebook/albums/latest"));
+        pathname.startsWith("/api/facebook/albums/latest") ||
+        // SPD2-4: auction schedule rides the same edge cache (s-maxage=600).
+        pathname === "/api/site-config/auction");
 
     const cache = caches.default;
     // Key by the proxied URL only (GET, no headers) so a shared entry never

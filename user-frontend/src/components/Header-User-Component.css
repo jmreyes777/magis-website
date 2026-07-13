@@ -3,7 +3,9 @@
    =============================== */
 
 /* Inter (match site-wide) */
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+/* Inter is self-hosted (SPD2-2): see @font-face in src/index.css. The old
+   @import url(fonts.googleapis...) chain cost two render-blocking cross-origin
+   round-trips on every cold visit. */
 
 /* Header height variable (tweak if your header is taller/shorter) */
 :root {

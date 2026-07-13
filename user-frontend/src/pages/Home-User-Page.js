@@ -18,9 +18,11 @@ import { Link } from "react-router-dom";
 import Seo, { SITE_ORIGIN, SITE_NAME } from '../components/Seo';
 import './Home-User-Page.css';
 
-// 🔗 Firestore (client SDK)
-import { db } from '../firebase-config';
-import { doc, onSnapshot, getDoc } from 'firebase/firestore';
+// SPD2-4 (speed megaplan): the auction date now comes from the cached public
+// API (/api/site-config/auction) instead of the client Firestore SDK. That one
+// import was pulling the ~105KB-gzip Firebase chunk into the homepage — the
+// largest asset on the public site. The endpoint is Redis- + edge-cached and
+// the component below polls it every 5 minutes (the doc changes ~monthly).
 
 // 🔗 Facebook album grid (auto-fetches latest album if no ID)
 import FacebookAlbumCarousel from '../components/FacebookAlbumCarousel';
@@ -135,16 +137,13 @@ function Home() {
   // isolated in <AuctionCountdown/> so the rest of the page stays static.
   const [nextAuctionDate, setNextAuctionDate] = useState(() => computeNextAuctionFallback());
 
-  // Read CMS/Firestore-configured date
+  // Read the CMS-configured date from the cached public API (SPD2-4). The
+  // parsing/fallback logic is identical to the old Firestore path; dates
+  // arrive as ISO strings.
   useEffect(() => {
-    const ref = doc(db, 'siteConfig', 'auction');
-
-    // helper to safely turn Firestore Timestamp / string / number -> Date or null
     const toDateSafe = (value) => {
       if (!value) return null;
-      let d = value;
-      if (typeof d?.toDate === 'function') d = d.toDate();
-      else if (typeof d === 'string' || typeof d === 'number') d = new Date(d);
+      const d = typeof value === 'string' || typeof value === 'number' ? new Date(value) : value;
       if (!(d instanceof Date) || Number.isNaN(d.getTime())) return null;
       return d;
     };
@@ -174,35 +173,26 @@ function Home() {
       return computeNextAuctionFallback();
     };
 
-    const unsub = onSnapshot(
-      ref,
-      (snap) => {
-        if (!snap.exists()) {
-          setNextAuctionDate(computeNextAuctionFallback());
-          return;
-        }
-        const data = snap.data() || {};
-        const chosen = pickDateFromData(data);
-        setNextAuctionDate(chosen);
-      },
-      async (err) => {
-        console.warn('[HOME] Firestore onSnapshot failed; falling back to one-time read:', err?.message);
-        try {
-          const snapOnce = await getDoc(ref);
-          if (snapOnce.exists()) {
-            const data = snapOnce.data() || {};
-            const chosen = pickDateFromData(data);
-            setNextAuctionDate(chosen);
-            return;
-          }
-        } catch {
-          // ignore and fall through
-        }
-        setNextAuctionDate(computeNextAuctionFallback());
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/site-config/auction`);
+        if (!res.ok) throw new Error(`status ${res.status}`);
+        const data = await res.json();
+        if (cancelled) return;
+        setNextAuctionDate(data && data.exists ? pickDateFromData(data) : computeNextAuctionFallback());
+      } catch (err) {
+        // Keep whatever we have (initial state is already the computed fallback).
+        console.warn('[HOME] auction config fetch failed:', err?.message);
       }
-    );
+    };
 
-    return () => unsub();
+    load();
+    const timer = setInterval(load, 5 * 60 * 1000); // matches the cache TTL
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
   }, []);
 
   return (
