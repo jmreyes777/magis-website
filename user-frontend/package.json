@@ -31,6 +31,8 @@
   "scripts": {
     "start": "cross-env craco start",
     "build": "cross-env craco build",
+    "postbuild": "node scripts/prerender.mjs",
+    "prerender": "node scripts/prerender.mjs",
     "test": "craco test",
     "analyze": "npm run build && npx source-map-explorer \"build/static/js/*.js\"",
     "eject": "react-scripts eject"
@@ -64,6 +66,7 @@
     "babel-plugin-transform-remove-console": "^6.9.4",
     "cross-env": "^7.0.3",
     "postcss": "^8.4.47",
+    "puppeteer": "^24.43.1",
     "resolve-url-loader": "^5.0.0",
     "source-map-explorer": "^2.5.3",
     "svgo": "^3.3.2",

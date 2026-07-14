@@ -151,11 +151,9 @@ const FAQ_SCHEMA = {
 };
 
 function FAQsUserPage() {
-  const lastUpdated = new Date().toLocaleDateString("en-PH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  // Real content-revision date (was new Date() — which dishonestly showed every
+  // visitor "today" AND breaks prerender hydration). Bump when FAQs change.
+  const lastUpdated = "June 20, 2026";
 
   return (
     <div className="flex flex-col min-h-screen">

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "./Footer-User-Component.css";
 
@@ -78,16 +78,24 @@ function Footer() {
   };
   // ------------------------------------------------------------------------
 
-  const isMobile = useMemo(
-    () => /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent || ""),
-    []
-  );
-
+  // SEO prerender hydration safety: the first render must be deterministic
+  // (identical to the build-time snapshot), so client-specific values (UA,
+  // localStorage) start at their defaults and sync in useLayoutEffect — which
+  // runs BEFORE paint, so users never see the intermediate frame. CSR-only
+  // visits behave the same way (the sync happens pre-paint on mount).
+  const [isMobile, setIsMobile] = useState(false);
   const [showChooser, setShowChooser] = useState(false);
   const [remember, setRemember] = useState(true);
-  const [pref, setPref] = useState(() => {
-    try { return localStorage.getItem(LS_KEY) || ""; } catch { return ""; }
-  });
+  const [pref, setPref] = useState("");
+  useLayoutEffect(() => {
+    if (/Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent || "")) {
+      setIsMobile(true);
+    }
+    try {
+      const saved = localStorage.getItem(LS_KEY) || "";
+      if (saved) setPref(saved);
+    } catch { /* storage unavailable → keep defaults */ }
+  }, []);
 
   const composeUrl = (provider, to) => {
     switch (provider) {
@@ -239,9 +247,14 @@ function Footer() {
           <div className="footer-column">
             <h4>QUICK LINKS</h4>
             <ul>
-              <li><Link to="/about">About Us</Link></li>
+              {/* SEO W2: dead "/about" link (it 404'd) replaced with the guide
+                  hub — sitewide internal links to the keyword-targeted guides. */}
               <li><Link to="/branches">Branch Finder</Link></li>
               <li><Link to="/faqs">FAQs</Link></li>
+              <li><Link to="/guides/how-to-pawn">How to Pawn (Sangla)</Link></li>
+              <li><Link to="/guides/gold-prices-appraisal">Gold Prices &amp; Appraisal</Link></li>
+              <li><Link to="/guides/gold-karat-guide">Gold Karat Guide</Link></li>
+              <li><Link to="/guides/pawnshop-interest-rates">Interest Rates &amp; Tubos</Link></li>
               <li className="pt-2"><Link to="/terms">Terms &amp; Conditions</Link></li>
               <li><Link to="/privacy-policy">Privacy Policy</Link></li>
             </ul>
@@ -305,7 +318,10 @@ function Footer() {
 
         {/* Bottom row */}
         <div className="footer-bottom footer-bottom-row">
-          <p>
+          {/* suppressHydrationWarning: a snapshot built on Dec 31 hydrated on
+              Jan 1 differs only in this year digit — never worth a hydration
+              error; React swaps in the client year on the next render. */}
+          <p suppressHydrationWarning>
             &copy; {new Date().getFullYear()} Magis Gold &amp; Gems Pawnshop &amp; Jewelry.
             All rights reserved.
           </p>

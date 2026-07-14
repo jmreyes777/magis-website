@@ -7,7 +7,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import App from "./App";
+import App, { preloadRouteForPath } from "./App";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
 
@@ -30,9 +30,8 @@ window.addEventListener("error", (event) => {
 // ✅ Strict CSP prevents inline scripts & enforces security policies
 console.log("[SECURITY] Content Security Policy Applied.");
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-
-root.render(
+const container = document.getElementById("root");
+const appTree = (
   <React.StrictMode>
     <BrowserRouter
       future={{
@@ -46,6 +45,20 @@ root.render(
     </BrowserRouter>
   </React.StrictMode>
 );
+
+// SEO prerender (scripts/prerender.mjs): routes with a build-time HTML
+// snapshot arrive with #root already populated — hydrate that DOM instead of
+// re-creating it (no flash, and non-JS crawlers got real content). The route's
+// lazy chunk is preloaded FIRST so nothing suspends during hydration (React 18
+// can't hydrate a suspending boundary over client-captured HTML). Plain SPA
+// shell (empty #root) keeps the exact createRoot path used before.
+if (container.hasChildNodes()) {
+  preloadRouteForPath(window.location.pathname).then(() => {
+    ReactDOM.hydrateRoot(container, appTree);
+  });
+} else {
+  ReactDOM.createRoot(container).render(appTree);
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Register Workbox service worker (InjectManifest output at /sw.js)

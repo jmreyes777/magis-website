@@ -17,16 +17,64 @@ const routeImports = {
   pawning: () => import("./pages/Pawn-Service-User-Page"),
   jewelry: () => import("./pages/Jewelry-Sales-User-Page"),
   notFound: () => import("./pages/NotFound-User-Page"),
+  // SEO megaplan W2: all four guides live in ONE module/chunk (shared template
+  // + CSS); the thunk is listed once so the idle prefetcher warms it once.
+  guides: () => import("./pages/guides/Guides-User-Page"),
 };
-const Home = lazy(routeImports.home);
-const ContactUs = lazy(routeImports.contact);
-const BranchesMapView = lazy(routeImports.branches);
-const Terms = lazy(routeImports.terms);
-const PrivacyPolicy = lazy(routeImports.privacy);
-const FAQsUserPage = lazy(routeImports.faqs);
-const Pawning = lazy(routeImports.pawning);
-const JewelrySales = lazy(routeImports.jewelry);
-const NotFound = lazy(routeImports.notFound);
+// SEO prerender (W3): React 18 can't cleanly hydrate a Suspense boundary that
+// SUSPENDS over client-captured snapshot HTML (no SSR boundary markers →
+// minified errors #418/#423 + a re-render flash). lazyPreload() lets index.js
+// resolve the route chunk BEFORE hydrateRoot() so the first render is fully
+// synchronous. CSR is untouched: until preload() completes, the component is
+// the exact same React.lazy as before — and preload() is only ever called on
+// the pre-hydration path (never mid-session, so element identity is stable).
+function lazyPreload(thunk, pick = (m) => m.default) {
+  const Lazy = lazy(() => thunk().then((m) => ({ default: pick(m) })));
+  let Loaded = null;
+  const Component = (props) =>
+    Loaded ? <Loaded {...props} /> : <Lazy {...props} />;
+  Component.preload = () =>
+    thunk().then((m) => {
+      Loaded = pick(m);
+    });
+  return Component;
+}
+
+const Home = lazyPreload(routeImports.home);
+const ContactUs = lazyPreload(routeImports.contact);
+const BranchesMapView = lazyPreload(routeImports.branches);
+const Terms = lazyPreload(routeImports.terms);
+const PrivacyPolicy = lazyPreload(routeImports.privacy);
+const FAQsUserPage = lazyPreload(routeImports.faqs);
+const Pawning = lazyPreload(routeImports.pawning);
+const JewelrySales = lazyPreload(routeImports.jewelry);
+const NotFound = lazyPreload(routeImports.notFound);
+const GoldPricesGuide = lazyPreload(routeImports.guides, (m) => m.GoldPricesGuide);
+const HowToPawnGuide = lazyPreload(routeImports.guides, (m) => m.HowToPawnGuide);
+const KaratGuide = lazyPreload(routeImports.guides, (m) => m.KaratGuide);
+const InterestRatesGuide = lazyPreload(routeImports.guides, (m) => m.InterestRatesGuide);
+
+// Map a pathname to its route component's preload() — used by index.js on
+// prerendered pages only. Unknown paths resolve immediately (no-op).
+export function preloadRouteForPath(pathname) {
+  const key = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+  const table = {
+    "/": Home,
+    "/branches": BranchesMapView,
+    "/contact-us": ContactUs,
+    "/terms": Terms,
+    "/privacy-policy": PrivacyPolicy,
+    "/faqs": FAQsUserPage,
+    "/pawning": Pawning,
+    "/jewelry-sales": JewelrySales,
+    "/guides/gold-prices-appraisal": GoldPricesGuide,
+    "/guides/how-to-pawn": HowToPawnGuide,
+    "/guides/gold-karat-guide": KaratGuide,
+    "/guides/pawnshop-interest-rates": InterestRatesGuide,
+  };
+  const C = key.startsWith("/branches/") ? BranchesMapView : table[key];
+  return C && C.preload ? C.preload().catch(() => {}) : Promise.resolve();
+}
 
 // SPD3-1 (speed megaplan): once the current page is fully loaded and the
 // browser is idle, warm the OTHER route chunks so in-site navigation is
@@ -92,6 +140,12 @@ function App() {
                 <Route path="/faqs" element={<FAQsUserPage branchStatuses={branchStatuses} />} />
                 <Route path="/pawning" element={<Pawning />} />
                 <Route path="/jewelry-sales" element={<JewelrySales />} />
+
+                {/* SEO megaplan W2 — keyword-targeted guide hub (bilingual). */}
+                <Route path="/guides/gold-prices-appraisal" element={<GoldPricesGuide />} />
+                <Route path="/guides/how-to-pawn" element={<HowToPawnGuide />} />
+                <Route path="/guides/gold-karat-guide" element={<KaratGuide />} />
+                <Route path="/guides/pawnshop-interest-rates" element={<InterestRatesGuide />} />
                 {/* 404 — real Not Found page (noindex) instead of a soft-404 redirect */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

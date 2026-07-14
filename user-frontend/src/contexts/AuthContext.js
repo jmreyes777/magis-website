@@ -11,9 +11,40 @@ export const AuthProvider = ({ children }) => {
   const BRANCH_ADMIN_TOKEN_KEY = "branchAdminToken";
   const BRANCH_ADMIN_ROLE_KEY = "branchAdminRole";
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  // Token checks are pure synchronous storage reads, so the initial auth state
+  // can be computed during the first render. This removes the old
+  // "Initializing..." placeholder frame entirely (faster first paint) and is
+  // REQUIRED for SEO prerender hydration: hydrateRoot() must produce the real
+  // page on the first render pass, not a loading gate that mismatches the
+  // prerendered HTML. Side effects (clearing expired tokens) stay in the
+  // useEffect below — this initializer only READS.
+  const computeInitialAuth = () => {
+    try {
+      let token =
+        sessionStorage.getItem(SUPER_ADMIN_TOKEN_KEY) ||
+        localStorage.getItem(SUPER_ADMIN_TOKEN_KEY);
+      let role = token ? "superadmin" : null;
+      if (!token) {
+        token =
+          sessionStorage.getItem(BRANCH_ADMIN_TOKEN_KEY) ||
+          localStorage.getItem(BRANCH_ADMIN_TOKEN_KEY);
+        role = token ? "branchadmin" : null;
+      }
+      if (token) {
+        const decodedToken = jwtDecode(token);
+        if (decodedToken.exp * 1000 > Date.now()) {
+          return { isAuthenticated: true, userRole: role };
+        }
+      }
+    } catch {
+      /* invalid token → unauthenticated; useEffect handles cleanup */
+    }
+    return { isAuthenticated: false, userRole: null };
+  };
+  const initialAuth = computeInitialAuth();
+
+  const [isAuthenticated, setIsAuthenticated] = useState(initialAuth.isAuthenticated);
+  const [userRole, setUserRole] = useState(initialAuth.userRole);
 
   const checkAuthentication = () => {
     try {
@@ -46,8 +77,6 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error("[ERROR] Token validation failed:", error.message);
       logout();
-    } finally {
-      setIsInitialized(true);
     }
   };
 
@@ -64,7 +93,7 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, userRole, logout, checkAuthentication }}>
-      {isInitialized ? children : <div>Initializing...</div>}
+      {children}
     </AuthContext.Provider>
   );
 };

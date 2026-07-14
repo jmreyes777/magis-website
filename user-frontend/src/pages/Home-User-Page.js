@@ -44,7 +44,15 @@ const HOME_JSONLD = {
   image: `${SITE_ORIGIN}/logo512.png`,
   logo: `${SITE_ORIGIN}/logo512.png`,
   foundingDate: '1996',
-  areaServed: { '@type': 'Country', name: 'Philippines' },
+  // Match the real service footprint (keyword-map geo): branches cluster in
+  // Angeles City / Pampanga / Central Luzon + Quezon City, nationwide brand.
+  areaServed: [
+    { '@type': 'City', name: 'Angeles City' },
+    { '@type': 'AdministrativeArea', name: 'Pampanga' },
+    { '@type': 'AdministrativeArea', name: 'Central Luzon' },
+    { '@type': 'City', name: 'Quezon City' },
+    { '@type': 'Country', name: 'Philippines' },
+  ],
   knowsAbout: ['Pawn loans', 'Gold jewelry', 'Jewelry sales', 'Auctions'],
 };
 

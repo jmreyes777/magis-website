@@ -350,6 +350,28 @@ const ROUTE_META = {
     description:
       "Terms governing use of the Magis Gold & Gems website, branch finder, and live chat, including BSP, AMLA, and Data Privacy Act (RA 10173) notices.",
   },
+  // SEO megaplan W2 — guide hub. Keep byte-identical to each guide's <Seo>
+  // values in user-frontend/src/pages/guides/guide-content.js.
+  "/guides/gold-prices-appraisal": {
+    title: "Gold Prices & Appraisal (Presyo ng Ginto) | Magis Gold & Gems",
+    description:
+      "How pawnshops appraise gold in the Philippines — karat, weight, and today's gold price (presyo ng ginto). Get a free, no-obligation appraisal at any Magis branch.",
+  },
+  "/guides/how-to-pawn": {
+    title: "How to Pawn (Paano Mag-Sangla) — Step by Step | Magis Gold & Gems",
+    description:
+      "Paano mag-sangla ng gold sa pawnshop: requirements (valid ID), free appraisal, pawn ticket, renewal (patubo) and redemption (tubos) — the complete 6-step guide.",
+  },
+  "/guides/gold-karat-guide": {
+    title: "Gold Karat Guide: 18K vs 21K vs 24K (Sangla Value) | Magis Gold & Gems",
+    description:
+      "What 18K, 21K, and 24K gold mean, how to read karat stamps (750, 875, 999), and how karat affects how much you can pawn (magkano ang sangla ng 18k/21k gold).",
+  },
+  "/guides/pawnshop-interest-rates": {
+    title: "Pawnshop Interest Rates, Patubo & Tubos Explained | Magis Gold & Gems",
+    description:
+      "How pawnshop interest works in the Philippines — sample Magis rates from 1% (first 10 days), what patubo (renewal) and tubos (redemption) cost, and how to pay less.",
+  },
 };
 
 // Per-branch pages (BRANCH-GBP-LINKS-PLAN.md — GBP Website deep links).
@@ -457,6 +479,58 @@ function injectRouteMeta(html, pathname) {
   return html;
 }
 // ==== SEO-INJECT (end) ====
+
+// ==== SEO-MEGAPLAN (start) — crawl hygiene ====
+// Canonical production host. Any other host serving this worker (workers.dev
+// staging, local tunnels) must never be indexed — search engines would see
+// duplicate content whose canonicals point at the real domain.
+const CANONICAL_HOST = "www.magispawnshop.com";
+
+// Routes with a build-time prerendered snapshot (user-frontend postbuild —
+// scripts/prerender.mjs writes build/<route>/index.html). For these paths we
+// fetch the snapshot file explicitly so non-JS crawlers (GPTBot, ClaudeBot,
+// PerplexityBot…) receive real body HTML. FAIL-OPEN: if the snapshot is
+// missing, the origin's SPA rewrite returns the normal shell — identical to
+// today's behavior. "/" is intentionally NOT prerendered (time-dependent
+// countdown + FB carousel would fight hydration); its facts are covered by
+// the static JSON-LD in index.html + /llms.txt.
+const PRERENDERED_ROUTES = new Set([
+  "/pawning",
+  "/jewelry-sales",
+  "/faqs",
+  "/terms",
+  "/privacy-policy",
+  "/contact-us",
+  "/guides/gold-prices-appraisal",
+  "/guides/how-to-pawn",
+  "/guides/gold-karat-guide",
+  "/guides/pawnshop-interest-rates",
+]);
+
+// True-404 (SEO-6 follow-up): the SPA returns HTTP 200 + a client-rendered
+// noindex 404 for junk URLs — a classic soft-404. The public route set is
+// finite, so unknown extension-less GET paths can honestly return status 404
+// while serving the exact same SPA shell (the client still renders the real
+// 404 page — zero UX change). /branches/<anything> stays 200: branch slugs
+// resolve dynamically from Firestore, so new branches must never 404 here.
+function isKnownSpaPath(pathname) {
+  let key = pathname || "/";
+  if (key.length > 1 && key.endsWith("/")) key = key.slice(0, -1);
+  if (key === "/" || ROUTE_META[key]) return true;
+  if (key === "/branches" || key.startsWith("/branches/")) return true;
+  if (PRERENDERED_ROUTES.has(key)) return true;
+  return false;
+}
+
+// Extension-less, non-API, non-admin document request → SPA route navigation.
+function isSpaDocumentPath(pathname) {
+  return (
+    !pathname.startsWith("/api") &&
+    !pathname.startsWith("/admin") &&
+    !/\.[a-zA-Z0-9]{1,8}$/.test(pathname)
+  );
+}
+// ==== SEO-MEGAPLAN (end) ====
 
 // SPD2-3: extract the CRA entry assets (hashed filenames only known at build
 // time) from the built HTML so they can be announced as Link preloads.
@@ -605,7 +679,18 @@ async function handle(request, event) {
   // 2) SPA/static proxy (non-/api paths) with CSP + cache only
   if (!pathname.startsWith("/api")) {
     const target = pathname.startsWith("/admin") ? ADMIN_URL : GUEST_URL;
-    const destUrl = target + pathname + url.search;
+    // SEO: route with a prerendered snapshot → fetch the snapshot file. If the
+    // build didn't produce one, the origin SPA rewrite serves the shell (fail-open).
+    let originPath = pathname;
+    let prerenderKey = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
+    if (
+      request.method === "GET" &&
+      !pathname.startsWith("/admin") &&
+      PRERENDERED_ROUTES.has(prerenderKey)
+    ) {
+      originPath = `${prerenderKey}/index.html`;
+    }
+    const destUrl = target + originPath + url.search;
 
     // SPD2-1 (speed megaplan): edge-cache the guest HTML *template* — the
     // pre-nonce, pre-SEO-rewrite origin bytes — for 5 minutes, keyed per path.
@@ -710,8 +795,21 @@ async function handle(request, event) {
       // these into 103 Early Hints where supported, so the browser starts the
       // main-bundle downloads before the HTML body even arrives.
       for (const link of entryAssetLinks(rawHtml)) h.append("Link", link);
+      // SEO: staging/preview hosts must never be indexed; the canonical host
+      // must never inherit a stray noindex from the origin service.
+      if (url.hostname === CANONICAL_HOST) h.delete("X-Robots-Tag");
+      else h.set("X-Robots-Tag", "noindex, nofollow");
+      // SEO: honest 404 status for junk document URLs (same SPA shell body —
+      // the client renders the real 404 page; crawlers stop indexing soft-404s).
+      const spaStatus =
+        resp.status === 200 &&
+        request.method === "GET" &&
+        isSpaDocumentPath(pathname) &&
+        !isKnownSpaPath(pathname)
+          ? 404
+          : resp.status;
       addSecurityHeaders(h);
-      return new Response(html, { status: resp.status, headers: h });
+      return new Response(html, { status: spaStatus, headers: h });
     }
 
     // Non-HTML assets (or legacy rollback). CSP on an asset response governs
@@ -720,6 +818,8 @@ async function handle(request, event) {
       "Content-Security-Policy",
       cspForSpa(cspMode === "legacy" ? { allowUnsafeInline: true } : {})
     );
+    if (url.hostname === CANONICAL_HOST) h.delete("X-Robots-Tag");
+    else h.set("X-Robots-Tag", "noindex, nofollow");
     addSecurityHeaders(h);
     return new Response(resp.body, { status: resp.status, headers: h });
   }

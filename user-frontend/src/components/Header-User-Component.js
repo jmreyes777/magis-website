@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { FaFacebookF, FaInstagram } from "react-icons/fa";
 import { FaFacebookMessenger } from "react-icons/fa6";
@@ -7,7 +7,14 @@ import './Header-User-Component.css';
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  // SEO prerender hydration safety: first render must match the build-time
+  // snapshot (desktop layout), so isMobile starts false and syncs to the real
+  // viewport in useLayoutEffect — before paint, so mobile users never see the
+  // desktop nav flash. CSR mounts behave identically (pre-paint sync).
+  const [isMobile, setIsMobile] = useState(false);
+  useLayoutEffect(() => {
+    if (window.innerWidth < 768) setIsMobile(true);
+  }, []);
 
   // Desktop hover menus
   const [showPawningMenu, setShowPawningMenu] = useState(false);

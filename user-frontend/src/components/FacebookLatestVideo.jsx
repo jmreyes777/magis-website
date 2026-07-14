@@ -22,6 +22,12 @@ export default function FacebookLatestVideo() {
 
   /* ---------------- Fetch Latest Video ---------------- */
   useEffect(() => {
+    // SEO prerender: scripts/prerender.mjs sets this flag while capturing
+    // snapshots. Skipping the fetch keeps the captured DOM in the exact
+    // initial (loading) state that hydration's first render produces —
+    // otherwise the captured error/video markup mismatches (#425). Real
+    // visitors never have the flag, so behavior is unchanged for them.
+    if (window.__PRERENDER__) return;
     let mounted = true;
     (async () => {
       try {

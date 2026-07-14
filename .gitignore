@@ -6,6 +6,14 @@
 node_modules/
 **/node_modules/
 
+# --- Prerender debug artifacts (scripts/prerender.mjs) ---
+user-frontend/prerender-log.txt
+user-frontend/build-log.txt
+user-frontend/prerender-diff-*.txt
+
+# --- Lighthouse report artifacts ---
+lh-*.json
+
 # --- Secrets / environment files (NEVER commit) ---
 .env
 .env.*

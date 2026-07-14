@@ -1,0 +1,61 @@
+# SEO megaplan W1 — IndexNow submission (Bing, Copilot, Yandex, Seznam…).
+# Whenever the sitemap changes on main (new/updated pages), submit all sitemap
+# URLs to the IndexNow API so participating engines fetch them within minutes
+# instead of days. Google does not use IndexNow (it discovers via the sitemap
+# in Search Console). Free, no auth beyond the public key file in public/.
+#
+# NOTE: only useful once www.magispawnshop.com serves the site (Wave 0 domain
+# cutover) — harmless before that (the API accepts and verifies lazily).
+name: IndexNow submit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "user-frontend/public/sitemap.xml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Submit sitemap URLs to IndexNow
+        shell: bash
+        run: |
+          set -euo pipefail
+          HOST="www.magispawnshop.com"
+          KEY="6e4340b8390cea666eb56b3a1e366ffc"
+          # Extract <loc> URLs from the sitemap (portable grep/sed).
+          mapfile -t URLS < <(grep -o "<loc>[^<]*</loc>" user-frontend/public/sitemap.xml | sed -e "s|<loc>||" -e "s|</loc>||")
+          echo "Submitting ${#URLS[@]} URLs for $HOST"
+          # Build the JSON urlList.
+          URL_JSON=$(printf '"%s",' "${URLS[@]}")
+          URL_JSON="[${URL_JSON%,}]"
+          BODY=$(cat <<EOF
+          {
+            "host": "$HOST",
+            "key": "$KEY",
+            "keyLocation": "https://$HOST/$KEY.txt",
+            "urlList": $URL_JSON
+          }
+          EOF
+          )
+          # 200/202 = accepted. 4xx before the domain cutover is expected —
+          # log it but don't fail the workflow (the push itself already succeeded).
+          STATUS=$(curl -s -o /tmp/indexnow-resp.txt -w "%{http_code}" \
+            -X POST "https://api.indexnow.org/IndexNow" \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data "$BODY") || STATUS="000"
+          echo "IndexNow HTTP $STATUS"
+          cat /tmp/indexnow-resp.txt || true
+          if [ "$STATUS" = "200" ] || [ "$STATUS" = "202" ]; then
+            echo "Accepted."
+          else
+            echo "::warning::IndexNow returned HTTP $STATUS (expected until the domain cutover is live)."
+          fi

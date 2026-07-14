@@ -1,5 +1,5 @@
 // user-frontend/src/pages/Pawn-Service-User-Page.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FaComments,
@@ -85,8 +85,14 @@ const todayLocal = () => {
 function Pawning() {
   // ===== Sample Interest Calculator State & Logic =====
   const [principal, setPrincipal] = useState("");
-  const [pawnDate, setPawnDate] = useState(() => todayLocal());
+  // SEO prerender hydration safety: "today" differs between the build-time
+  // snapshot and the visit, so the date starts empty and fills in a
+  // useLayoutEffect (pre-paint — users still always see today's date).
+  const [pawnDate, setPawnDate] = useState("");
   const [paymentDate, setPaymentDate] = useState("");
+  useLayoutEffect(() => {
+    setPawnDate(todayLocal());
+  }, []);
   const [mode, setMode] = useState("renew"); // "renew" or "redeem"
   const [daysElapsed, setDaysElapsed] = useState(0);
   const [interestRate, setInterestRate] = useState(null);

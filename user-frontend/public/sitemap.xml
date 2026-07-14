@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://www.magispawnshop.com/</loc>
-    <lastmod>2026-06-19</lastmod>
+    <lastmod>2026-07-14</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://www.magispawnshop.com/logo512.png</image:loc>
+      <image:title>Magis Gold &amp; Gems Pawnshop &amp; Jewelry</image:title>
+    </image:image>
   </url>
   <url>
     <loc>https://www.magispawnshop.com/branches</loc>
@@ -81,7 +86,32 @@
   </url>
   <url>
     <loc>https://www.magispawnshop.com/pawning</loc>
-    <lastmod>2026-06-19</lastmod>
+    <lastmod>2026-07-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- Guide hub (SEO megaplan W2 — keyword-targeted bilingual guides) -->
+  <url>
+    <loc>https://www.magispawnshop.com/guides/gold-prices-appraisal</loc>
+    <lastmod>2026-07-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.magispawnshop.com/guides/how-to-pawn</loc>
+    <lastmod>2026-07-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.magispawnshop.com/guides/gold-karat-guide</loc>
+    <lastmod>2026-07-14</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.magispawnshop.com/guides/pawnshop-interest-rates</loc>
+    <lastmod>2026-07-14</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -93,7 +123,7 @@
   </url>
   <url>
     <loc>https://www.magispawnshop.com/faqs</loc>
-    <lastmod>2026-06-19</lastmod>
+    <lastmod>2026-06-20</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>

@@ -111,6 +111,27 @@ FAQ + per-route titles verified live on the guest staging site after a Render bu
 
 ---
 
+## Megaplan (2026-07-14) — "average → exceptional" second pass
+
+Goal: local-pack + AI-answer visibility, not just classic SERP. One primary
+intent per page (see `seo-research/keyword-map.md`).
+
+| Wave | Scope | Status |
+|---|---|---|
+| M0 | **Domain cutover** to `www.magispawnshop.com` (site + worker routes + GSC property) | ⏳ OWNER — everything below is inert-but-harmless until live |
+| M1 | **IndexNow**: key file in `public/` + `.github/workflows/indexnow.yml` (submits sitemap URLs on change; Bing/Copilot/Yandex) | ✅ 2026-07-14 (activates on cutover; 4xx expected before) |
+| M2 | **Guide hub** `/guides/*` — 4 bilingual keyword-targeted guides (gold prices/appraisal, how-to-pawn, karat guide, interest rates) with `Article`+`FAQPage`(+`HowTo`) JSON-LD, one lazy chunk, footer links, sitemap + worker `ROUTE_META` entries | ✅ 2026-07-14 |
+| M3 | **Build-time prerender** (`scripts/prerender.mjs`, `postbuild`): real HTML for 10 static routes → GPTBot/ClaudeBot/Perplexity/social scrapers see content; React 18 hydration verified headlessly per build (fail-open per route); `hydrateRoot` + route-chunk preload in `index.js`; worker maps routes → snapshot files (`PRERENDERED_ROUTES`) | ✅ 2026-07-14 — 10/10 clean |
+| M4 | **Hydration-hazard fixes**: `Header` isMobile (pre-paint `useLayoutEffect`), Footer provider label, Pawning `pawnDate`, honest static `lastUpdated` on FAQs/Terms/Privacy (was `new Date()` = always "today") | ✅ 2026-07-14 |
+| M5 | **Off-page playbook** (`seo-research/offpage-playbook.md`): GBP per-branch, review engine, NAP citations, FB→guide linking, earned links, monthly measurement | ✅ doc 2026-07-14 — execution is OWNER, ongoing |
+
+Prerender invariants (do not break): snapshots are rebuilt from the original
+shell bytes (CSP nonce placeholders + static-map placeholder survive verbatim);
+`<!--$-->`/`<!--/$-->` Suspense markers wrap the routed `<main>` content;
+`window.__PRERENDER__` freezes effectful widgets during capture; every snapshot
+is re-hydrated headlessly and deleted on any console error. `/` is deliberately
+NOT prerendered (countdown + FB carousel). Skip locally: `PRERENDER=off`.
+
 ## Side note (not SEO, flagged for awareness)
 
 - `src/pages/ContactUs-User-Page.js` posts to **`http://localhost:5000/api/contact`** (hardcoded localhost) — this will fail in production. Out of scope for SEO; raising it for a separate fix.
