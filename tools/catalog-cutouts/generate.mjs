@@ -43,6 +43,25 @@ async function fetchAlbum() {
   return { albumId: data?.albumId || null, photos };
 }
 
+// FB's Graph API (and a backend cold start) can transiently report an EMPTY
+// albums list — observed 2026-07-13: a new-album dispatch fired, yet 38s later
+// the endpoint returned {albumId:null, photos:[]} and the run went red. Retry
+// with backoff before believing an empty answer; errors retry the same way.
+async function fetchAlbumWithRetry({ attempts = 4, delayMs = 45000 } = {}) {
+  let last = { albumId: null, photos: [] };
+  for (let i = 1; i <= attempts; i++) {
+    try {
+      last = await fetchAlbum();
+      if (last.photos.length) return last;
+      log(`attempt ${i}/${attempts}: album empty (albumId=${last.albumId})`);
+    } catch (e) {
+      log(`attempt ${i}/${attempts} failed: ${e?.message || e}`);
+    }
+    if (i < attempts) await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return last;
+}
+
 function bestSource(photo) {
   const imgs = Array.isArray(photo.images) ? photo.images : [];
   // FB returns images largest-first; the largest gives the cleanest cutout.
@@ -90,8 +109,16 @@ async function makeCutout(srcUrl) {
 async function main() {
   await fs.mkdir(OUT_DIR, { recursive: true });
   const prev = await readManifest();
-  const { albumId, photos } = await fetchAlbum();
+  const { albumId, photos } = await fetchAlbumWithRetry();
   log(`album ${albumId} — ${photos.length} photos; ${prev.size} cached`);
+
+  // Still empty after retries → KEEP the previous manifest/cutouts untouched.
+  // A transient FB hiccup must not blank the live carousel (the daily cron
+  // re-syncs a genuinely emptied album; use FORCE=1 to override manually).
+  if (!photos.length && prev.size) {
+    log("album still empty after retries — keeping previous manifest, no changes.");
+    return;
+  }
 
   const items = [];
   const liveIds = new Set();
@@ -127,6 +154,15 @@ async function main() {
       failed++;
       log(`FAILED ${id}: ${e?.message || e}`);
     }
+  }
+
+  // Refuse to REPLACE a populated manifest with an empty one (all-photos-failed
+  // case): leave the previous good state — files AND manifest — in place and
+  // fail loudly instead. Must run BEFORE prune, which would delete every .webp.
+  if (!items.length && prev.size) {
+    log("every photo failed — previous manifest left untouched.");
+    process.exitCode = 1;
+    return;
   }
 
   // prune: delete any .webp not referenced by the current album
