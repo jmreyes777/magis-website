@@ -1028,6 +1028,38 @@ app.get("/api/facebook/latest-video", fbLimiter, publicCache(300, 600), async (r
 const latestAlbumCache = { at: 0, albumId: null, photos: [] };
 const LATEST_ALBUM_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+// Last-known-good album, shared across instances/restarts via Firestore.
+// FB's /albums edge FLAPS: observed 2026-07-14, the same query returned
+// data:[] twice and 21 photos on the third try, 45s apart. A flap must never
+// blank the carousel/cutouts pipeline, so empty/error answers fall back to the
+// newest non-empty result we've ever seen (memory first, then Firestore).
+const latestAlbumFsRef = () => db.collection("system").doc("latestAlbum");
+let latestAlbumFsReadAt = 0; // throttle Firestore fallback reads
+
+async function serveLastKnownGoodAlbum(res, reason) {
+  if (latestAlbumCache.photos.length) {
+    console.warn(`[FB latest album] ${reason} — serving last-known-good from memory (album ${latestAlbumCache.albumId})`);
+    return res.json({ albumId: latestAlbumCache.albumId, photos: latestAlbumCache.photos });
+  }
+  if (Date.now() - latestAlbumFsReadAt > 60_000) {
+    latestAlbumFsReadAt = Date.now();
+    try {
+      const snap = await latestAlbumFsRef().get();
+      const d = snap.exists ? snap.data() : null;
+      if (Array.isArray(d?.photos) && d.photos.length) {
+        latestAlbumCache.at = d.at || 0; // stale-dated: next request still tries FB
+        latestAlbumCache.albumId = d.albumId || null;
+        latestAlbumCache.photos = d.photos;
+        console.warn(`[FB latest album] ${reason} — serving last-known-good from Firestore (album ${d.albumId})`);
+        return res.json({ albumId: d.albumId, photos: d.photos });
+      }
+    } catch (err) {
+      console.warn("[FB latest album] Firestore LKG read failed:", err?.message || err);
+    }
+  }
+  return null; // nothing good to serve — caller returns its honest answer
+}
+
 // PERF/UX: when a NEW Facebook album becomes the latest, fire a GitHub
 // repository_dispatch so the OFF-SITE cutout job regenerates transparent
 // cutouts within minutes (instead of waiting for the daily cron). The live
@@ -1075,6 +1107,32 @@ const cutoutStateRef = () => db.collection("system").doc("catalogCutouts");
 async function maybeDispatchCutoutRefresh(albumId) {
   if (!albumId) return;
   if (!process.env.GH_DISPATCH_TOKEN) return; // instant refresh not configured
+
+  // Fast path: album already handled → skip before spending an FB call on the
+  // probe below. (The transaction re-checks authoritatively; a race here is
+  // harmless because the probe is idempotent and read-only.)
+  try {
+    const pre = await cutoutStateRef().get();
+    if (pre.exists && pre.get("lastAlbumId") === albumId) return;
+  } catch (_) { /* fall through to the transaction's authoritative check */ }
+
+  // Never dispatch for an album that has no visible photos yet — a just-created
+  // album (photos still uploading) or an FB flap would send the CI job chasing
+  // an empty album. No marker is written, so the next poll retries naturally.
+  try {
+    const probeUrl =
+      `https://graph.facebook.com/v24.0/${encodeURIComponent(albumId)}/photos` +
+      `?fields=id&limit=1&access_token=${encodeURIComponent(process.env.FB_PAGE_ACCESS_TOKEN)}`;
+    const pr = await fetch(probeUrl);
+    const pj = await pr.json().catch(() => ({}));
+    if (!pr.ok || !Array.isArray(pj?.data) || !pj.data.length) {
+      console.log(`[cutout-dispatch] album ${albumId} has no photos yet — deferring dispatch`);
+      return;
+    }
+  } catch (err) {
+    console.warn("[cutout-dispatch] photos probe failed — deferring:", err?.message || err);
+    return;
+  }
 
   let prevAlbumId = null;
   let claimed = false;
@@ -1162,6 +1220,7 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
     const albumsJson = await albumsRes.json();
     if (!albumsRes.ok) {
       console.error("[FB latest albums error]", albumsJson);
+      if (await serveLastKnownGoodAlbum(res, "FB albums fetch errored")) return;
       return res.status(502).json({
         error: "Facebook API error",
         ...(process.env.NODE_ENV !== "production" && { upstream: albumsJson }),
@@ -1169,6 +1228,7 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
     }
     const albums = Array.isArray(albumsJson?.data) ? albumsJson.data : [];
     if (!albums.length) {
+      if (await serveLastKnownGoodAlbum(res, "FB returned an empty albums list")) return;
       return res.json({ albumId: null, photos: [] });
     }
     // sort by created_time desc (fallback if missing)
@@ -1197,6 +1257,7 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
     const photosJson = await photosRes.json();
     if (!photosRes.ok) {
       console.error("[FB latest album photos error]", photosJson);
+      if (await serveLastKnownGoodAlbum(res, "FB photos fetch errored")) return;
       return res.status(502).json({
         error: "Facebook API error",
         ...(process.env.NODE_ENV !== "production" && { upstream: photosJson }),
@@ -1213,20 +1274,41 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
         : [],
     }));
 
+    // A resolved album with ZERO photos is either a flap or a just-created
+    // album whose photos are still uploading — don't cache it, don't dispatch
+    // cutouts for it, and prefer the last-known-good answer.
+    if (!norm.length) {
+      if (await serveLastKnownGoodAlbum(res, `album ${albumId} has no photos (yet)`)) return;
+      return res.json({ albumId, photos: [] });
+    }
+
     latestAlbumCache.at = Date.now();
     latestAlbumCache.albumId = albumId;
     latestAlbumCache.photos = norm;
+
+    // Persist last-known-good for other instances / future restarts (Firestore
+    // doc limit is 1MB — skip persistence rather than crash on a huge album).
+    try {
+      const blob = JSON.stringify(norm);
+      if (blob.length < 900_000) {
+        latestAlbumFsRef()
+          .set({ albumId, photos: norm, at: Date.now() })
+          .catch((e) => console.warn("[FB latest album] LKG persist failed:", e?.message || e));
+      }
+    } catch (_) {}
 
     // If this is a NEW latest album, ask the off-site job to (re)generate the
     // transparent cutouts now. The "already handled this album?" check is
     // persisted in Firestore (maybeDispatchCutoutRefresh), so it fires exactly
     // once across restarts/instances and isn't tied to this route being hit.
-    // Fire-and-forget: never affects the album response.
+    // Fire-and-forget: never affects the album response. (norm.length > 0 here,
+    // so we never dispatch for a photo-less album.)
     maybeDispatchCutoutRefresh(albumId).catch(() => {});
 
     return res.json({ albumId, photos: norm });
   } catch (err) {
     console.error("[FB latest album exception]", err);
+    if (await serveLastKnownGoodAlbum(res, "FB request threw")) return;
     return res.status(500).json({
       error: "Facebook request failed",
       ...(process.env.NODE_ENV !== "production" && { message: String(err?.message || err) }),
