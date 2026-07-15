@@ -108,7 +108,11 @@ expected to finish in ~1–3 min (dominated by per-doc subcollection probing).
       Render → Telegram "Backup ok · 3689 docs · 258 KB gz · 39.2s"; no-auth → 401.
       NOTE: required setting EDGE_SHARED_SECRET on Render — it had never been set there,
       which also unblocks watchdog incident intake. First real cron proof: tomorrow ~03:05.)
-- [ ] BDR3 restore tool + drill evidence
+- [x] BDR3 restore tool + drill evidence
+      (drill 2026-07-15 17:5x +08: `node scripts/firestore-restore.js --drill` →
+      "drill PASS · 3689/3689 docs restored · spot-check 60/60 ok · sha 19/19 ok ·
+      cleaned up 19 drill_* collections". Dry-run: 19/19 sha✓ count✓.
+      Engine now excludes drill_* from snapshots.)
 - [x] BDR4 storage manifest/mirror (verified: 185/185 mirrored once, then "0/185 copied" on re-run = md5 dedup)
 - [ ] BDR5 off-cloud pull
 - [ ] BDR6 config/secrets inventory
