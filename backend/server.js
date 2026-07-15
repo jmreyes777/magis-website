@@ -49,8 +49,27 @@ if (!fetchFn) {
 const fetch = fetchFn;
 
 // --- Global Error Catchers for Process-Level Failures ---
+// OBS2: page the operator (throttled by securityAlerts' per-hour cap) — an
+// uncaught exception in production is exactly what alerting exists for. The
+// require is lazy and the call fire-and-forget so this can never crash the
+// crash handler.
+function alertBackendException(kind, err) {
+  try {
+    const msg = err && err.message ? String(err.message) : String(err || "");
+    const stack = err && err.stack ? String(err.stack).split("\n").slice(0, 4).join("\n") : "";
+    console.log(JSON.stringify({ t: "berr", kind, message: msg.slice(0, 300), at: new Date().toISOString() }));
+    const { sendSecurityAlert } = require("./utils/securityAlerts");
+    sendSecurityAlert("backend-exception", `Backend ${kind} in production`, [
+      `error: ${msg.slice(0, 200)}`,
+      stack ? `stack: ${stack.slice(0, 400)}` : "stack: (none)",
+      "action: check Render logs around this time; filter for '\"t\":\"berr\"'",
+    ]);
+  } catch { /* best-effort */ }
+}
+
 process.on("uncaughtException", (err) => {
   console.error("Uncaught Exception:", err);
+  alertBackendException("uncaughtException", err);
 });
 // Redis-related rejections must NOT crash the process, but they must also NOT
 // be silently hidden (P2-1): a swallowed error is precisely how rate-limiting
@@ -90,7 +109,38 @@ process.on("unhandledRejection", (reason, p) => {
     return; // do not crash; degradation is logged (throttled) above
   }
   console.error("Unhandled Rejection:", reason);
+  alertBackendException("unhandledRejection", reason);
 });
+
+// ── OBS2: 5xx spike detector ─────────────────────────────────────────────────────
+// Counts responses with status >= 500 in a rolling 15-min window (in-memory:
+// a spike on ANY instance is worth an alert; sendSecurityAlert dedupes across
+// instances via its Redis-backed per-rule hourly cap). Fires once per window.
+const OBS_5XX_THRESHOLD = Math.max(parseInt(process.env.OBS_5XX_THRESHOLD, 10) || 15, 3);
+const OBS_5XX_WINDOW_MS = 15 * 60 * 1000;
+let __fiveXxCount = 0;
+let __fiveXxWindowStart = Date.now();
+let __fiveXxAlerted = false;
+function noteFiveXx(req, statusCode) {
+  const now = Date.now();
+  if (now - __fiveXxWindowStart >= OBS_5XX_WINDOW_MS) {
+    __fiveXxWindowStart = now;
+    __fiveXxCount = 0;
+    __fiveXxAlerted = false;
+  }
+  __fiveXxCount += 1;
+  if (__fiveXxCount >= OBS_5XX_THRESHOLD && !__fiveXxAlerted) {
+    __fiveXxAlerted = true;
+    try {
+      const { sendSecurityAlert } = require("./utils/securityAlerts");
+      sendSecurityAlert("backend-5xx-spike", `Backend 5xx spike: ${__fiveXxCount}+ errors in 15 min`, [
+        `latest: ${req.method} ${req.originalUrl || req.url} -> ${statusCode}`,
+        `threshold: ${OBS_5XX_THRESHOLD}/15min`,
+        "action: check Render logs / the Observability dashboard",
+      ]);
+    } catch { /* best-effort */ }
+  }
+}
 
 // ── P2-1: Infra readiness self-check ────────────────────────────────────────
 // In production/staging, Redis backs cluster-safe rate-limiting AND JWT
@@ -297,6 +347,15 @@ if (process.env.NODE_ENV !== "production") {
   );
 }
 
+// ── OBS2: observe every response for the 5xx spike detector ─────────────────
+// One 'finish' listener per request; counting only, never mutates the response.
+app.use((req, res, next) => {
+  res.on("finish", () => {
+    if (res.statusCode >= 500) noteFiveXx(req, res.statusCode);
+  });
+  next();
+});
+
 // ── Advertise HTTP/3 (QUIC) via Alt-Svc header ──────────────────────────────
 // Caddy already sets this at the proxy layer; this ensures it's also present
 // on direct Node connections (e.g. local dev without Caddy).
@@ -439,6 +498,10 @@ const branchAuthRoutes = require("./routes/branchAuth");
 const webauthnRoutes = require("./routes/webauthn");
 // SPD0-2 (speed megaplan): Web Vitals RUM intake (public, log-only, tiny).
 const rumRoutes = require("./routes/rum");
+// OBS1 (observability megaplan): client error telemetry intake (public, tiny).
+const clientErrorRoutes = require("./routes/clientErrors");
+// OBS4/OBS6: observability read API (super-admin) + edge incident intake.
+const obsRoutes = require("./routes/obs");
 // P1-4: per-IP throttle on guest-session creation — bot/abuse mitigation on the
 // public /init endpoint. Redis-backed for multi-instance correctness (degrades
 // to in-memory if Redis is down); tunable via env. NOTE: effectiveness depends
@@ -488,6 +551,24 @@ const rumLimiter = rateLimit({
   }),
 });
 app.use("/api/rum", rumLimiter, rumRoutes);
+
+// OBS1: client-error beacons — same contract as RUM (204 + one log line) but
+// far rarer in healthy operation, so a tighter per-IP cap. The reporter also
+// dedupes and caps per-session client-side; this is the abuse backstop.
+const clientErrorLimiter = rateLimit({
+  windowMs: Number(process.env.CERR_RL_WINDOW_MS) || 10 * 60 * 1000,
+  max: Number(process.env.CERR_RL_MAX) || 15,
+  standardHeaders: false,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  message: "",
+  store: new RedisStore({
+    prefix: "rl:cerr:",
+    sendCommand: (...args) => getRedis().call(...args),
+  }),
+});
+app.use("/api/client-errors", clientErrorLimiter, clientErrorRoutes);
+app.use("/api/obs", obsRoutes);
 
 // Public "Contact Us" form: per-IP anti-spam throttle. The submission is stored
 // in Firestore (+ optional email notify) with NO auth, so this limiter and the
@@ -1387,10 +1468,26 @@ app.post("/api/guest/force-close", async (req, res) => {
 app.get("/health", (req, res) => {
   // Probes must always see live state — never cache the health response.
   res.set("Cache-Control", "no-store");
+  // OBS2: enriched (still tiny, no secrets). `redis` reflects configuration +
+  // live connection status without awaiting a ping (probes must stay instant).
+  let redis = "off";
+  try {
+    if (isRedisConfigured()) {
+      redis = getRedis().status === "ready" ? "ok" : "degraded";
+    }
+  } catch {
+    redis = "degraded";
+  }
+  let version = null;
+  try { version = require("./package.json").version || null; } catch { /* optional */ }
   res.status(200).json({
     status: "ok",
     uptime: process.uptime(),
     timestamp: Date.now(),
+    rssMb: Math.round(process.memoryUsage().rss / 1048576),
+    redis,
+    node: process.version,
+    version,
   });
 });
 

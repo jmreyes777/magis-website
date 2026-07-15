@@ -19,6 +19,7 @@ const BranchPasswords = lazy(() => import("./pages/Admin-Page-Branch-Passwords")
 const BranchChatDashboard = lazy(() => import("./pages/Branch-Chat-Dashboard"));
 const BranchAdminAnalytics = lazy(() => import("./pages/BranchAdmin-Analytics-Page"));
 const AuditDashboard = lazy(() => import("./pages/Audit-Dashboard-Page"));
+const Observability = lazy(() => import("./pages/Observability-Page")); // OBS6 (observability megaplan)
 const PasskeySettings = lazy(() => import("./pages/Passkey-Settings-Page")); // Phase 5 (flag-gated)
 const LandingPage = lazy(() => import("./pages/LandingPage")); // Neutral landing page
 
@@ -140,6 +141,17 @@ const RoutesComponent = () => {
                 element={
                   <ProtectedRoute>
                     <AuditDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* OBS6: site observability — uptime, Web Vitals, client errors.
+                  Super-admin only (the backend enforces it too). */}
+              <Route
+                path="/admin/observability"
+                element={
+                  <ProtectedRoute requiredRole="superadmin">
+                    <Observability />
                   </ProtectedRoute>
                 }
               />

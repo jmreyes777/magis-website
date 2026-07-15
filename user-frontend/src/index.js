@@ -10,10 +10,13 @@ import { AuthProvider } from "./contexts/AuthContext";
 import App, { preloadRouteForPath } from "./App";
 import "./index.css";
 import reportWebVitals from "./reportWebVitals";
+import reportClientError from "./utils/errorReporter";
 
 // ✅ Prevent potential memory leaks from unhandled promise rejections
+// OBS1: also beacon to /api/client-errors (prod-only, deduped, capped).
 window.addEventListener("unhandledrejection", (event) => {
   console.error("[SECURITY] Unhandled Promise Rejection:", event.reason);
+  reportClientError("rejection", event.reason);
   event.preventDefault();
 });
 
@@ -24,6 +27,11 @@ window.addEventListener("error", (event) => {
     event.message,
     event.filename,
     event.lineno
+  );
+  reportClientError(
+    "error",
+    event.error || event.message,
+    event.filename ? `${event.filename}:${event.lineno || 0}` : undefined
   );
 });
 
@@ -52,12 +60,22 @@ const appTree = (
 // lazy chunk is preloaded FIRST so nothing suspends during hydration (React 18
 // can't hydrate a suspending boundary over client-captured HTML). Plain SPA
 // shell (empty #root) keeps the exact createRoot path used before.
+// OBS1: onRecoverableError surfaces prod hydration mismatches (React #418/#423
+// recoveries) that are otherwise silent — the direct watchdog for the SEO
+// prerender invariants. Console noise is left to React; we just beacon.
+const recoverable = (kind) => (error, errorInfo) =>
+  reportClientError(kind, error, errorInfo && errorInfo.componentStack);
+
 if (container.hasChildNodes()) {
   preloadRouteForPath(window.location.pathname).then(() => {
-    ReactDOM.hydrateRoot(container, appTree);
+    ReactDOM.hydrateRoot(container, appTree, {
+      onRecoverableError: recoverable("hydration"),
+    });
   });
 } else {
-  ReactDOM.createRoot(container).render(appTree);
+  ReactDOM.createRoot(container, {
+    onRecoverableError: recoverable("recoverable"),
+  }).render(appTree);
 }
 
 // ────────────────────────────────────────────────────────────────────────────

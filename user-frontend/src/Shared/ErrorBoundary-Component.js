@@ -1,6 +1,7 @@
 //magis-project/user-frontend/src/Shared/ErrorBoundary-Component.js
 
 import React, { Component } from 'react';
+import reportClientError from '../utils/errorReporter';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -14,6 +15,8 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("Error caught by ErrorBoundary:", error, errorInfo);
+    // OBS1: render-crash telemetry (prod-only, deduped, capped in the reporter).
+    reportClientError("boundary", error, errorInfo && errorInfo.componentStack);
   }
 
   render() {

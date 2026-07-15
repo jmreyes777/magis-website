@@ -9,6 +9,7 @@ const AdminNavigation = ({ currentPage }) => {
   const navItems = [
     { path: '/admin/chats', label: 'Chat Dashboard', roles: ['branchadmin'] },
     { path: '/admin/audit', label: 'Audit Log', roles: ['branchadmin', 'superadmin'] },
+    { path: '/admin/observability', label: 'Observability', roles: ['superadmin'] },
     { path: '/admin/branches', label: 'Branch Management', roles: ['superadmin'] },
   ];
 

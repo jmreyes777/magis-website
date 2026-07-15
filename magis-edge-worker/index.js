@@ -595,24 +595,193 @@ addEventListener("fetch", (event) =>
   event.respondWith(handle(event.request, event))
 );
 
-// ── SPD1-1 (speed megaplan): keep-warm cron ──────────────────────────────────
-// Render free-tier services spin down after ~15 min idle; the first visitor
-// then waits 30-60s. A */10 cron ping keeps the backend (and its Firestore/
-// Redis connections) warm for $0. Trigger is registered by deploy-api.mjs.
-// Static hosts don't spin down, so only BACKEND_URL needs the ping.
+// ── SPD1-1 keep-warm + OBS4 uptime watchdog ──────────────────────────────────
+// The */5 cron (registered by deploy-api.mjs) does double duty:
+//   1. Keep-warm: the /health GET itself keeps the Render backend (and its
+//      Firestore/Redis connections) warm for $0 — SPD1-1 behavior preserved.
+//   2. Watchdog: check results are now ACTED on. Two consecutive failures
+//      (≈10 min — one failure can be a cold-start timeout) send a Telegram
+//      alert DIRECTLY from the edge (the backend's own alerting is useless
+//      while the backend is down). While down, re-alerts are KV-throttled to
+//      one per 30 min per target; on recovery a "recovered" message is sent
+//      and the incident window is recorded via POST /api/obs/incidents —
+//      safe by definition, the backend just came back.
+//
+// State lives in RATE_LIMIT_KV under obs:st:* — written ONLY on unhealthy
+// transitions (healthy steady state = 1 read, 0 writes per target per run,
+// so the KV free-tier write budget is untouched by normal operation).
+//
+// Optional bindings (all typeof-guarded — absent bindings degrade gracefully):
+//   ALERT_TELEGRAM_BOT_TOKEN / ALERT_TELEGRAM_CHAT_ID  → Telegram transport
+//   WATCH_SITE_URL  → public-site check (bind on the PRODUCTION worker only,
+//                     so staging doesn't double-alert on the prod site)
+//   OBS_SHARED_SECRET → incident intake proof (falls back to EDGE_SHARED_SECRET)
+const OBS_FAILS_TO_ALERT = 2;
+const OBS_REALERT_MS = 30 * 60 * 1000;
+const OBS_STATE_TTL_SEC = 7 * 86400;
+
 addEventListener("scheduled", (event) => {
-  event.waitUntil(keepWarm());
+  event.waitUntil(healthWatch());
 });
 
-async function keepWarm() {
-  try {
-    const res = await fetch(`${BACKEND_URL}/health`, {
-      headers: { "User-Agent": "magis-edge-keepwarm" },
-      signal: AbortSignal.timeout(50_000), // survive a cold start once
+async function healthWatch() {
+  const targets = [
+    {
+      name: "backend",
+      check: async () => {
+        const res = await fetch(`${BACKEND_URL}/health`, {
+          headers: { "User-Agent": "magis-edge-watchdog" },
+          signal: AbortSignal.timeout(50_000), // survive a cold start once
+        });
+        console.log(`[watchdog] backend /health -> ${res.status}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const body = await res.json().catch(() => null);
+        if (body && body.status && body.status !== "ok")
+          throw new Error(`status=${body.status}`);
+      },
+    },
+  ];
+  if (typeof WATCH_SITE_URL !== "undefined" && WATCH_SITE_URL) {
+    targets.push({
+      name: "site",
+      check: async () => {
+        const res = await fetch(WATCH_SITE_URL, {
+          headers: { "User-Agent": "magis-edge-watchdog" },
+          signal: AbortSignal.timeout(20_000),
+          cf: { cacheTtl: 0 },
+        });
+        console.log(`[watchdog] site -> ${res.status}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      },
     });
-    console.log(`[keep-warm] /health -> ${res.status}`);
+  }
+
+  for (const t of targets) {
+    try {
+      await t.check();
+      await watchdogHealthy(t.name);
+    } catch (e) {
+      await watchdogUnhealthy(t.name, e && e.message ? e.message : String(e));
+    }
+  }
+}
+
+function obsKvReady() {
+  return typeof RATE_LIMIT_KV !== "undefined" && !!RATE_LIMIT_KV;
+}
+
+async function watchdogHealthy(name) {
+  if (!obsKvReady()) return;
+  try {
+    const key = `obs:st:${name}`;
+    const raw = await RATE_LIMIT_KV.get(key);
+    if (!raw) return; // healthy → healthy: no write
+    const st = JSON.parse(raw);
+    await RATE_LIMIT_KV.delete(key);
+    if (!st.downAlerted) return; // blip recovered before anyone was paged
+    const downSince = st.downSince || new Date().toISOString();
+    const durationMin = Math.max(1, Math.round((Date.now() - Date.parse(downSince)) / 60000));
+    await sendWatchdogTelegram(
+      `✅ RECOVERED: ${name} is back up after ~${durationMin} min (down since ${downSince}, ${st.fails || "?"} failed checks).`
+    );
+    await recordIncident({
+      target: name,
+      downSince,
+      upAt: new Date().toISOString(),
+      durationMin,
+      checksFailed: st.fails || 0,
+      lastError: st.lastError || null,
+    });
   } catch (e) {
-    console.log(`[keep-warm] failed: ${e.message}`);
+    console.log(`[watchdog] recovery handling failed: ${e.message}`);
+  }
+}
+
+async function watchdogUnhealthy(name, errMsg) {
+  console.log(`[watchdog] ${name} check FAILED: ${errMsg}`);
+  if (!obsKvReady()) return; // no state store → keep-warm logging only
+  try {
+    const key = `obs:st:${name}`;
+    const raw = await RATE_LIMIT_KV.get(key);
+    const st = raw ? JSON.parse(raw) : { fails: 0, downSince: null, downAlerted: false, lastAlertAt: 0 };
+    st.fails = (st.fails || 0) + 1;
+    st.downSince = st.downSince || new Date().toISOString();
+    st.lastError = String(errMsg || "").slice(0, 200);
+
+    const shouldAlert =
+      st.fails >= OBS_FAILS_TO_ALERT &&
+      Date.now() - (st.lastAlertAt || 0) >= OBS_REALERT_MS;
+    if (shouldAlert) {
+      const sent = await sendWatchdogTelegram(
+        `🚨 DOWN: ${name} has failed ${st.fails} consecutive checks (since ${st.downSince}).\n` +
+          `last error: ${st.lastError}\n` +
+          (name === "backend"
+            ? "Impact: chat, contact form and admin APIs are unavailable. Check the Render dashboard."
+            : "Impact: the public site is unreachable. Check the Render dashboard / Cloudflare.")
+      );
+      if (sent) {
+        st.lastAlertAt = Date.now();
+        st.downAlerted = true;
+      }
+    }
+    await RATE_LIMIT_KV.put(key, JSON.stringify(st), { expirationTtl: OBS_STATE_TTL_SEC });
+  } catch (e) {
+    console.log(`[watchdog] failure handling failed: ${e.message}`);
+  }
+}
+
+async function sendWatchdogTelegram(text) {
+  if (
+    typeof ALERT_TELEGRAM_BOT_TOKEN === "undefined" || !ALERT_TELEGRAM_BOT_TOKEN ||
+    typeof ALERT_TELEGRAM_CHAT_ID === "undefined" || !ALERT_TELEGRAM_CHAT_ID
+  ) {
+    console.log("[watchdog] Telegram not configured — alert suppressed:", text.slice(0, 120));
+    return false;
+  }
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${ALERT_TELEGRAM_BOT_TOKEN}/sendMessage`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: ALERT_TELEGRAM_CHAT_ID, text }),
+        signal: AbortSignal.timeout(10_000),
+      }
+    );
+    console.log(`[watchdog] telegram -> ${res.status}`);
+    return res.ok;
+  } catch (e) {
+    console.log(`[watchdog] telegram failed: ${e.message}`);
+    return false;
+  }
+}
+
+async function recordIncident(incident) {
+  // X-Obs-Auth proves "sent BY the edge cron" (X-Edge-Auth alone is attached
+  // to every proxied public request, so it must also be present to pass the
+  // backend's global /api gate, but is not sufficient proof by itself).
+  const obsSecret =
+    (typeof OBS_SHARED_SECRET !== "undefined" && OBS_SHARED_SECRET) ||
+    (typeof EDGE_SHARED_SECRET !== "undefined" && EDGE_SHARED_SECRET) ||
+    "";
+  if (!obsSecret) return;
+  try {
+    const headers = {
+      "Content-Type": "application/json",
+      "User-Agent": "magis-edge-watchdog",
+      "X-Obs-Auth": obsSecret,
+    };
+    if (typeof EDGE_SHARED_SECRET !== "undefined" && EDGE_SHARED_SECRET)
+      headers["X-Edge-Auth"] = EDGE_SHARED_SECRET;
+    const res = await fetch(`${BACKEND_URL}/api/obs/incidents`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(incident),
+      signal: AbortSignal.timeout(15_000),
+    });
+    console.log(`[watchdog] incident recorded -> ${res.status}`);
+  } catch (e) {
+    console.log(`[watchdog] incident record failed: ${e.message}`);
   }
 }
 

@@ -1,0 +1,114 @@
+# Observability megaplan OBS5 — post-deploy verification.
+#
+# Render auto-deploys on push to main but reports failures nowhere the operator
+# reliably looks. This workflow waits for the deploy to settle, then asserts —
+# through the production edge worker, exactly as users and crawlers see it —
+# that the site is up, the prerendered HTML survived the build (SEO megaplan
+# invariant), and the backend answers. On failure it pages Telegram (optional
+# secrets) and fails the job (GitHub also emails the committer).
+#
+# Optional repo secrets:
+#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID — same bot as the backend/worker
+#   alerts. Absent secrets just skip the Telegram step.
+name: Post-deploy verify
+
+# TODO(prod cutover): re-enable the push trigger once www.magispawnshop.com
+# serves the new stack (today it returns 200 but without prerender/JSON-LD,
+# so every push would false-alarm). Until then: manual runs only.
+on:
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "user-frontend/**"
+  #     - "backend/**"
+  #     - "magis-edge-worker/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Wait for Render deploy to settle
+        run: sleep 300
+
+      - name: Verify production through the edge worker
+        shell: bash
+        run: |
+          set -uo pipefail
+          ORIGIN="https://www.magispawnshop.com"
+          FAILS=""
+
+          fetch_body() { curl -sL --max-time 30 -A "magis-post-deploy-verify" "$1" || true; }
+          fetch_code() { curl -sL --max-time 30 -A "magis-post-deploy-verify" -o /dev/null -w "%{http_code}" "$1" || echo "000"; }
+
+          check() { # name, condition (0=ok)
+            if [ "$2" -eq 0 ]; then echo "OK   $1"; else echo "FAIL $1"; FAILS="$FAILS\n- $1"; fi
+          }
+
+          # Deploys can land anywhere in the wait window — retry the first
+          # (cheapest) probe until it passes before running the full suite.
+          for i in $(seq 1 10); do
+            CODE=$(fetch_code "$ORIGIN/")
+            [ "$CODE" = "200" ] && break
+            echo "attempt $i: / -> $CODE; retrying in 30s"
+            sleep 30
+          done
+
+          CODE=$(fetch_code "$ORIGIN/")
+          check "home returns 200 (got $CODE)" $([ "$CODE" = "200" ]; echo $?)
+
+          # "/" is intentionally NOT prerendered (time-dependent widgets —
+          # see scripts/prerender.mjs); it must still carry static JSON-LD.
+          HOME_HTML=$(fetch_body "$ORIGIN/")
+          echo "$HOME_HTML" | grep -q 'application/ld+json'
+          check "home has JSON-LD structured data" $?
+
+          # Prerender invariant on a snapshot route: #root must contain markup
+          # (an empty <div id="root"></div> means the SPA shell shipped instead).
+          PAWN_HTML=$(fetch_body "$ORIGIN/pawning")
+          echo "$PAWN_HTML" | grep -q 'id="root"' && ! echo "$PAWN_HTML" | grep -q '<div id="root"></div>'
+          check "/pawning prerender non-empty #root" $?
+
+          # Backend origin health (60s timeout survives one cold start).
+          HEALTH=$(curl -sL --max-time 60 -A "magis-post-deploy-verify" "https://magis-website.onrender.com/health" || true)
+          echo "$HEALTH" | grep -q '"status":"ok"'
+          check "backend /health status ok" $?
+
+          CODE=$(fetch_code "$ORIGIN/sitemap.xml")
+          check "sitemap returns 200 (got $CODE)" $([ "$CODE" = "200" ]; echo $?)
+
+          GUIDE_HTML=$(fetch_body "$ORIGIN/guides/how-to-pawn")
+          echo "$GUIDE_HTML" | grep -q 'application/ld+json'
+          check "guide page prerender/meta present" $?
+
+          if [ -n "$FAILS" ]; then
+            echo -e "Failed checks:$FAILS"
+            echo -e "$FAILS" > /tmp/fails.txt
+            exit 1
+          fi
+          echo "All post-deploy checks passed."
+
+      - name: Telegram alert on failure
+        if: failure()
+        shell: bash
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          set -uo pipefail
+          if [ -z "${TG_TOKEN:-}" ] || [ -z "${TG_CHAT:-}" ]; then
+            echo "Telegram secrets not set — skipping (GitHub will still email the committer)."
+            exit 0
+          fi
+          FAILS=$(cat /tmp/fails.txt 2>/dev/null || echo "(see workflow log)")
+          TEXT="🚨 Post-deploy verify FAILED on main ($GITHUB_SHA)
+          Failed checks:$FAILS
+          Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          curl -s --max-time 15 -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+            -H "Content-Type: application/json" \
+            --data "$(printf '{"chat_id":"%s","text":%s}' "$TG_CHAT" "$(printf '%s' "$TEXT" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')")" \
+            || echo "::warning::Telegram send failed"
