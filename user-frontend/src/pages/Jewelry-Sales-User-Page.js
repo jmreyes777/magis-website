@@ -207,22 +207,89 @@ export default function JewelrySales() {
     { key: "pendants",  label: "Pendant",  src: `${BASE}/images/pendant.png`,   alt: "Gold pendants" },
   ];
 
+  // Answers may be a string or an array of paragraphs (rendered as separate
+  // <p>s; joined for the FAQPage JSON-LD text).
   const faqs = [
     {
-      q: "What karat gold do you sell?",
-      a: "Most pieces are 10K–24K. Ask our staff for the karat and weight marked on the tag.",
+      q: "What is Subasta?",
+      a: [
+        "Subasta jewelry refers to pre-owned pieces that have been acquired through pawnshop auction or unclaimed collateral. These items are carefully selected for resale based on their condition, design, and overall value.",
+        "At Magi’s, Subasta pieces are offered as a practical way to buy real gold jewelry at more accessible price points. As with any pre-owned jewelry, minor signs of previous use may be present unless otherwise stated.",
+      ],
     },
     {
-      q: "Are prices negotiable?",
-      a: "Prices are transparent and already discounted. Promotions may apply — just ask our team.",
+      q: "Is your jewelry authentic gold?",
+      a: [
+        "Yes, we sell real gold jewelry. Our pieces are checked and classified according to their gold purity before being offered for sale.",
+        "If you have questions about a specific item’s karat, weight, or condition, our team will be happy to explain the details before you purchase.",
+      ],
     },
     {
-      q: "Do you offer repairs or cleaning?",
-      a: "Basic cleaning or resizing may be available at select branches or partner shops.",
+      q: "What gold karats do you sell?",
+      a: [
+        "We usually carry 14K, 18K, and 21K gold jewelry, and other karats depending on current availability.",
+        "Stock may vary by branch or release, so if you are looking for a specific karat, it is best to ask our staff directly.",
+      ],
     },
     {
-      q: "Can I return or exchange an item?",
-      a: "For hygiene and valuation reasons, sales are final. Items are inspected before release.",
+      q: "What is value-tier gold?",
+      a: [
+        "Value-tier gold refers to genuine gold jewelry selected for buyers who want lower entry price points while still purchasing real gold.",
+        "These pieces may be lighter in weight, simpler in design, or priced more accessibly than premium selections. They are a good option for everyday wear, gifting, or budget-conscious buying.",
+      ],
+    },
+    {
+      q: "Are your prices negotiable?",
+      a: [
+        "Some items may have a little room for adjustment, while others are already priced at their best available rate.",
+        "If you are interested in a piece, feel free to ask politely. Our team can let you know if there is any flexibility based on the item, payment arrangement, and current pricing.",
+      ],
+    },
+    {
+      q: "Do you offer cleaning or repairs?",
+      a: [
+        "Our standard Subasta items are cleaned and polished in-house on a monthly basis and displayed in their best available condition.",
+        "We do not offer in-house repair services. Value-Tier items are sold as-is. If you need alteration, repair, or customization after purchase, we can recommend trusted goldsmith partners.",
+      ],
+    },
+    {
+      q: "Do you accept returns or exchanges?",
+      a: [
+        "Because jewelry is a personal and high-value item, returns and exchanges are handled with care and subject to store policy.",
+        "If there is an issue with your purchase, please contact us as soon as possible. We will review the concern based on the item’s condition, the time since purchase, and the nature of the issue. Approval is not automatic, but we aim to handle concerns fairly and clearly.",
+      ],
+    },
+    {
+      q: "Can I reserve an item or place it on layaway?",
+      a: [
+        "Yes. Selected items may be placed on reservation or layaway, subject to approval and payment terms.",
+        "Reservation and layaway help secure a piece while you complete payment within the agreed period. Availability, down payment amount, and schedule may vary depending on the item.",
+      ],
+    },
+    {
+      q: "How does the 2-week reservation plan work?",
+      a: [
+        "Our 2-week reservation plan is for customers who want to secure an item and complete payment within a short period.",
+        "In most cases:",
+        "• A down payment is required to reserve the item",
+        "• The balance must be paid within 14 days",
+        "• The item remains on hold while payments are updated under the agreed terms",
+        "If payment is not completed on time, the reservation may be released according to store policy. Please confirm the exact terms with our team before making a down payment.",
+      ],
+    },
+    {
+      q: "Do you offer an extended layaway plan?",
+      a: [
+        "Yes, we offer extended layaway for selected items, depending on the value of the jewelry and the payment arrangement approved.",
+        "Extended layaway allows a longer payment period than the standard 2-week option. Terms such as down payment, installment schedule, and holding period will be explained before confirmation so expectations are clear on both sides.",
+      ],
+    },
+    {
+      q: "Can I take the jewelry home after making a downpayment?",
+      a: [
+        "In this case, no. Jewelry under reservation or layaway remains with Magi’s until the full payment has been completed.",
+        "This helps protect both the customer and the store by making sure the item is properly secured until the sale is fully settled.",
+      ],
     },
   ];
 
@@ -233,7 +300,7 @@ export default function JewelrySales() {
     mainEntity: faqs.map((f) => ({
       "@type": "Question",
       name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
+      acceptedAnswer: { "@type": "Answer", text: Array.isArray(f.a) ? f.a.join("\n\n") : f.a },
     })),
   };
 
@@ -383,9 +450,16 @@ export default function JewelrySales() {
                 className="jewelry-accordion"
               >
                 <summary>{f.q}</summary>
-                <p className="jewelry-accordion-text">{f.a}</p>
+                {(Array.isArray(f.a) ? f.a : [f.a]).map((para, j) => (
+                  <p key={j} className="jewelry-accordion-text">{para}</p>
+                ))}
               </details>
             ))}
+            <p className="jewelry-section-subtitle" style={{ marginTop: "1.5rem" }}>
+              If you have questions about a specific piece, payment option, or returns
+              request, message Magi’s directly so we can guide you based on current
+              availability and branch policy.
+            </p>
           </div>
         </section>
 
@@ -421,7 +495,7 @@ export default function JewelrySales() {
 
             <div className="jewelry-terms-card">
               <p className="jewelry-terms-item">
-                <strong>Final Sale:</strong> Sales are final. Repairs/exchanges follow policy.
+                <strong>Returns &amp; Exchanges:</strong> Handled with care and subject to store policy — contact us promptly about any concern.
               </p>
               <p className="jewelry-terms-item">
                 <strong>Availability:</strong> Stocks differ per branch; some items may sell quickly.
