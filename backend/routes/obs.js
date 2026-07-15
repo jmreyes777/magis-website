@@ -130,6 +130,22 @@ router.get("/summary", authenticateSuperAdmin, async (req, res) => {
     out.clientErrorsError = e.message;
   }
 
+  // 3.5) Backup status (BDR2): last-run summary + staleness (>26h = red card;
+  // the daily run leaves ~2h of slack before this trips).
+  try {
+    const st = await db.collection("backups").doc("status").get();
+    if (st.exists) {
+      const s = st.data();
+      const ageMs = Date.now() - new Date(s.at).getTime();
+      out.backup = { ...s, ageHours: Math.round(ageMs / 3600_000), stale: ageMs > 26 * 3600_000 };
+    } else {
+      out.backup = null; // never ran
+    }
+  } catch (e) {
+    out.backup = null;
+    out.backupError = e.message;
+  }
+
   // 4) Recent uptime incidents (OBS4 watchdog).
   try {
     const snap = await db

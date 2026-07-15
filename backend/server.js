@@ -569,6 +569,9 @@ const clientErrorLimiter = rateLimit({
 });
 app.use("/api/client-errors", clientErrorLimiter, clientErrorRoutes);
 app.use("/api/obs", obsRoutes);
+// BDR2 (backup & DR megaplan): backup trigger — worker cron (X-Obs-Auth) or
+// superadmin JWT; see routes/backup.js. No limiter: both auths are private.
+app.use("/api/backup", require("./routes/backup"));
 
 // Public "Contact Us" form: per-IP anti-spam throttle. The submission is stored
 // in Firestore (+ optional email notify) with NO auth, so this limiter and the

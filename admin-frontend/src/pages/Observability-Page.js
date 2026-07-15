@@ -169,6 +169,20 @@ function Observability() {
               </p>
               <p className="text-xs text-gray-500 mt-2">beacons from the guest site</p>
             </div>
+            {/* BDR2 (backup & DR megaplan): daily snapshot freshness */}
+            <div className="admin-card">
+              <p className="text-sm font-medium text-gray-600">Backup</p>
+              <p className={`text-3xl font-bold ${
+                data?.backup?.ok && !data.backup.stale ? "text-green-600" : "text-red-600"
+              }`}>
+                {data?.backup ? (data.backup.ok ? (data.backup.stale ? "Stale" : "OK") : "Failed") : "None"}
+              </p>
+              <p className="text-xs text-gray-500 mt-2">
+                {data?.backup
+                  ? `${data.backup.date} · ${data.backup.docs} docs · ${Math.round((data.backup.gzBytes || 0) / 1024)} KB · ${data.backup.ageHours}h ago`
+                  : "no snapshot recorded yet"}
+              </p>
+            </div>
           </div>
 
           {/* Uptime incidents */}

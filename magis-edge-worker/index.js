@@ -632,7 +632,39 @@ const OBS_STATE_TTL_SEC = 7 * 86400;
 
 addEventListener("scheduled", (event) => {
   event.waitUntil(healthWatch());
+  event.waitUntil(dailyBackupTrigger());
 });
+
+// ── BDR2 (backup & DR megaplan): daily backup trigger ───────────────────────
+// Rides the existing */5 cron: on any tick at/after 19:00 UTC (03:00 Manila),
+// fire POST /api/backup/run exactly once per Manila day (KV-deduped, so a
+// missed 19:00 tick self-heals on the next tick). The backend answers 202 and
+// runs the snapshot in-process; success/failure lands in Telegram from there.
+async function dailyBackupTrigger() {
+  try {
+    if (!obsKvReady()) return;
+    if (new Date().getUTCHours() < 19) return; // before 03:00 Manila
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila" }).format(new Date());
+    const kvKey = `obs:backup:${day}`;
+    if (await RATE_LIMIT_KV.get(kvKey)) return; // already fired today
+
+    const secret = typeof OBS_SHARED_SECRET !== "undefined" && OBS_SHARED_SECRET
+      ? OBS_SHARED_SECRET
+      : EDGE_SHARED_SECRET;
+    const res = await fetch(`${BACKEND_URL}/api/backup/run`, {
+      method: "POST",
+      headers: { "X-Obs-Auth": secret, "User-Agent": "magis-edge-watchdog" },
+      signal: AbortSignal.timeout(20_000),
+    });
+    console.log(`[backup] trigger ${day} -> ${res.status}`);
+    // 202 started, 409 already running: both mean "covered today".
+    if (res.status === 202 || res.status === 409) {
+      await RATE_LIMIT_KV.put(kvKey, "1", { expirationTtl: 2 * 86400 });
+    }
+  } catch (e) {
+    console.log(`[backup] trigger failed: ${e.message}`); // next tick retries
+  }
+}
 
 async function healthWatch() {
   const targets = [
@@ -1102,6 +1134,11 @@ async function handle(request, event) {
     // (POST /api/obs/incidents is NOT proxied: the watchdog cron calls the
     // backend origin directly, and the backend demands X-Obs-Auth regardless.)
     (request.method === "GET" && pathname === "/api/obs/summary") ||
+    // BDR2: backup trigger — the daily cron calls the backend origin directly,
+    // but manual superadmin runs may come through the edge. The backend
+    // demands X-Obs-Auth or a superadmin JWT either way; this bypass only
+    // spares it the edge's branchadmin-JWT gate (same rationale as /api/obs).
+    (request.method === "POST" && pathname === "/api/backup/run") ||
     // Super-admin branch password management (/api/branch/admin*): a superadmin
     // token would be 403'd by the edge's branchadmin gate, so bypass like
     // /api/admin/staff — the backend's authenticateSuperAdmin authorizes it and
