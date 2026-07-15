@@ -221,8 +221,8 @@ const karatGuide = {
       heading: "Karat, explained simply",
       body: [
         "Pure gold is 24 karats (24K). Because pure gold is soft, jewelry mixes it with stronger metals — the karat tells you the proportion of gold in that mix: 18K is 18 parts gold out of 24 (75% gold, often stamped “750”), 21K is 87.5% gold (stamped “875”), and 24K is 99.9% pure gold (stamped “999”).",
-        "Common stamps on Philippine jewelry: “417” for 10K, “585” for 14K, “750” for 18K, “875” for 21K (also called “Saudi gold” colloquially), “916” for 22K, and “999” for 24K. Look inside rings, on clasp tags of necklaces, and on the posts of earrings.",
-        "We accept the full range — 10K, 12K, 14K, 18K, 21K, 22K, and 24K. A lower karat simply means a lower per-gram value, not a rejected item.",
+        "Common stamps on Philippine jewelry: “417” for 10K, “585” for 14K, “750” for 18K, “875” for 21K (also called “Saudi gold” colloquially), “916” for 22K, “965” for 23K (common on Thai gold), and “999” for 24K. Look inside rings, on clasp tags of necklaces, and on the posts of earrings.",
+        "We accept every karat from 10K to 24K — including the in-between purities like 12K, 14K, 16K, 20K, 22K, and 23K. A lower karat simply means a lower per-gram value, not a rejected item.",
       ],
     },
     {
@@ -243,7 +243,7 @@ const karatGuide = {
   faqs: [
     {
       q: "Tumatanggap ba kayo ng 10K o 14K gold?",
-      a: "Yes — we accept every karat from 10K to 24K (10K, 12K, 14K, 18K, 21K, 22K, 24K). Lower-karat items appraise at a lower per-gram value but are pawned and sold the same way.",
+      a: "Yes — we accept every karat from 10K to 24K, including in-between purities like 12K, 14K, 16K, 20K, 22K, and 23K. Lower-karat items appraise at a lower per-gram value but are pawned and sold the same way.",
     },
     {
       q: "Ano ang mas mataas na value, 18K o 21K?",
