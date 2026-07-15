@@ -41,7 +41,7 @@ function startRun(trigger) {
       // throttle; a manual re-run the same day is silently absorbed by it.
       sendSecurityAlert(
         `backup-heartbeat-${s.date}`,
-        `Backup ok · ${s.docs} docs · ${(s.gzBytes / 1024).toFixed(0)} KB gz`,
+        `✅ Backup ok · ${s.docs} docs · ${(s.gzBytes / 1024).toFixed(0)} KB gz`,
         [
           `snapshot: backups/firestore/${s.date}/`,
           `mirror: ${s.mirrorCopied}/${s.mirrorTotal} objects copied`,

@@ -91,7 +91,9 @@ async function deliver(title, lines) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chat_id: TG_CHAT,
-          text: `🚨 ${title}\n${text}`,
+          // BDR2: success heartbeats (e.g. "✅ Backup ok") bring their own
+          // leading emoji — only prepend the siren when the title has none.
+          text: `${/^[✅🟢ℹ]/u.test(title) ? "" : "🚨 "}${title}\n${text}`,
           disable_web_page_preview: true,
         }),
       })
