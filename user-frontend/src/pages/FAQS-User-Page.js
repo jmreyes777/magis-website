@@ -18,7 +18,7 @@ const COMPANY_FAQS = [
   },
   {
     q: "How much can I pawn my gold for? (Magkano ang pwedeng isangla ng ginto?)",
-    a: "Your loan is based on the piece’s purity (karat) and weight, valued at our posted appraisal rates—so higher-karat (18k, 21k, 22k) and heavier items appraise higher. Our rates are set below the prevailing gold market price so we can keep serving you sustainably; they are not a spot-market quote. Appraisal is free and on the spot, and the appraiser shows the amount before you decide.",
+    a: "Your loan is based on the piece’s purity (karat) and weight, valued at our posted appraisal rates—so higher-karat (18k, 21k, 22k) and heavier items appraise higher. We accept every karat from 10k to 24k—lower-karat pieces simply appraise at a lower per-gram value. Our rates are set below the prevailing gold market price so we can keep serving you sustainably; they are not a spot-market quote. Appraisal is free and on the spot, and the appraiser shows the amount before you decide.",
   },
   {
     q: "What is your interest rate? (Magkano ang patubo/interest?)",
@@ -42,7 +42,7 @@ const COMPANY_FAQS = [
   },
   {
     q: "What items can I pawn? Do you accept gadgets or appliances?",
-    a: "We specialize in gold jewelry only—we do not accept gadgets, cellphones, appliances, or vehicles. Acceptance still depends on authenticity, condition, and branch policy; we cannot accept stolen, counterfeit, or illegal items.",
+    a: "We specialize in gold jewelry only (every karat from 10k to 24k)—we do not accept gadgets, cellphones, appliances, or vehicles. Acceptance still depends on authenticity, condition, and branch policy; we cannot accept stolen, counterfeit, or illegal items.",
   },
   {
     q: "How is my gold appraised? Is appraisal free?",

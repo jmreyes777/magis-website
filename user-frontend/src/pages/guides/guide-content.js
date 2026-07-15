@@ -211,23 +211,24 @@ const karatGuide = {
   path: "/guides/gold-karat-guide",
   title: "Gold Karat Guide: 18K vs 21K vs 24K (Sangla Value) | Magis Gold & Gems",
   description:
-    "What 18K, 21K, and 24K gold mean, how to read karat stamps (750, 875, 999), and how karat affects how much you can pawn (magkano ang sangla ng 18k/21k gold).",
+    "What 18K, 21K, and 24K gold mean, how to read karat stamps (417, 585, 750, 875, 999), and how karat affects how much you can pawn. We accept every karat from 10K to 24K (magkano ang sangla ng 18k/21k gold).",
   eyebrow: "Gold karat guide",
   h1: "18K, 21K, 24K: what karat means for your gold's value.",
   lead:
-    "Karat measures how much pure gold your jewelry contains — and it's the single biggest factor in how much you can pawn or sell it for.",
+    "Karat measures how much pure gold your jewelry contains — and it's the single biggest factor in how much you can pawn or sell it for. Magis accepts every karat from 10K to 24K.",
   sections: [
     {
       heading: "Karat, explained simply",
       body: [
         "Pure gold is 24 karats (24K). Because pure gold is soft, jewelry mixes it with stronger metals — the karat tells you the proportion of gold in that mix: 18K is 18 parts gold out of 24 (75% gold, often stamped “750”), 21K is 87.5% gold (stamped “875”), and 24K is 99.9% pure gold (stamped “999”).",
-        "Common stamps on Philippine jewelry: “750” for 18K, “875” for 21K (also called “Saudi gold” colloquially), and “999” for 24K. Look inside rings, on clasp tags of necklaces, and on the posts of earrings.",
+        "Common stamps on Philippine jewelry: “417” for 10K, “585” for 14K, “750” for 18K, “875” for 21K (also called “Saudi gold” colloquially), “916” for 22K, and “999” for 24K. Look inside rings, on clasp tags of necklaces, and on the posts of earrings.",
+        "We accept the full range — 10K, 12K, 14K, 18K, 21K, 22K, and 24K. A lower karat simply means a lower per-gram value, not a rejected item.",
       ],
     },
     {
       heading: "Magkano ang sangla ng 18K o 21K gold?",
       body: [
-        "The loanable amount is computed from your item's karat and weight at the branch's posted rates — higher karat and heavier weight both raise the value. A 21K necklace outvalues an 18K one of the same weight because it contains more pure gold.",
+        "The loanable amount is computed from your item's karat and weight at the branch's posted rates — higher karat and heavier weight both raise the value. A 21K necklace outvalues an 18K one of the same weight because it contains more pure gold — but 10K and 14K pieces are just as welcome and appraise the same way.",
         "Since gold prices move daily, the accurate answer for your item comes from a free branch appraisal — you'll get the exact loanable amount, walang obligation.",
       ],
     },
@@ -240,6 +241,10 @@ const karatGuide = {
     },
   ],
   faqs: [
+    {
+      q: "Tumatanggap ba kayo ng 10K o 14K gold?",
+      a: "Yes — we accept every karat from 10K to 24K (10K, 12K, 14K, 18K, 21K, 22K, 24K). Lower-karat items appraise at a lower per-gram value but are pawned and sold the same way.",
+    },
     {
       q: "Ano ang mas mataas na value, 18K o 21K?",
       a: "21K — it contains 87.5% pure gold versus 75% for 18K, so at the same weight a 21K item appraises higher.",
@@ -338,6 +343,6 @@ export const GUIDES = {
 export const GUIDE_LINKS = [
   { to: goldPrices.path, label: "Gold Prices & Appraisal" },
   { to: howToPawn.path, label: "How to Pawn (Paano Mag-Sangla)" },
-  { to: karatGuide.path, label: "Gold Karat Guide (18K · 21K · 24K)" },
+  { to: karatGuide.path, label: "Gold Karat Guide (10K–24K accepted)" },
   { to: interestRates.path, label: "Interest Rates, Patubo & Tubos" },
 ];

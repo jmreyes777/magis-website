@@ -43,7 +43,7 @@ const PAWN_FAQ_JSONLD = {
       name: "What do I need to pawn my gold?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Bring your gold jewelry and one valid government-issued ID to any Magis branch. We appraise the karat, weight, and condition to determine a fair loan value.",
+        text: "Bring your gold jewelry and one valid government-issued ID to any Magis branch. We accept every karat from 10K to 24K and appraise the karat, weight, and condition to determine a fair loan value.",
       },
     },
     {
@@ -254,7 +254,7 @@ function Pawning() {
                 <span className="pawn-cell__icon"><FaMoneyBillAlt aria-hidden="true" /></span>
                 <h3 className="pawn-cell__title">Gold jewelry</h3>
                 <p className="pawn-cell__text">
-                  Rings, necklaces, bracelets, earrings, pendants — appraised by karat and weight.
+                  Rings, necklaces, bracelets, earrings, pendants — every karat from 10K to 24K, appraised by karat and weight.
                 </p>
               </div>
               <div className="pawn-cell">
