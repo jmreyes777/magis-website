@@ -102,11 +102,14 @@ expected to finish in ~1–3 min (dominated by per-doc subcollection probing).
 
 ## Status
 
-- [ ] BDR0 recon & decisions
-- [ ] BDR1 backup engine
-- [ ] BDR2 trigger + alerting + dashboard card
+- [x] BDR0 recon & decisions (census 2026-07-15: 25 collections / ~3.7k docs / 12.6 MB storage)
+- [x] BDR1 backup engine (verified: local run + Render in-process run)
+- [x] BDR2 trigger + alerting + dashboard card (verified 2026-07-15: 202 via X-Obs-Auth on
+      Render → Telegram "Backup ok · 3689 docs · 258 KB gz · 39.2s"; no-auth → 401.
+      NOTE: required setting EDGE_SHARED_SECRET on Render — it had never been set there,
+      which also unblocks watchdog incident intake. First real cron proof: tomorrow ~03:05.)
 - [ ] BDR3 restore tool + drill evidence
-- [ ] BDR4 storage manifest/mirror
+- [x] BDR4 storage manifest/mirror (verified: 185/185 mirrored once, then "0/185 copied" on re-run = md5 dedup)
 - [ ] BDR5 off-cloud pull
 - [ ] BDR6 config/secrets inventory
 - [ ] BDR7 runbook + drill calendar
