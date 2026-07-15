@@ -211,9 +211,19 @@ const isLocalHost = (host) =>
 const isHashedAsset = (p) =>
   /\.[0-9a-f]{8,}\.(js|css|png|jpe?g|gif|svg|webp|woff2?)$/i.test(p);
 
-function isAllowedOrigin(origin) {
+function isAllowedOrigin(origin, selfHost) {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // The worker's own serving origin (staging .workers.dev, previews, any future
+  // domain this worker answers on): a browser only sends this Origin when the
+  // page itself was served from here — inherently same-origin, unforgeable by
+  // remote pages. Without this, browsing via the staging workers.dev URL
+  // hard-403s every same-origin POST (login, chat, RUM/error beacons).
+  try {
+    if (selfHost && new URL(origin).host === selfHost) return true;
+  } catch {
+    /* fall through */
+  }
   // Any localhost / 127.0.0.1 origin (any port, http or https) — dev only. The
   // browser controls the Origin header and remote pages cannot forge it, so
   // permitting all local ports is safe and also covers IDE preview proxies that
@@ -790,7 +800,7 @@ async function handle(request, event) {
   const pathname = url.pathname;
   const origin = request.headers.get("Origin") || "";
   const host = request.headers.get("Host") || "";
-  const allowedOrigin = isAllowedOrigin(origin) ? origin : "";
+  const allowedOrigin = isAllowedOrigin(origin, url.host) ? origin : "";
   const isLocal = isLocalHost(host);
   const isProd = !isLocal;
 
@@ -1083,6 +1093,15 @@ async function handle(request, event) {
     // SPD0-2 (speed megaplan): Web Vitals RUM beacons (sendBeacon, no auth,
     // 204-only responses; backend applies its own rate-limit bucket).
     (request.method === "POST" && pathname === "/api/rum") ||
+    // OBS1 (observability megaplan): client error beacons — same contract as
+    // /api/rum (sendBeacon, no auth, 204-only, backend rate-limited/clamped).
+    (request.method === "POST" && pathname === "/api/client-errors") ||
+    // OBS6: observability dashboard READ — superadmin-only API. A superadmin
+    // token is 403'd by the edge's branchadmin gate below, so bypass exactly
+    // like /api/audit; the backend's authenticateSuperAdmin fully authorizes.
+    // (POST /api/obs/incidents is NOT proxied: the watchdog cron calls the
+    // backend origin directly, and the backend demands X-Obs-Auth regardless.)
+    (request.method === "GET" && pathname === "/api/obs/summary") ||
     // Super-admin branch password management (/api/branch/admin*): a superadmin
     // token would be 403'd by the edge's branchadmin gate, so bypass like
     // /api/admin/staff — the backend's authenticateSuperAdmin authorizes it and
