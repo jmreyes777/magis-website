@@ -114,6 +114,14 @@ expected to finish in ~1–3 min (dominated by per-doc subcollection probing).
       cleaned up 19 drill_* collections". Dry-run: 19/19 sha✓ count✓.
       Engine now excludes drill_* from snapshots.)
 - [x] BDR4 storage manifest/mirror (verified: 185/185 mirrored once, then "0/185 copied" on re-run = md5 dedup)
-- [ ] BDR5 off-cloud pull
-- [ ] BDR6 config/secrets inventory
-- [ ] BDR7 runbook + drill calendar
+- [x] BDR5 off-cloud pull (verified 2026-07-15: first pull 21 files/12.8 MB + 185 media
+      → C:\magis-backups; re-run incremental 4.3s "185 intact + 0 new"; tamper test:
+      corrupted messages.jsonl.gz detected via manifest sha and re-downloaded)
+- [x] BDR6 config/secrets inventory (envInventory key-name+hash manifest rides in every
+      snapshot since BDR1; root-secret storage + drift-check procedure in DR-RUNBOOK.md)
+- [x] BDR7 runbook + drill calendar (DR-RUNBOOK.md: scenarios a–f with exact commands,
+      weekly Task Scheduler pull, quarterly drill calendar seeded with today's evidence)
+
+**Megaplan complete 2026-07-15.** Remaining external proof: tomorrow ~03:05 the first
+fully-automatic cron heartbeat. Stretch items (native scheduled backups, second off-cloud
+machine, push-trigger verify) listed in DR-RUNBOOK.md under production cutover.

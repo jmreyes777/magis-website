@@ -222,9 +222,12 @@ async function runBackup({ db, storage } = {}) {
     envInventory: envInventory(),
   };
 
-  // drill_* are transient BDR3 restore-drill artifacts — never snapshot them
-  // (a crashed drill must not double tomorrow's backup or pollute restores).
-  const cols = (await db.listCollections()).filter((c) => !c.id.startsWith("drill_"));
+  // drill_* / inspect_* are transient restore artifacts (BDR3 drills, runbook
+  // scenario-b point-in-time inspections) — never snapshot them (a crashed
+  // drill must not double tomorrow's backup or pollute restores).
+  const cols = (await db.listCollections()).filter(
+    (c) => !c.id.startsWith("drill_") && !c.id.startsWith("inspect_")
+  );
   for (const col of cols) {
     const r = await backupCollection(bucket, dateDir, col);
     manifest.collections[col.id] = { docs: r.docs, gzBytes: r.gzBytes, sha256: r.sha256 };
