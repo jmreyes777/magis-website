@@ -3,6 +3,13 @@ name: CodeQL
 # Static analysis (SAST) for the whole JS monorepo: backend, both frontends,
 # edge worker, tools. Runs on pushes/PRs to main plus a weekly sweep so newly
 # published CodeQL queries re-scan unchanged code.
+#
+# ARTIFACT MODE: this repo is private on a personal account, where GitHub's
+# code-scanning upload (Advanced Security) is not available — `upload: never`
+# below, or the analyze step fails with "Code scanning is not enabled".
+# Findings are published as a SARIF artifact + a per-rule table in the run
+# summary instead. If the repo ever moves to an org with Advanced Security,
+# delete `upload`/`output` and the two steps after analyze.
 
 on:
   push:
@@ -40,10 +47,39 @@ jobs:
         with:
           languages: javascript
           # security-extended adds lower-confidence but valuable queries;
-          # alerts land in the Security tab, they never block deploys.
+          # findings land in the run summary + SARIF artifact (see header),
+          # they never block deploys.
           queries: security-extended
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript"
+          upload: never
+          output: sarif-results
+
+      - name: Findings summary (run summary tab)
+        run: |
+          {
+            echo "## CodeQL findings"
+            total=0
+            for f in sarif-results/*.sarif; do
+              n=$(jq '[.runs[].results[]] | length' "$f")
+              total=$((total + n))
+            done
+            echo ""
+            echo "**Total: ${total}**"
+            if [ "$total" -gt 0 ]; then
+              echo ""
+              echo "| Count | Rule |"
+              echo "| --- | --- |"
+              jq -r '[.runs[].results[]] | group_by(.ruleId) | map({r: .[0].ruleId, n: length}) | sort_by(-.n) | .[] | "| \(.n) | \(.r) |"' sarif-results/*.sarif
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload SARIF artifact (30-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sarif
+          path: sarif-results
+          retention-days: 30
