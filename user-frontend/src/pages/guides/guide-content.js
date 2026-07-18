@@ -211,7 +211,7 @@ const karatGuide = {
   path: "/guides/gold-karat-guide",
   title: "Gold Karat Guide: 18K vs 21K vs 24K (Sangla Value) | Magis Gold & Gems",
   description:
-    "What 18K, 21K, and 24K gold mean, how to read karat stamps (417, 585, 750, 875, 999), and how karat affects how much you can pawn. We accept every karat from 10K to 24K (magkano ang sangla ng 18k/21k gold).",
+    "What 18K, 21K and 24K gold mean, how to read karat stamps (417, 585, 750, 875, 965, 999), and how karat affects your loan — we accept every karat from 10K to 24K.",
   eyebrow: "Gold karat guide",
   h1: "18K, 21K, 24K: what karat means for your gold's value.",
   lead:
