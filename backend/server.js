@@ -182,7 +182,10 @@ function noteFiveXx(req, statusCode) {
   }
 })();
 
-const { db,admin } = require("./utils/firebase");
+const { db, admin, initFirebase } = require("./utils/firebase");
+// TST5: firebase init is lazy at import; boot stays eager + fail-fast (exact
+// old behavior). Tests import this file with NODE_ENV=test and no credentials.
+if (process.env.NODE_ENV !== "test") initFirebase();
 const { initializeSocket } = require("./utils/socket");
 const { requireEdgeAuth, rateLimitKey } = require("./utils/geoSecurity");
 const authenticateBranchAdmin = require("./middlewares/authenticateBranchAdmin");
@@ -502,6 +505,16 @@ const rumRoutes = require("./routes/rum");
 const clientErrorRoutes = require("./routes/clientErrors");
 // OBS4/OBS6: observability read API (super-admin) + edge incident intake.
 const obsRoutes = require("./routes/obs");
+// P2-1/TST5: limiter stores are Redis-backed ONLY when REDIS_URL is explicitly
+// configured (multi-instance correctness). Otherwise express-rate-limit's
+// in-memory default — single-instance correct, hermetic under tests, and never
+// pointed at a dead localhost Redis (whose per-request store errors would
+// break the limiter instead of degrading it).
+const rlStore = (prefix) =>
+  isRedisConfigured()
+    ? new RedisStore({ prefix, sendCommand: (...args) => getRedis().call(...args) })
+    : undefined;
+
 // P1-4: per-IP throttle on guest-session creation — bot/abuse mitigation on the
 // public /init endpoint. Redis-backed for multi-instance correctness (degrades
 // to in-memory if Redis is down); tunable via env. NOTE: effectiveness depends
@@ -513,10 +526,7 @@ const guestInitLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many chat sessions from this network. Please wait a few minutes and try again." },
-  store: new RedisStore({
-    prefix: "rl:guest-init:",
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  store: rlStore("rl:guest-init:"),
 });
 app.use("/api/guest/init", guestInitLimiter);
 
@@ -529,10 +539,7 @@ const guestContactLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many messages from this network. Please wait a few minutes and try again." },
-  store: new RedisStore({
-    prefix: "rl:guest-contact:",
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  store: rlStore("rl:guest-contact:"),
 });
 app.use("/api/guest/contact", guestContactLimiter);
 
@@ -545,10 +552,7 @@ const rumLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: rateLimitKey,
   message: "",
-  store: new RedisStore({
-    prefix: "rl:rum:",
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  store: rlStore("rl:rum:"),
 });
 app.use("/api/rum", rumLimiter, rumRoutes);
 
@@ -562,10 +566,7 @@ const clientErrorLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: rateLimitKey,
   message: "",
-  store: new RedisStore({
-    prefix: "rl:cerr:",
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  store: rlStore("rl:cerr:"),
 });
 app.use("/api/client-errors", clientErrorLimiter, clientErrorRoutes);
 app.use("/api/obs", obsRoutes);
@@ -583,10 +584,7 @@ const contactLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: rateLimitKey, // P3-2: key on the edge-authenticated client IP
   message: { error: "Too many messages from this network. Please wait a few minutes and try again." },
-  store: new RedisStore({
-    prefix: "rl:contact:",
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  store: rlStore("rl:contact:"),
 });
 app.use("/api/contact", contactLimiter);
 
@@ -624,12 +622,8 @@ const loginLimiter = rateLimit({
     } catch { /* best-effort */ }
     res.status(options.statusCode).json(options.message);
   },
-  // Cluster-safe store backed by Redis:
-  store: new RedisStore({
-    prefix: "rl:login:", // explicit bucket (was default "rl:")
-    // ioredis adapter: delegate commands to the shared client
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  // Cluster-safe store backed by Redis (in-memory when Redis not configured):
+  store: rlStore("rl:login:"),
 });
 app.use("/api/branchadmin/login", loginLimiter);
 app.use("/api/superadmin/login", loginLimiter);
@@ -649,10 +643,7 @@ const staffAuthLimiter = rateLimit({
   keyGenerator: rateLimitKey, // edge-authenticated client IP
   message: { error: "Too many attempts. Please try again later." },
   headers: true,
-  store: new RedisStore({
-    prefix: "rl:staff-auth:",
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  store: rlStore("rl:staff-auth:"),
 });
 app.use("/api/staff/login", staffAuthLimiter);
 app.use("/api/staff/stepup", staffAuthLimiter);
@@ -668,10 +659,7 @@ const branchAuthLimiter = rateLimit({
   keyGenerator: rateLimitKey, // edge-authenticated client IP
   message: { error: "Too many attempts. Please try again later." },
   headers: true,
-  store: new RedisStore({
-    prefix: "rl:branch-auth:",
-    sendCommand: (...args) => getRedis().call(...args),
-  }),
+  store: rlStore("rl:branch-auth:"),
 });
 app.use("/api/branch/login", branchAuthLimiter);
 app.use("/api/branch/forgot", branchAuthLimiter);
@@ -1401,22 +1389,26 @@ app.get("/api/facebook/albums/latest/photos", fbLimiter, publicCache(300, 600), 
 });
 
 
-// Validate required env vars before listening
-const requiredEnvVars = [
-  "FIREBASE_PROJECT_ID",
-  "FIREBASE_PRIVATE_KEY",
-  "FIREBASE_CLIENT_EMAIL",
-  "FRONTEND_ORIGINS",
-  "JWT_SECRET",
-];
-requiredEnvVars.forEach((v) => {
-  if (!process.env[v]) {
-    console.error(`[ERROR] Environment variable ${v} is missing.`);
-    process.exit(1);
-  } else {
-    console.log(`[INFO] Environment variable ${v} loaded.`);
-  }
-});
+// Validate required env vars before listening. Skipped under tests (TST5):
+// the HTTP harness deliberately blanks firebase creds so nothing can reach a
+// real project, and tests never listen — prod/dev boot validation unchanged.
+if (process.env.NODE_ENV !== "test") {
+  const requiredEnvVars = [
+    "FIREBASE_PROJECT_ID",
+    "FIREBASE_PRIVATE_KEY",
+    "FIREBASE_CLIENT_EMAIL",
+    "FRONTEND_ORIGINS",
+    "JWT_SECRET",
+  ];
+  requiredEnvVars.forEach((v) => {
+    if (!process.env[v]) {
+      console.error(`[ERROR] Environment variable ${v} is missing.`);
+      process.exit(1);
+    } else {
+      console.log(`[INFO] Environment variable ${v} loaded.`);
+    }
+  });
+}
 
 
 // Guest fallback force-close route
@@ -1519,8 +1511,9 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({ error: "Internal server error" });
 });
 
-// Start server
-server.listen(PORT);
+// Start server (skipped under tests: supertest drives the exported app
+// directly, no port needed)
+if (process.env.NODE_ENV !== "test") server.listen(PORT);
 
 // ── SPD1-2 (speed megaplan): connection warm-up on boot ─────────────────────
 // The first Firestore call after a (re)start pays gRPC channel + TLS setup
@@ -1597,3 +1590,7 @@ const gracefulShutdown = (signal) => {
 
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT",  () => gracefulShutdown("SIGINT"));
+
+// TST5: route-level HTTP tests import the fully-wired app (all middleware,
+// routes, limiters, error handler) without listening or touching Firebase.
+module.exports = { app, server };

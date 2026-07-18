@@ -35,13 +35,16 @@ const upload = multer({
 
 // Socket.io and storage bucket
 const io = getSocketIOInstance();
-const bucket = admin.storage().bucket();
+// TST5: resolve the bucket lazily (at call time) — grabbing it at import
+// required an already-initialized Firebase app, which was an invisible
+// import-order dependency on utils/firebase's old side effects.
+const getBucket = () => admin.storage().bucket();
 
 // Upload a buffer to Cloud Storage as a PRIVATE object (P1-3). Returns the
 // storage path (object name). Callers store the path on the message; media is
 // served on demand via short-lived signed URLs from the resolver endpoints.
 async function uploadMediaToStorage(buffer, fileName, contentType) {
-  const file = bucket.file(fileName);
+  const file = getBucket().file(fileName);
   await file.save(buffer, contentType ? { metadata: { contentType } } : undefined);
   return fileName;
 }
@@ -50,7 +53,7 @@ async function uploadMediaToStorage(buffer, fileName, contentType) {
 // service-account key signs locally (no extra IAM/SignBlob permission needed).
 const MEDIA_SIGNED_URL_TTL_MS = Number(process.env.MEDIA_SIGNED_URL_TTL_MS) || 15 * 60 * 1000;
 async function signMediaPath(path) {
-  const [url] = await bucket.file(path).getSignedUrl({
+  const [url] = await getBucket().file(path).getSignedUrl({
     version: "v4",
     action: "read",
     expires: Date.now() + MEDIA_SIGNED_URL_TTL_MS,

@@ -74,8 +74,16 @@ function spawnWorker(index) {
     if (!entry) return;
     clearTimeout(entry.timer);
     callbacks.delete(id);
-    if (error) entry.reject(new Error(error));
-    else entry.resolve(result);
+    if (error) {
+      // TST5: rebuild the error with its original identity. jsonwebtoken error
+      // NAMES drive middleware status mapping (expired/malformed → 401, not 500).
+      const e = new Error(typeof error === "string" ? error : error.message);
+      if (error && typeof error === "object") {
+        if (error.name && error.name !== "Error") e.name = error.name;
+        if (error.code) e.code = error.code;
+      }
+      entry.reject(e);
+    } else entry.resolve(result);
   });
 
   w.on("error", (err) => {

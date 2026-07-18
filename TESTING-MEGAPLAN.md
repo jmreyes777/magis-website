@@ -60,9 +60,41 @@ cd user-frontend; npm run build; npm run e2e
 
 | Suite | Where | Count | Runtime |
 | --- | --- | --- | --- |
-| Backend logic | `backend/tests/*.test.js` | 40 | ~4s |
+| Backend logic + HTTP routes | `backend/tests/*.test.js` | 55 | ~5s |
 | Frontend unit/component/content | `user-frontend/src/**/*.test.js` | 75 | ~6s |
 | E2E smoke | `user-frontend/e2e/*.spec.js` | 7 | ~40s |
+
+### TST5 (route-level HTTP tests) — added 2026-07-18
+
+- `tests/httpHarness.js` boots the REAL app from `server.js` (all middleware,
+  limiters, routes, error handler) on an ephemeral port; `NODE_ENV=test` skips
+  listen/firebase-init/warmup/pollers/socket-adapter. Firebase creds are
+  blanked (accidental Firestore touch → catchable throw, never a real project);
+  `utils/firebase` is now LAZY (proxies init on first use; server boots eagerly
+  via `initFirebase()`, fail-fast unchanged). Requests use node:http with
+  `agent:false` — undici keep-alive handles crash Windows Node under
+  `--test-force-exit` (libuv UV_HANDLE_CLOSING assert).
+- Covered contracts: csrf-token issuance (fresh 64-hex, readable Strict cookie,
+  no-store, BREACH: never compressed) · security envelope (CSP nonce per
+  request, nosniff, frame-ancestors, Permissions-Policy, Alt-Svc) · JSON 404s ·
+  credential-less + forged-token 401/403 on admin/audit/backup · expired-token
+  401 regression · guest-contact 429 + RateLimit headers.
+- Bugs found & fixed by this wave:
+  1. `routes/messages.js` grabbed the Storage bucket at import (hidden
+     dependency on firebase's old import side effects) → lazy `getBucket()`.
+  2. Worker-boundary error flattening (`secretPool`/`secretWorker` sent only
+     `err.message`): expired/malformed admin tokens surfaced as **500** instead
+     of 401 in production (and fed the 5xx spike alarm). Names/codes now cross
+     the thread boundary; undecodable tokens classify as `JsonWebTokenError`.
+  3. All 8 rate limiters constructed `RedisStore` unconditionally — with no
+     REDIS_URL they pointed at a dead localhost Redis. Now `rlStore()` falls
+     back to the in-memory store when Redis is not explicitly configured.
+  4. Second boot-time env validator (`server.js` ~1392) would `process.exit(1)`
+     any credential-less import — including CI. Test-guarded.
+- Known quirk (documented, deliberately unfixed): `/api/csrf-token` is
+  registered BEFORE helmet, so that one response carries no CSP/nosniff
+  envelope. Moving it is a one-line change but alters live header behavior —
+  do it deliberately, not as a test side effect.
 
 ## Conventions
 
@@ -81,7 +113,9 @@ cd user-frontend; npm run build; npm run e2e
 
 ## Future work (explicitly out of scope this round)
 
-- Route-level backend HTTP tests (needs utils/firebase lazy-init + fake
-  Firestore harness).
+- Db-backed route tests: a fake-Firestore seam (e.g. `_setDbForTests()` on
+  utils/firebase, or Emulator Suite) to exercise guest-session issuance,
+  message flows, and branch logins end-to-end.
 - Firebase Emulator Suite integration tests; admin-frontend suite;
   edge-worker tests (miniflare); pre-push hooks.
+- Move `/api/csrf-token` behind helmet (see TST5 known quirk).

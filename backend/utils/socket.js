@@ -329,8 +329,10 @@ const initializeSocket = (server) => {
     allowUpgrades: false,
   });
 
-  // Redis adapter for multi-instance Socket.IO (optional)
-  if (createAdapter) {
+  // Redis adapter for multi-instance Socket.IO (optional). Skipped under tests
+  // (TST5): single-process, no cross-instance broadcast — and the localhost
+  // fallback would otherwise open live redis handles inside the test process.
+  if (createAdapter && process.env.NODE_ENV !== "test") {
     const pubClient = getRedis();
     const subClient = getRedisSub();
     (async () => {

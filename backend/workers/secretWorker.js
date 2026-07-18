@@ -214,7 +214,14 @@ parentPort.on("message", async (task) => {
         // secret). Never verifies an RS256 token with an HMAC secret or vice
         // versa (alg-confusion safe).
         const vparams = jwtKeys.getVerifyParamsForToken(task.token);
-        if (!vparams) throw new Error("UnsupportedAlgorithm");
+        if (!vparams) {
+          // TST5: undecodable tokens / unaccepted algs are hostile INPUT, not a
+          // server fault — same class as jwt.verify's own "jwt malformed" /
+          // "invalid algorithm", so carry the standard name for the 401 mapping.
+          const e = new Error("UnsupportedAlgorithm");
+          e.name = "JsonWebTokenError";
+          throw e;
+        }
 
         const raw = task.options && typeof task.options === "object" ? task.options : {};
         const verifyOpts = {
@@ -286,6 +293,12 @@ parentPort.on("message", async (task) => {
         throw new Error(`Unknown action ${task.action}`);
     }
   } catch (err) {
-    parentPort.postMessage({ id: task.id, error: err.message });
+    // TST5: send name/code too — jsonwebtoken's error NAMES (TokenExpiredError,
+    // JsonWebTokenError) are what middlewares map to clean 401s; flattening to
+    // a bare message made expired/garbage tokens surface as 500s.
+    parentPort.postMessage({
+      id: task.id,
+      error: { message: err.message, name: err.name, code: err.code },
+    });
   }
 });
