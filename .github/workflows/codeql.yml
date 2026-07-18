@@ -78,7 +78,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload SARIF artifact (30-day retention)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: codeql-sarif
           path: sarif-results
