@@ -27,6 +27,17 @@ updates:
       admin-minor-patch:
         update-types: [minor, patch]
     open-pull-requests-limit: 5
+    # CRA 5 stack: these majors need a dedicated migration, not a bot PR.
+    # Dependabot closes any open PRs for ignored versions on its next run.
+    ignore:
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-router-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: firebase
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /user-frontend
@@ -39,6 +50,17 @@ updates:
       user-minor-patch:
         update-types: [minor, patch]
     open-pull-requests-limit: 5
+    # CRA 5 stack: these majors need a dedicated migration, not a bot PR.
+    # Dependabot closes any open PRs for ignored versions on its next run.
+    ignore:
+      - dependency-name: react
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: react-router-dom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: firebase
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /magis-edge-worker
