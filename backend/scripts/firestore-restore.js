@@ -98,8 +98,17 @@ function makeDeserializer(admin, db) {
     if (v === null || typeof v !== "object") return v;
     if (Array.isArray(v)) return v.map(deserializeValue);
     if (v.__t === "ts" && typeof v.ms === "number") {
-      const seconds = Math.floor(v.ms / 1000);
-      const nanos = (v.ms - seconds * 1000) * 1e6 + (v.ns || 0);
+      // The backup stores ms = toDate().getTime() — which ROUNDS the sub-ms
+      // nanos — plus ns = nanoseconds % 1e6. Undo the rounding exactly:
+      // Math.round adds 1 to the whole-ms part iff ns >= 500000, and can even
+      // carry into the next second (ns → 1e9-1 case), hence the borrow.
+      const ns = v.ns || 0;
+      let seconds = Math.floor(v.ms / 1000);
+      let nanos = (v.ms - seconds * 1000 - (ns >= 500000 ? 1 : 0)) * 1e6 + ns;
+      if (nanos < 0) {
+        seconds -= 1;
+        nanos += 1e9;
+      }
       return new admin.firestore.Timestamp(seconds, nanos);
     }
     if (v.__t === "geo" && typeof v.lat === "number" && typeof v.lng === "number")
@@ -338,9 +347,15 @@ async function main() {
   return verdict;
 }
 
-main()
-  .then((code) => process.exit(code))
-  .catch((e) => {
-    console.error("restore FAILED:", e.message);
-    process.exit(1);
-  });
+// Pure helpers exported for tests (TST2); main() only runs as a CLI so that
+// importing this module NEVER touches Firestore.
+module.exports = { makeDeserializer, stableStringify, prefixPath, parseArgs };
+
+if (require.main === module) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      console.error("restore FAILED:", e.message);
+      process.exit(1);
+    });
+}
