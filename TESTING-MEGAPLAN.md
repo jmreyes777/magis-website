@@ -62,7 +62,28 @@ cd user-frontend; npm run build; npm run e2e
 | --- | --- | --- | --- |
 | Backend logic + HTTP routes | `backend/tests/*.test.js` | 55 | ~5s |
 | Frontend unit/component/content | `user-frontend/src/**/*.test.js` | 75 | ~6s |
+| Admin unit/component | `admin-frontend/src/**/*.test.js` | 54 | ~9s |
 | E2E smoke | `user-frontend/e2e/*.spec.js` | 7 | ~40s |
+
+### ADM (admin-frontend suite) — added 2026-07-18
+
+- First tests the admin dashboard has ever had; wired into `tests.yml` as the
+  `admin` job (react-scripts test, Node 20, CI=true).
+- Covered: session bootstrap utils (tab identity, token polling, hydration
+  fallback) · e2eeCrypto with REAL ECDH P-256 handshakes + AES-256-GCM
+  roundtrips/tampering via Node webcrypto (no mocks) · waitForCustomClaims
+  quota-safety (the auth/quota-exceeded prod incident is pinned as a test) ·
+  ProtectedRoute hydration gating, role checks, multi-tab socket-owner
+  fallback · mediaResolver signed-URL TTL cache · reportWebVitals
+  version-shape guardrail (v2/v4/v5) — makes web-vitals majors mergeable.
+- CRA jest-27 workarounds, all in `setupTests.js` or package.json `jest` key:
+  polyfills (crypto.randomUUID, webcrypto.subtle, TextEncoder/Decoder,
+  BroadcastChannel stub) and moduleNameMapper for react-router-dom@7 (its
+  `main` points at a nonexistent `dist/main.js`; jest 27 ignores `exports`).
+- Landmine for future tests: CRA jest CANNOT intercept `import("web-vitals")`
+  style dynamic imports inside src modules — jest.mock registers, but the
+  module's own import bypasses it (proven with a Proxy trace). Test through
+  an exported seam instead (see `bindWebVitals`).
 
 ### TST5 (route-level HTTP tests) — added 2026-07-18
 
@@ -116,6 +137,8 @@ cd user-frontend; npm run build; npm run e2e
 - Db-backed route tests: a fake-Firestore seam (e.g. `_setDbForTests()` on
   utils/firebase, or Emulator Suite) to exercise guest-session issuance,
   message flows, and branch logins end-to-end.
-- Firebase Emulator Suite integration tests; admin-frontend suite;
-  edge-worker tests (miniflare); pre-push hooks.
+- Firebase Emulator Suite integration tests; edge-worker tests (miniflare);
+  pre-push hooks.
+- Admin: page-level tests (login flows with mocked axios/webauthn, chat
+  dashboard) once the CRA→Vite migration settles the toolchain.
 - Move `/api/csrf-token` behind helmet (see TST5 known quirk).
