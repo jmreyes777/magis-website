@@ -15,6 +15,7 @@ import {
 } from "react-icons/fa";
 import Footer from "../components/Footer-User-Component";
 import Seo, { SITE_ORIGIN } from "../components/Seo";
+import { getRateFromDays, daysBetween, computeInterest } from "../utils/pawnMath";
 import "./Pawn-Service-User-Page.css";
 
 // ===========================================================================
@@ -99,17 +100,6 @@ function Pawning() {
   const [interestAmount, setInterestAmount] = useState(0);
   const [calcError, setCalcError] = useState("");
 
-  const getRateFromDays = (d) => {
-    if (d <= 10) return 1.0;
-    if (d <= 20) return 1.5;
-    if (d <= 30) return 3.0;
-    if (d <= 60) return 8.5;
-    if (d <= 90) return 14.5;
-    if (d <= 120) return 21.5;
-    if (d <= 150) return 28.5;
-    return 35.5; // 6th month and beyond
-  };
-
   useEffect(() => {
     setCalcError("");
     setInterestRate(null);
@@ -131,13 +121,12 @@ function Pawning() {
     }
 
     // compute whole days (round up to next full day)
-    const diffMs = end.getTime() - start.getTime();
-    const d = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    const d = daysBetween(start, end);
     setDaysElapsed(d);
 
     const rate = getRateFromDays(d);
     setInterestRate(rate);
-    setInterestAmount((p * rate) / 100);
+    setInterestAmount(computeInterest(p, rate));
   }, [principal, pawnDate, paymentDate]);
 
   const totalPayable = Number(principal || 0) + interestAmount;

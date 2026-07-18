@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import Footer from "../components/Footer-User-Component";
 import FacebookLatestVideo from "../components/FacebookLatestVideo";
 import { FaGem, FaShieldAlt, FaCheckCircle, FaMapMarkedAlt, FaComments } from "react-icons/fa";
+import { peso, opt1, opt2 } from "../utils/layawayMath";
 import "./Jewelry-Sales-User-Page.css";
 
 /* --------------------------------------------
@@ -68,53 +69,6 @@ function ImageWithFallback({ src, alt, className, ...rest }) {
 function LayawayCalculator() {
   const [price, setPrice] = React.useState(5000);
   const [option, setOption] = React.useState("opt2");
-
-  const peso = (n) =>
-    new Intl.NumberFormat("en-PH", {
-      style: "currency",
-      currency: "PHP",
-      maximumFractionDigits: 0,
-    }).format(Math.round(n || 0));
-
-  const roundUpTo = (n, step) => Math.ceil((n || 0) / step) * step;
-  const roundBase = (n) => {
-    const whole = Math.ceil(n || 0);
-    const rem = whole % 100;
-    if (rem === 0 || rem === 50) return whole;
-    if (rem < 50) return whole + (50 - rem);
-    return whole + (100 - rem);
-  };
-
-  const opt1 = (p) => {
-    const base = Math.round(p);
-    const down = Math.round(base * 0.1);
-    return {
-      base,
-      down,
-      balance: base - down,
-      months: "One-time payment within 2 weeks",
-      label: "10% Down • 90% One-time",
-    };
-  };
-
-  const opt2 = (p) => {
-    const withFee = p * 1.04;
-    const base = roundBase(withFee);
-    const down = roundUpTo(base * 0.2, 50);
-    const balance = base - down;
-    let months = "Ask branch for terms";
-    if (base >= 3000 && base <= 5000)
-      months = "2 months to pay (80% Outstanding)";
-    else if (base >= 5001) months = "3 months to pay (80% Outstanding)";
-    return {
-      base,
-      withFee: Math.round(withFee),
-      down,
-      balance,
-      months,
-      label: "20% Down • +4% (rounded)",
-    };
-  };
 
   const res = option === "opt1" ? opt1(price) : opt2(price);
 
@@ -270,7 +224,7 @@ export default function JewelrySales() {
       q: "How does the 2-week reservation plan work?",
       a: [
         "Our 2-week reservation plan is for customers who want to secure an item and complete payment within a short period.",
-        "In most cases:",
+        "In this case:",
         "• A down payment is required to reserve the item",
         "• The balance must be paid within 14 days",
         "• The item remains on hold while payments are updated under the agreed terms",
