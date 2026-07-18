@@ -44,6 +44,7 @@ import {
 } from "firebase/firestore";
 import { useLocation, useNavigate } from "react-router-dom";
 import { waitForCustomClaims } from "../utils/waitForCustomClaims";
+import { optimizeImage } from "../utils/imageOptimization";
 import { useWakeLock } from "../utils/useWakeLock";
 import "./Branch-Chat-Dashboard.css";
 import MFASessionModal from "../components/MFASessionModal";
@@ -165,12 +166,15 @@ const parseEncryptedPayload = (content) => {
 /**
  * Create optimistic message object
  */
-const createOptimisticMessage = (guestId, branchEmail, content) => ({
+const createOptimisticMessage = (guestId, branchEmail, content, media = null) => ({
   guestId,
   branchEmail,
   sender: "branch",
   content,
   message: content,
+  // Local blob preview so the image shows in the thread immediately; the
+  // confirmed server message swaps in the private storage `path` (P1-3).
+  media,
   timestamp: new Date().toISOString(),
   archived: false,
   pending: true,
@@ -383,6 +387,7 @@ const BranchChatDashboard = () => {
   const [unreadCounts, setUnreadCounts] = useState({});
   const [lastReadTimestamps, setLastReadTimestamps] = useState({});
   const [media, setMedia] = useState(null);
+  const [isOptimizingImage, setIsOptimizingImage] = useState(false);
   const [activeGuestIds, setActiveGuestIds] = useState(new Set());
   // D-1: presence is live/server-authoritative. `presenceReady` flips true the
   // first time an authoritative guestPresenceUpdate is applied; until then a brief
@@ -1913,8 +1918,17 @@ const BranchChatDashboard = () => {
         encrypted: !!encryptedPayload,
       });
 
-      // 1. Create an optimistic message (show plaintext locally)
-      const optimisticMessage = createOptimisticMessage(guestId, branchEmail, newMessage);
+      // 1. Create an optimistic message (show plaintext locally; blob preview
+      // for an attached image — AdminMessageItem renders blob:/data: directly)
+      const optimisticMedia = media
+        ? { type: "image", url: URL.createObjectURL(media) }
+        : null;
+      const optimisticMessage = createOptimisticMessage(
+        guestId,
+        branchEmail,
+        newMessage,
+        optimisticMedia
+      );
       setMessages((prev) => [...prev, optimisticMessage]);
 
       // 2. Build fetch options with encrypted content
@@ -1941,6 +1955,9 @@ const BranchChatDashboard = () => {
         setMessages((prev) =>
           prev.map((msg) => (msg.tempId === optimisticMessage.tempId ? savedMessage : msg))
         );
+        // The confirmed message carries the storage path (resolved to a signed
+        // URL by AdminMessageItem) — the local blob preview can be released.
+        if (optimisticMedia?.url) URL.revokeObjectURL(optimisticMedia.url);
         console.log(
           "[ADMIN] ✅ Message confirmed by server and UI updated:",
           savedMessage
@@ -1959,6 +1976,9 @@ const BranchChatDashboard = () => {
           timestamp: savedMessage.timestamp,
           e2ee: !!encryptedPayload,
           encryptedContent: encryptedPayload,
+          // Attachment path from the confirmed reply — the guest resolves it
+          // to a signed URL exactly like guest-sent media.
+          media: savedMessage.media || null,
         })
           .then((ackResult) => {
             console.log(
@@ -2704,8 +2724,84 @@ const BranchChatDashboard = () => {
                 )}
               </div>
 
+              {/* Attached image preview (mirrors the guest chat box) */}
+              {media && (
+                <div className="px-4 pt-2 border-t flex items-center gap-3">
+                  <img
+                    src={URL.createObjectURL(media)}
+                    alt="attachment preview"
+                    className="h-16 w-16 object-cover rounded border"
+                  />
+                  <span className="text-sm text-gray-600 truncate max-w-[200px]">
+                    {media.name}
+                  </span>
+                  <button
+                    type="button"
+                    title="Remove attachment"
+                    className="ml-auto text-gray-500 hover:text-red-600 text-xl leading-none px-2"
+                    onClick={() => {
+                      setMedia(null);
+                      if (inputFileRef.current) inputFileRef.current.value = "";
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+
               {/* Admin Input */}
               <div className="chat-input-container p-4 border-t flex items-center">
+                <label
+                  className={`flex-shrink-0 p-2 mr-1 rounded ${
+                    !selectedChat || isOptimizingImage
+                      ? "opacity-30 cursor-not-allowed"
+                      : "hover:bg-gray-100 cursor-pointer"
+                  }`}
+                  title="Attach image"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-6 h-6 text-gray-600"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm0 2h12v6l-3-3-3 4-3-4-3 4V5z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    ref={inputFileRef}
+                    disabled={!selectedChat || isOptimizingImage}
+                    hidden
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      // PERF4-6 parity with the guest box: downscale +
+                      // recompress client-side before upload.
+                      setIsOptimizingImage(true);
+                      try {
+                        const optimized = await optimizeImage(file, {
+                          maxWidth: 1600,
+                          maxHeight: 1600,
+                          quality: 0.82,
+                        });
+                        setMedia(optimized);
+                      } catch (err) {
+                        console.warn(
+                          "[ADMIN] image optimize failed; sending original:",
+                          err?.message
+                        );
+                        setMedia(file);
+                      } finally {
+                        setIsOptimizingImage(false);
+                      }
+                    }}
+                  />
+                </label>
                 <input
                   type="text"
                   value={newMessage}
@@ -2735,13 +2831,13 @@ const BranchChatDashboard = () => {
                 <button
                   onClick={handleSendMessage}
                   className={`send-btn ml-2 px-4 py-2 rounded-lg ${
-                    !newMessage || !selectedChat
+                    (!newMessage && !media) || !selectedChat || isOptimizingImage
                       ? "bg-gray-400 text-white cursor-not-allowed"
                       : "bg-blue-500 text-white hover:bg-blue-600"
                   }`}
-                  disabled={!newMessage || !selectedChat}
+                  disabled={(!newMessage && !media) || !selectedChat || isOptimizingImage}
                 >
-                  Send
+                  {isOptimizingImage ? "Optimizing…" : "Send"}
                 </button>
               </div>
             </>
