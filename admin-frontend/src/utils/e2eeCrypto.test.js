@@ -1,9 +1,25 @@
+/**
+ * @jest-environment node
+ */
 // ADM1 — end-to-end encryption for the branch<->guest chat.
 //
-// Real crypto, no mocks: setupTests wires Node's webcrypto into jsdom, so
-// these tests perform actual ECDH P-256 handshakes and AES-256-GCM
-// encryption exactly as two browsers would. If an algorithm name, curve,
-// key length, or tag length drifts, these fail loudly.
+// Real crypto, no mocks: these tests perform actual ECDH P-256 handshakes and
+// AES-256-GCM encryption exactly as two browsers would. If an algorithm name,
+// curve, key length, or tag length drifts, these fail loudly.
+//
+// WHY node environment (not jsdom): under jsdom, `new Uint8Array()` comes from
+// jsdom's VM realm while setupTests wires `crypto` to Node's webcrypto. Node
+// 20 brand-checks importKey/encrypt arguments and REJECTS cross-realm
+// TypedArrays ("2nd argument is not instance of ArrayBuffer...") — CI failed
+// while local Node 24 (lenient) passed. In the node environment everything is
+// same-realm. The module references window.* only inside functions, so a
+// module-scope shim (below) is all it needs.
+const { webcrypto } = require("crypto");
+global.window = {
+  crypto: webcrypto,
+  btoa: (s) => Buffer.from(s, "binary").toString("base64"),
+  atob: (s) => Buffer.from(s, "base64").toString("binary"),
+};
 
 import {
   generateKeyPair,

@@ -10,6 +10,23 @@
 //      session from localStorage fallback values; other tabs may NOT reuse
 //      the fallback fake token.
 
+// AuthContext calls getAuth() at MODULE SCOPE, which requires an initialized
+// Firebase app. Locally a .env supplies real keys; CI has none, so the raw
+// import throws auth/invalid-api-key before any test runs. These tests only
+// use AuthContext.Provider with injected values — mock the firebase surface.
+jest.mock("../firebase-config", () => ({
+  app: {},
+  db: {},
+  auth: {},
+  storage: {},
+  fetchCustomClaims: jest.fn(),
+}));
+jest.mock("firebase/auth", () => ({
+  getAuth: jest.fn(() => ({ currentUser: null })),
+  onAuthStateChanged: jest.fn(() => () => {}),
+  signInWithCustomToken: jest.fn(),
+}));
+
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
