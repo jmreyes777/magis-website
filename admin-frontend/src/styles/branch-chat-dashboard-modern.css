@@ -4,58 +4,108 @@
    ============================================================================ */
 
 :root {
-  /* Brand Colors */
-  --brand-primary: #f1c40f;
-  --brand-primary-hover: #eab308;
-  --brand-primary-dark: #d97706;
-  --brand-focus: #f59e0b;
-  --brand-focus-rgba: rgba(245, 158, 11, 0.15);
-  --brand-focus-strong: rgba(245, 158, 11, 0.25);
-  --brand-secondary: #81c784;
-  
-  /* Modern Surface Colors */
+  /* Brand Colors — mapped to the corporate navy system in index.css.
+     (Kept here as fallbacks for tooling; index.css :root loads first and
+     these re-declarations must AGREE with it.) */
+  --brand-primary: #262b66;
+  --brand-primary-hover: #343a85;
+  --brand-primary-dark: #1c2050;
+  --brand-focus: #343a85;
+  --brand-focus-rgba: rgba(38, 43, 102, 0.07);
+  --brand-focus-strong: rgba(38, 43, 102, 0.14);
+  --brand-secondary: #4caf7d;
+
+  /* Modern Surface Colors — white dominant */
   --surface-primary: #ffffff;
-  --surface-secondary: #f8f9fa;
-  --surface-tertiary: #f1f3f4;
+  --surface-secondary: #f6f7fb;
+  --surface-tertiary: #eef0f6;
   --surface-elevated: #ffffff;
-  
-  /* Text Colors */
-  --text-primary: #1a1a1a;
-  --text-secondary: #5f6368;
-  --text-tertiary: #9aa0a6;
+
+  /* Text Colors — navy-leaning neutrals */
+  --text-primary: #1a1d3d;
+  --text-secondary: #565b7c;
+  --text-tertiary: #8f93ad;
   --text-inverse: #ffffff;
-  
+
   /* Border Colors */
-  --border-subtle: #e8eaed;
-  --border-medium: #dadce0;
-  --border-strong: #bdc1c6;
-  
+  --border-subtle: #e7e9f2;
+  --border-medium: #d6d9e6;
+  --border-strong: #b9bdd1;
+
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.12);
-  --shadow-brand: 0 2px 12px rgba(241, 196, 15, 0.25);
+  --shadow-sm: 0 1px 2px rgba(20, 23, 54, 0.05);
+  --shadow-md: 0 2px 8px rgba(20, 23, 54, 0.08);
+  --shadow-lg: 0 4px 16px rgba(20, 23, 54, 0.12);
+  --shadow-brand: 0 2px 12px rgba(38, 43, 102, 0.25);
 }
 
 /* ============================================================================
    1. Top Bar Refinement
    ============================================================================ */
 
-/* Modern header with refined styling */
+/* Corporate navy top bar (logo wordmark color), gold hairline base */
 .flex.flex-col.h-screen > div:first-child {
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-focus) 100%);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, #1c2050 0%, #141736 100%);
+  box-shadow: 0 2px 12px rgba(20, 23, 54, 0.25);
+  border-bottom: 2px solid var(--brand-gold, #f2c114);
 }
 
-/* Header typography refinement */
+/* Header typography: white on navy */
 .flex.flex-col.h-screen > div:first-child h1 {
   font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
   font-weight: 600;
-  font-size: 1.25rem;
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+}
+
+/* Brand mark beside the title (rendered by the dashboard header JSX) */
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark-gem {
+  color: var(--brand-gold, #f2c114);
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.brand-mark-name {
+  font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.14em;
+  color: #ffffff;
+}
+
+.brand-mark-sub {
+  display: block;
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+}
+
+/* Logout: quiet ghost button on the navy bar; red only on intent (hover) */
+.logout-ghost-btn {
+  padding: 8px 18px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.logout-ghost-btn:hover {
+  background: rgba(220, 38, 38, 0.85);
+  border-color: rgba(220, 38, 38, 0.9);
+  color: #ffffff;
 }
 
 /* ============================================================================
@@ -105,15 +155,15 @@
 
 /* Chat item hover state */
 .flex.flex-row.flex-grow > div:first-child > div > div:hover {
-  background-color: var(--surface-tertiary);
-  box-shadow: inset 2px 0 0 var(--brand-focus);
+  background-color: var(--surface-secondary);
+  box-shadow: inset 2px 0 0 var(--border-strong);
 }
 
-/* Chat item selected state */
+/* Chat item selected state: navy wash + gold spine (logo pairing) */
 .flex.flex-row.flex-grow > div:first-child > div > div.bg-blue-100 {
-  background: linear-gradient(135deg, var(--brand-focus-rgba) 0%, var(--brand-focus-strong) 100%);
-  border-left: 3px solid var(--brand-primary);
-  box-shadow: 0 2px 8px rgba(241, 196, 15, 0.15);
+  background: var(--brand-focus-strong);
+  border-left: 3px solid var(--brand-gold, #f2c114);
+  box-shadow: none;
 }
 
 /* Chat item content refinement */
@@ -142,13 +192,13 @@
   font-weight: 500;
 }
 
-/* Unread badge styling */
+/* Unread badge: gold chip with navy numerals (the logo's own contrast) */
 .flex.flex-row.flex-grow > div:first-child > div > div span.bg-red-500 {
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-focus) 100%);
-  color: var(--text-primary);
+  background: var(--brand-gold, #f2c114);
+  color: #141736;
   font-weight: 700;
   font-size: 0.7rem;
-  box-shadow: 0 2px 4px rgba(241, 196, 15, 0.3);
+  box-shadow: 0 1px 3px rgba(20, 23, 54, 0.2);
 }
 
 /* ============================================================================
@@ -169,19 +219,23 @@
 
 /* Message bubble styling */
 .admin-message-item {
-  border-radius: 16px;
+  border-radius: 14px;
   box-shadow: var(--shadow-sm);
   transition: all 0.2s ease;
 }
 
+/* Our replies: solid corporate navy, white type (Teams/LinkedIn idiom) */
 .admin-message-item.branch {
-  background: linear-gradient(135deg, var(--brand-focus-rgba) 0%, var(--brand-focus-strong) 100%);
-  border: 1px solid var(--brand-focus);
+  background: linear-gradient(180deg, #262b66 0%, #1c2050 100%);
+  border: 1px solid #1c2050;
+  border-bottom-right-radius: 4px;
 }
 
+/* Guest messages: white card */
 .admin-message-item.guest {
   background-color: var(--surface-primary);
   border: 1px solid var(--border-subtle);
+  border-bottom-left-radius: 4px;
 }
 
 /* Message text styling */
@@ -192,12 +246,20 @@
   font-weight: 400;
 }
 
+.admin-message-item.branch .message-text {
+  color: #ffffff;
+}
+
 /* Message timestamp */
 .admin-message-item .message-timestamp {
   font-size: 0.7rem;
   color: var(--text-tertiary);
   font-weight: 500;
   letter-spacing: 0.02em;
+}
+
+.admin-message-item.branch .message-timestamp {
+  color: rgba(255, 255, 255, 0.62);
 }
 
 /* ============================================================================
@@ -266,7 +328,7 @@
   background-color: var(--surface-primary);
 }
 
-/* Send button modernization */
+/* Send button: navy pill, white label */
 .send-btn {
   border-radius: 12px;
   font-weight: 600;
@@ -274,6 +336,7 @@
   padding: 14px 24px;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: var(--shadow-sm);
+  letter-spacing: 0.01em;
 }
 
 .send-btn:not(:disabled):hover {
@@ -296,10 +359,12 @@
   color: var(--text-secondary);
   font-style: italic;
   padding: 8px 16px;
-  background-color: var(--brand-focus-rgba);
+  background-color: var(--surface-primary);
+  border: 1px solid var(--border-subtle);
   border-radius: 12px;
   display: inline-block;
   margin-left: 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 /* ============================================================================

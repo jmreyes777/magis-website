@@ -36,7 +36,7 @@
 }
 
 .branches-table tbody tr:hover {
-  background-color: rgba(245, 158, 11, 0.3) !important;
+  background-color: rgba(38, 43, 102, 0.12) !important;
   transition: all 0.2s ease-in-out;
 }
 

@@ -2386,26 +2386,15 @@ const BranchChatDashboard = () => {
     return () => ch.removeEventListener("message", handleSync);
   }, [handleIncomingMessage, getAdminSyncChannel, branchEmail]);
 
-  //🔹 Secure Logout Button Component
+  //🔹 Secure Logout Button Component — ghost style on the navy header
   const AdminLogoutButton = () => (
-    <div
-      style={{ display: "flex", justifyContent: "center", marginTop: "20px" }}
+    <button
+      onClick={handleLogout}
+      className="logout-ghost-btn"
+      title="Sign out securely"
     >
-      <button
-        onClick={handleLogout}
-        style={{
-          padding: "10px 20px",
-          backgroundColor: "#e53e3e",
-          color: "white",
-          fontSize: "16px",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-        }}
-      >
-        Logout
-      </button>
-    </div>
+      Logout
+    </button>
   );
 
   const handleChatSelect = useCallback(
@@ -2587,6 +2576,15 @@ const BranchChatDashboard = () => {
       {/* Header */}
       <div className="w-full bg-gray-800 text-white p-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
+          {/* Brand mark (logo pairing: gold gem + navy-bar wordmark) */}
+          <span className="brand-mark" aria-hidden="true">
+            <span className="brand-mark-gem">◆</span>
+            <span>
+              <span className="brand-mark-name">MAGI&rsquo;S</span>
+              <span className="brand-mark-sub">Gold &amp; Gems</span>
+            </span>
+          </span>
+          <span className="h-8 w-px bg-white/15" aria-hidden="true" />
           <h1 className="text-xl font-semibold">Branch Chat Dashboard</h1>
           <AdminNavigation currentPage="/admin/chats" />
         </div>

@@ -6,48 +6,70 @@
 @tailwind utilities;
 
 /* ============================================================================
-   Admin Brand Color System
+   Admin Brand Color System — "Magis Corporate" (2026-07 redesign)
+   White-dominant surfaces · dark navy secondary (logo wordmark) · gold
+   reserved as a subtle brand accent (logo field). Variable NAMES are kept so
+   every existing rule keeps working; only their MEANING changed:
+   --brand-primary is now the NAVY action color, gold lives in --brand-gold.
    ============================================================================ */
 
 :root {
-  --brand-primary: #f1c40f;
-  --brand-primary-hover: #eab308;
-  --brand-primary-dark: #d97706;
-  --brand-focus: #f59e0b;
-  --brand-focus-rgba: rgba(245, 158, 11, 0.2);
-  --brand-secondary: #81c784;
-  --brand-accent: #ff6600;
+  /* Logo navy family (MAGI'S wordmark) */
+  --navy-900: #141736;
+  --navy-800: #1c2050;
+  --navy-700: #262b66;
+  --navy-600: #343a85;
+  --navy-tint: rgba(38, 43, 102, 0.07);
+  --navy-tint-strong: rgba(38, 43, 102, 0.14);
+
+  /* Logo gold — accent only, never a surface */
+  --brand-gold: #f2c114;
+  --brand-gold-hover: #dcae0b;
+  --brand-gold-tint: rgba(242, 193, 20, 0.14);
+
+  /* Logo emblem sky-blue — informational accents */
+  --brand-sky: #2f7dd1;
+
+  /* Semantic mapping (names preserved for every downstream rule) */
+  --brand-primary: var(--navy-700);
+  --brand-primary-hover: var(--navy-600);
+  --brand-primary-dark: var(--navy-800);
+  --brand-focus: var(--navy-600);
+  --brand-focus-rgba: var(--navy-tint);
+  --brand-secondary: #4caf7d;
+  --brand-accent: var(--brand-gold);
 }
 
 /* ============================================================================
    Brand Color Overrides for Tailwind Classes
    ============================================================================ */
 
-/* Override header background - gray-800 to brand primary */
+/* Header: corporate navy bar (logo wordmark color) */
 .bg-gray-800 {
-  background-color: var(--brand-primary) !important;
+  background: linear-gradient(180deg, var(--navy-800) 0%, var(--navy-900) 100%) !important;
 }
 
-/* Override sidebar background - gray-100 to light brand tint */
+/* Sidebar: white-dominant */
 .bg-gray-100 {
-  background-color: var(--brand-focus-rgba) !important;
+  background-color: #ffffff !important;
 }
 
-/* Override selected state - blue-100 to brand tint */
+/* Selected conversation: quiet navy tint */
 .bg-blue-100 {
-  background-color: rgba(245, 158, 11, 0.3) !important;
+  background-color: var(--navy-tint-strong) !important;
 }
 
-/* Override hover states - gray-200 to brand tint */
+/* Hover states: barely-there navy wash */
 .hover\:bg-gray-200:hover {
-  background-color: rgba(245, 158, 11, 0.2) !important;
+  background-color: var(--navy-tint) !important;
 }
 
-/* Override blue-500/600 to brand primary */
+/* Primary actions: navy, white label */
 .bg-blue-500,
 .send-btn:not(:disabled) {
   background-color: var(--brand-primary) !important;
   border-color: var(--brand-primary) !important;
+  color: #ffffff !important;
 }
 
 .bg-blue-600,
@@ -80,9 +102,10 @@ textarea:focus {
   border-color: var(--brand-primary) !important;
 }
 
-/* Override red-500 for unread badges to brand primary for consistency */
+/* Unread badges: the ONE loud gold moment (logo accent), navy numerals */
 .bg-red-500 {
-  background-color: var(--brand-primary) !important;
+  background-color: var(--brand-gold) !important;
+  color: var(--navy-900) !important;
 }
 
 /* Override gray colors for better brand consistency */
@@ -129,8 +152,8 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb;
-  color: #111827;
+  background-color: #f6f7fb;
+  color: #1a1d3d;
   overflow-x: hidden;
 }
 
@@ -171,7 +194,7 @@ code {
     @apply py-2 px-4 rounded-md transition;
     background-color: var(--brand-primary) !important;
     border-color: var(--brand-primary) !important;
-    color: #111827 !important;
+    color: #ffffff !important;
     font-weight: 600;
   }
 
@@ -223,7 +246,7 @@ code {
 }
 
 .send-btn:not(:disabled):hover {
-  box-shadow: 0 4px 14px rgba(241, 196, 15, 0.3);
+  box-shadow: 0 4px 14px rgba(38, 43, 102, 0.28);
   transform: translateY(-1px);
 }
 
@@ -350,8 +373,8 @@ table tbody tr.selected {
 }
 
 .badge.online {
-  background-color: rgba(129, 199, 132, 0.2);
-  color: var(--brand-secondary);
+  background-color: rgba(76, 175, 125, 0.15);
+  color: #2e7d5b;
 }
 
 .badge.offline {
@@ -360,8 +383,8 @@ table tbody tr.selected {
 }
 
 .badge.unread {
-  background-color: var(--brand-primary);
-  color: #111827;
+  background-color: var(--brand-gold);
+  color: var(--navy-900);
 }
 
 /* ============================================================================
@@ -480,7 +503,7 @@ table tbody tr.selected {
   border-radius: 8px;
   font-weight: 500;
   font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.72);
   transition: all 0.2s ease;
   border: none;
   background: transparent;
@@ -489,13 +512,16 @@ table tbody tr.selected {
 
 .nav-link:hover {
   color: #ffffff;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Active page: gold underline accent on the navy bar (logo pairing) */
 .nav-link-active {
-  color: #111827;
-  background-color: var(--brand-primary);
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
   font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--brand-gold);
+  border-radius: 8px 8px 2px 2px;
 }
 
 /* Chart Container */

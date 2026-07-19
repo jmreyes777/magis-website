@@ -12,10 +12,10 @@
   transition: all 0.2s ease;
 }
 
-/* Styles for messages sent by branch (admin) */
+/* Styles for messages sent by branch (admin) — corporate navy bubble */
 .admin-message-item.branch {
-  background-color: var(--brand-focus-rgba);
-  border-color: var(--brand-focus);
+  background-color: var(--brand-primary);
+  border-color: var(--brand-primary-dark);
   align-self: flex-end;
 }
 
@@ -54,7 +54,7 @@
 
 /* File attachment links */
 .admin-message-item .attachment-link {
-  color: var(--brand-primary-dark);
+  color: var(--brand-primary);
   text-decoration: none;
   font-weight: 500;
 }
@@ -62,6 +62,15 @@
 .admin-message-item .attachment-link:hover {
   color: var(--brand-primary-hover);
   text-decoration: underline;
+}
+
+/* Inside navy bubbles, links must read on the dark ground: gold accent */
+.admin-message-item.branch .attachment-link {
+  color: var(--brand-gold, #f2c114);
+}
+
+.admin-message-item.branch .attachment-link:hover {
+  color: #ffe27a;
 }
 
 /* Message status block for failed or pending messages */
@@ -76,6 +85,11 @@
   justify-content: space-between;
 }
 
+/* On a navy bubble the red block needs a light field to stay readable */
+.admin-message-item.branch .message-status-failed {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+
 /* Status text styling */
 .admin-message-item .message-status-failed span {
   font-size: 14px;
@@ -83,11 +97,11 @@
   font-weight: 500;
 }
 
-/* Retry button styling */
+/* Retry button styling — navy action, white label */
 .admin-message-item .retry-button {
   background-color: var(--brand-primary);
-  border: 1px solid var(--brand-primary);
-  color: #111827;
+  border: 1px solid var(--brand-primary-dark);
+  color: #ffffff;
   padding: 4px 8px;
   font-size: 14px;
   border-radius: 4px;
@@ -109,4 +123,8 @@
   color: var(--text-tertiary);
   text-align: right;
   font-weight: 500;
+}
+
+.admin-message-item.branch .message-timestamp {
+  color: rgba(255, 255, 255, 0.62);
 }

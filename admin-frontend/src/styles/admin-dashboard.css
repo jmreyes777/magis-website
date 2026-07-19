@@ -4,37 +4,39 @@
    ============================================================================ */
 
 :root {
-  /* Brand Colors */
-  --brand-primary: #f1c40f;
-  --brand-primary-hover: #eab308;
-  --brand-primary-dark: #d97706;
-  --brand-focus: #f59e0b;
-  --brand-focus-rgba: rgba(245, 158, 11, 0.2);
-  --brand-secondary: #81c784;
-  --brand-accent: #ff6600;
+  /* Brand Colors — MUST agree with the corporate navy system in index.css
+     (this file loads LAST, so a yellow re-declaration here would win the
+     cascade and undo the 2026-07 white/navy redesign). */
+  --brand-primary: #262b66;
+  --brand-primary-hover: #343a85;
+  --brand-primary-dark: #1c2050;
+  --brand-focus: #343a85;
+  --brand-focus-rgba: rgba(38, 43, 102, 0.07);
+  --brand-secondary: #4caf7d;
+  --brand-accent: #f2c114;
   
   /* Neutral Colors */
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --bg-tertiary: #f3f4f6;
-  --text-primary: #111827;
-  --text-secondary: #6b7280;
-  --text-tertiary: #9ca3af;
-  --border-color: #e5e7eb;
-  --border-color-hover: #d1d5db;
+  --bg-secondary: #f6f7fb;
+  --bg-tertiary: #eef0f6;
+  --text-primary: #1a1d3d;
+  --text-secondary: #565b7c;
+  --text-tertiary: #8f93ad;
+  --border-color: #e7e9f2;
+  --border-color-hover: #d6d9e6;
   
   /* Status Colors */
-  --status-online: #81c784;
+  --status-online: #4caf7d;
   --status-offline: #9ca3af;
   --status-busy: #f59e0b;
   --status-error: #ef4444;
-  --status-success: #81c784;
+  --status-success: #4caf7d;
   
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.12);
-  --shadow-brand: 0 4px 14px rgba(241, 196, 15, 0.3);
+  --shadow-sm: 0 1px 2px rgba(20, 23, 54, 0.06);
+  --shadow-md: 0 4px 6px rgba(20, 23, 54, 0.1);
+  --shadow-lg: 0 10px 15px rgba(20, 23, 54, 0.12);
+  --shadow-brand: 0 4px 14px rgba(38, 43, 102, 0.3);
   
   /* Spacing */
   --spacing-xs: 4px;
