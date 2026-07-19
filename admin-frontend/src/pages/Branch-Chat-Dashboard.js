@@ -1460,7 +1460,13 @@ const BranchChatDashboard = () => {
 
     const connect = async () => {
       const { connectSocket } = await import("../components/Admin-Utils-socket");
-      await connectSocket(branchEmail); // passive
+      // isPassive=true is REQUIRED here: a fallback-rehydrated tab holds
+      // "__FALLBACK_FAKE_TOKEN__", and a non-passive connect aborts on it
+      // instead of exchanging it for a real token via /api/issue-fallback-token.
+      // That abort left the socket forever disconnected — and the amber
+      // "Reconnecting to chat…" banner permanently visible — while chats kept
+      // working through Firestore/BroadcastChannel.
+      await connectSocket(branchEmail, true); // passive
     };
 
     connect();

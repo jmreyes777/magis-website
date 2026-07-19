@@ -692,7 +692,10 @@ router.post(
  */
 const adminReplySchema = z.object({
   guestId: z.string().min(1, "guestId is required."),
-  content: z.string().min(1, "content is required.").optional(), // may be empty if file present
+  // May be absent OR EMPTY: an image-only reply sends content="" as a
+  // multipart field. min(1) here 400'd those sends — the content-or-file
+  // requirement is enforced below, after multer has parsed the file.
+  content: z.string().optional(),
   tempId:  z.string().optional(),
   clientMessageId: z.string().optional(),
   // E2EE metadata (multipart sends these as strings). Persisted so the stored
