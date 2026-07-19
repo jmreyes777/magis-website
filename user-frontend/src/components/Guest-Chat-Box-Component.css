@@ -1102,3 +1102,53 @@ textarea:focus-visible {
 .attach-preview__remove:hover {
   background: #111827;
 }
+
+/* ── Idle auto-close security notice ─────────────────────────────────────
+   Rendered inside .guest-chat-box AFTER the walk-away wipe. Static copy
+   only — no PII — centered in the frame the chat occupied. */
+.gc-idle-notice {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  gap: 10px;
+}
+
+.gc-idle-notice-icon {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.gc-idle-notice-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+}
+
+.gc-idle-notice-body {
+  font-size: 13px;
+  line-height: 1.5;
+  color: #4b5563;
+  margin: 0;
+}
+
+.gc-idle-notice-btn {
+  margin-top: 8px;
+  padding: 10px 28px;
+  border: none;
+  border-radius: 9999px;
+  background: #eab308; /* matches the widget's yellow header */
+  color: #1f2937;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.gc-idle-notice-btn:hover {
+  background: #ca8a04;
+}

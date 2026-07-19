@@ -17,6 +17,7 @@ import {
 import MessageItem from "../Shared/Message-Item-Component";
 import { optimizeImage } from "../Shared/Utils-imageOptimization";
 import "./Guest-Chat-Box-Component.css";
+import GuestIdleNotice from "./Guest-Idle-Notice-Component";
 import TranscriptModal from "../components/TranscriptModal";
 import {
   isE2EEEstablished,
@@ -569,6 +570,8 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
   const [isMinimized, setIsMinimized] = useState(false);
   const [isPrivacyNoticeMinimized, setIsPrivacyNoticeMinimized] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  // Idle auto-close happened: session data erased, show the security notice.
+  const [idleClosed, setIdleClosed] = useState(false);
   const isClosingRef = useRef(false);
   const [isConnected, setIsConnected] = useState(true);
   const [showTranscriptModal, setShowTranscriptModal] = useState(false);
@@ -704,14 +707,29 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
   // ============================================================================
   // SECURITY: IDLE TIMEOUT AUTO-ERASE (Walk-away Protection)
   // ============================================================================
+  // On timeout: archive the conversation (chatClosed → branch side stays
+  // consistent), erase every trace from this device, then show an in-frame
+  // notice EXPLAINING the close instead of silently vanishing — guests kept
+  // thinking the chat "broke". The notice renders only after the wipe, so
+  // nothing sensitive remains behind it.
   useEffect(() => {
+    if (idleClosed) return; // chat already closed — nothing left to guard
     const IDLE_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes of inactivity
     let idleTimer;
-    
-    const clearAllData = () => {
+
+    const clearAllData = async () => {
       console.log('[SECURITY] Idle timeout - auto-erasing all guest data');
-      
-      // Clear all storage
+
+      // 1) Archive + notify the branch first (needs the token/ids, so it must
+      //    run BEFORE the wipe). keepMounted: the widget stays on screen to
+      //    show the security notice instead of unmounting.
+      try {
+        await handleChatCloseRef.current?.({ keepMounted: true });
+      } catch (err) {
+        console.warn('[SECURITY] ⚠️ Idle-close archive failed:', err?.message);
+      }
+
+      // 2) Clear all storage
       const keysToClear = [
         'guestId', 'branchEmail', 'guestToken', 'chatOpen',
         'pendingMessages', 'draftMessage', 'chatHistory'
@@ -720,19 +738,19 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
         sessionStorage.removeItem(key);
         localStorage.removeItem(key);
       });
-      
+
       // Clear message caches
       Object.keys(sessionStorage).forEach(key => {
         if (key.startsWith('msgs_') || key.includes('chat') || key.includes('guest')) {
           sessionStorage.removeItem(key);
         }
       });
-      
+
       // Clear state (guestId is a prop, not state - parent controls it)
       setMessages([]);
-      
-      // Close chat via parent callback
-      onClose();
+
+      // 3) Swap the chat UI for the inactivity notice (dismiss → onClose)
+      setIdleClosed(true);
     };
     
     const resetIdleTimer = () => {
@@ -755,7 +773,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
         window.removeEventListener(event, resetIdleTimer, true);
       });
     };
-  }, [guestId, onClose]);
+  }, [guestId, onClose, idleClosed]);
 
   // ============================================================================
   // SECURITY: E2EE VIA SERVER-MANAGED CONVERSATION KEY
@@ -1619,8 +1637,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
     return isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
   };
 
-  // Close chat box (kept as-is)
-  const handleChatClose = async () => {
+  // Close chat box. keepMounted (idle auto-close): run the FULL close flow —
+  // archive, chatClosed emit, socket teardown — but skip onClose() so the
+  // widget can keep rendering the inactivity notice instead of unmounting.
+  const handleChatClose = async ({ keepMounted = false } = {}) => {
     // Mark closing synchronously (before any await) so the other unmount
     // cleanups reliably see it and skip their own teardown.
     isClosingRef.current = true;
@@ -1712,7 +1732,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
       console.error("[CLIENT:GUEST] ❌ Error during handleChatClose:", err.message);
     } finally {
       disconnectSocket(false, "manual");
-      onClose();
+      if (!keepMounted) onClose();
     }
   };
 
@@ -1954,6 +1974,18 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
   // ─────────────────────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────────────────────
+  // Idle auto-close notice: takes precedence over every other view (even
+  // minimized — a minimized chat that got erased must still explain itself).
+  // All session data is already wiped; dismissing simply unmounts the widget
+  // so the page's chat button is available for a fresh conversation.
+  if (idleClosed) {
+    return (
+      <div className="guest-chat-box">
+        <GuestIdleNotice minutes={5} onDismiss={onClose} />
+      </div>
+    );
+  }
+
   return (
     <>
       {/* Minimized Chat Widget */}
