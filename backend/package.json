@@ -17,6 +17,7 @@
     "express-rate-limit": "^7.5.0",
     "firebase-admin": "^13.10.0",
     "googleapis": "^172.0.0",
+    "heic-convert": "^2.1.0",
     "helmet": "^8.3.0",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
@@ -25,6 +26,7 @@
     "nodemailer": "^9.0.3",
     "qrcode": "^1.5.4",
     "rate-limit-redis": "^4.2.2",
+    "sharp": "^0.34.5",
     "socket.io": "^4.8.3",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"

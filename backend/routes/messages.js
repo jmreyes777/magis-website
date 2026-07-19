@@ -19,17 +19,35 @@ const {
 const rateLimitByGuest       = require("../middlewares/rateLimitByGuest");
 const { requireMFA }          = require("../middlewares/requireMFA");
 const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
-// const sharp = require("sharp"); // Removed due to Node.js 24 compatibility issues
+const {
+  normalizeChatImage,
+  safeBaseName,
+} = require("../utils/chatImageNormalizer");
 
-// Multer setup: memory storage, 5 MB limit, only images/PDFs
+// Multer setup: memory storage. ANY image mimetype is accepted at the wire
+// (25MB cap) because the server now normalizes every image to a browser-safe
+// JPEG/PNG ≤1600px before storage (utils/chatImageNormalizer, sharp 0.34 —
+// Node 24 compatible, unlike the old sharp that P3-6 removed). The previous
+// jpeg/png/gif allow-list rejected the exact uploads phones produce when the
+// client-side canvas optimizer can't decode them (HEIC on Chrome/Android,
+// WebP screenshots, TIFF...) and the 5MB cap killed large originals — both
+// were silent "image won't send" failures.
+const UPLOAD_WIRE_CAP_BYTES = 25 * 1024 * 1024;
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: { fileSize: UPLOAD_WIRE_CAP_BYTES },
   fileFilter(req, file, cb) {
-    const allowed = ["image/jpeg", "image/png", "image/gif", "application/pdf"];
-    if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error("File type not allowed"), false);
+    const mt = String(file.mimetype || "").toLowerCase();
+    // image/* covers heic/webp/tiff/bmp/avif...; octet-stream is allowed
+    // through because share-sheets/older webviews mislabel photos — the
+    // normalizer verifies actual image bytes and rejects non-images there.
+    if (mt.startsWith("image/") || mt === "application/pdf" || mt === "application/octet-stream") {
+      return cb(null, true);
+    }
+    const err = new Error("Only images and PDF files can be attached.");
+    err.code = "UNSUPPORTED_FILE_TYPE";
+    cb(err, false);
   },
 });
 
@@ -484,12 +502,38 @@ async function logSensitiveMessage(messageId, originalContent, patterns, guestId
   });
 }
 
-// 1) Helper that only calls multer for multipart/form-data
+// 1) Helper that only calls multer for multipart/form-data. Multer failures
+// are translated to actionable JSON here — they used to fall through to the
+// generic error handler as an opaque 500, so the sender's UI could only say
+// "failed" with no reason.
 function optionalMediaUpload(req, res, next) {
   if (req.is("multipart/form-data")) {
-    return upload.single("media")(req, res, next);
+    return upload.single("media")(req, res, (err) => {
+      if (!err) return next();
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({
+          error: "That file is too large. Please attach a file under 25MB.",
+        });
+      }
+      if (err.code === "UNSUPPORTED_FILE_TYPE") {
+        return res.status(415).json({ error: err.message });
+      }
+      console.error("[MESSAGES:upload] ❌ multer:", err);
+      return res.status(400).json({ error: "Could not read the attached file." });
+    });
   }
   next();
+}
+
+// Normalize + store a chat image (shared by guest /send and admin /reply).
+// `scope` is the storage folder (guestId or branchId). Any decodable image —
+// any format, any size under the wire cap — comes out as a browser-safe
+// JPEG/PNG ≤1600px. Throws err.friendly for un-decodable bytes.
+async function storeChatImage(file, scope) {
+  const norm = await normalizeChatImage(file.buffer, file.mimetype);
+  const fileName = `media/${scope}/${uuidv4()}-${safeBaseName(file.originalname)}.${norm.ext}`;
+  await uploadMediaToStorage(norm.buffer, fileName, norm.contentType);
+  return { type: "image", path: fileName };
 }
 
 // If tempId matches an optimistic draft, update it
@@ -606,17 +650,17 @@ router.post(
           .json({ error: "branchId and non-empty content or a media file are required." });
       }
 
-      // 3️⃣ Handle media upload (only if req.file exists)
+      // 3️⃣ Handle media upload (only if req.file exists). Images — any
+      // format a phone can produce — are normalized server-side to a
+      // browser-safe JPEG/PNG ≤1600px (P1-3: stored privately, served via
+      // short-lived signed URL).
       let media = null;
       if (hasFile) {
-        if (req.file.mimetype.startsWith("image/")) {
-          // image → stored privately; served via short-lived signed URL (P1-3)
-          const fileName = `media/${guestId}/${uuidv4()}-${req.file.originalname}`;
-          await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
-          media = { type: "image", path: fileName };
+        const isPdf = req.file.mimetype === "application/pdf";
+        if (!isPdf) {
+          media = await storeChatImage(req.file, guestId);
         } else {
-          // non-image (PDF, etc) → stored privately; served via signed URL
-          const fileName = `media/${guestId}/${uuidv4()}-${req.file.originalname}`;
+          const fileName = `media/${guestId}/${uuidv4()}-${safeBaseName(req.file.originalname)}.pdf`;
           await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
           media = { type: "file", path: fileName, name: req.file.originalname };
         }
@@ -679,6 +723,11 @@ router.post(
       // 8️⃣ Return saved message
       return res.status(201).json({ savedMessage: saved });
     } catch (err) {
+      if (err && err.friendly) {
+        // Normalizer verdicts (unreadable bytes / uncompressible image) are
+        // user-fixable — tell the sender exactly what to do, not "500".
+        return res.status(422).json({ error: err.message });
+      }
       console.error("[MESSAGES:send] ❌", err);
       return res.status(500).json({ error: "Failed to send message." });
     }
@@ -744,18 +793,16 @@ router.post(
         return res.status(400).json({ error: "content or a media file is required." });
       }
 
-      // 2️⃣ Handle media upload (only if req.file exists)
+      // 2️⃣ Handle media upload (only if req.file exists). Same server-side
+      // normalization as the guest path — any decodable image becomes a
+      // browser-safe JPEG/PNG ≤1600px (P1-3: private, signed-URL served).
       let media = null;
       if (hasFile) {
-        if (req.file.mimetype.startsWith("image/")) {
-          // Store the original image privately (no server-side resize: `sharp`
-          // was removed for Node 24 compatibility — see P3-6). Served via a
-          // short-lived signed URL (P1-3).
-          const fileName = `media/${branchId}/${uuidv4()}-${req.file.originalname}`;
-          await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
-          media = { type: "image", path: fileName };
+        const isPdf = req.file.mimetype === "application/pdf";
+        if (!isPdf) {
+          media = await storeChatImage(req.file, branchId);
         } else {
-          const fileName = `media/${branchId}/${uuidv4()}-${req.file.originalname}`;
+          const fileName = `media/${branchId}/${uuidv4()}-${safeBaseName(req.file.originalname)}.pdf`;
           await uploadMediaToStorage(req.file.buffer, fileName, req.file.mimetype);
           media = { type: "file", path: fileName, name: req.file.originalname };
         }
@@ -802,6 +849,9 @@ router.post(
         .status(201)
         .json({ message: "Reply sent successfully.", savedReply: saved });
     } catch (err) {
+      if (err && err.friendly) {
+        return res.status(422).json({ error: err.message });
+      }
       console.error("[MESSAGES:reply] ❌", err);
       return res.status(500).json({ error: "Failed to send reply." });
     }
