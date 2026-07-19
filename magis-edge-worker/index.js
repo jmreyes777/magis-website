@@ -1085,6 +1085,16 @@ async function handle(request, event) {
     // route (authenticateGuest + per-message ACL) fully authenticates it.
     (request.method === "PATCH" &&
       pathname.startsWith("/api/messages/mark-seen-by-guest")) ||
+    // Guest resolves PRIVATE chat media into a short-lived signed URL (P1-3).
+    // Same token situation as mark-seen: guest token (role=user) would be
+    // 403'd by the admin gate below; the backend route (authenticateGuest +
+    // per-message guestId ACL) fully authenticates. THIS ENTRY WAS MISSING
+    // when /media/:id shipped — every other guest chat call was listed — so
+    // guest-side attachments 403'd AT THE EDGE on all devices (2026-07-19,
+    // "Attachment unavailable"). The admin variant (/admin-media/:id) stays
+    // on the normal branchadmin gate. Never edge-cached (per-guest private).
+    (request.method === "GET" &&
+      pathname.startsWith("/api/messages/media/")) ||
     ((request.method === "GET" || request.method === "POST") && pathname === "/api/csrf-token") ||
     (request.method === "POST" && pathname === "/api/issue-fallback-token") ||
     // Super-admin login token exchange (Firebase idToken in body -> backend
