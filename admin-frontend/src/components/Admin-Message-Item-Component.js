@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import PropTypes from 'prop-types';
 import './AdminMessageItem.css';
-import { resolveAdminMedia } from '../utils/mediaResolver';
+import { resolveAdminMedia, invalidateAdminMedia } from '../utils/mediaResolver';
 
 // Defense-in-depth: never render a raw encrypted payload. If decryption failed
 // upstream (e.g. the secure channel wasn't established for this session), the
@@ -30,7 +30,13 @@ const toDisplayText = (t) => (looksLikeCiphertext(t) ? '[Encrypted message]' : t
 // items, unchanged rows keep object identity), so React.memo's shallow prop
 // compare is exact: a row re-renders only when its message object, sender, or
 // isLatest actually changed. No behavior change.
-const AdminMessageItem = React.memo(({ message, sender, isLatest }) => {
+// Backoff schedule for media resolve retries. Module-level const so the
+// default prop keeps a stable identity across renders (a fresh array literal
+// default would re-trigger the resolve effect every render). Tests inject
+// [0,0,0] to exercise the retry ladder without fake timers.
+const DEFAULT_MEDIA_RETRY_DELAYS_MS = [1000, 3000, 8000];
+
+const AdminMessageItem = React.memo(({ message, sender, isLatest, retryDelaysMs = DEFAULT_MEDIA_RETRY_DELAYS_MS }) => {
   const isUnsent = message.status === 'failed' || message.pendingRetry;
   // Format timestamp as "MMM DD, YYYY at hh:mm AM/PM"
   const ts = new Date(message.timestamp);
@@ -61,24 +67,68 @@ const AdminMessageItem = React.memo(({ message, sender, isLatest }) => {
       : null;
   const needsResolve = !!(media && media.path && !directUrl && !directSrc);
 
+  // Resolve with bounded retries (1s/3s/8s backoff), then an explicit
+  // tap-to-retry state — a transient failure must never leave the eternal
+  // "Loading attachment…" label (see the branch→guest 3.75MB incident).
   const [resolved, setResolved] = useState(null);
+  const [resolveFailed, setResolveFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   useEffect(() => {
-    let cancelled = false;
-    if (needsResolve && message.id) {
-      resolveAdminMedia(message.id)
-        .then((d) => { if (!cancelled) setResolved(d); })
-        .catch(() => { if (!cancelled) setResolved(null); });
-    } else {
+    if (!needsResolve || !message.id) {
       setResolved(null);
+      setResolveFailed(false);
+      return undefined;
     }
-    return () => { cancelled = true; };
-  }, [needsResolve, message.id]);
+    let cancelled = false;
+    let timer = null;
+    const delays = retryDelaysMs;
+    const attempt = (n) => {
+      resolveAdminMedia(message.id)
+        .then((d) => {
+          if (cancelled) return;
+          setResolved(d);
+          setResolveFailed(false);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          console.warn(
+            `[MEDIA] resolve failed for ${message.id} (attempt ${n + 1}):`,
+            err?.message
+          );
+          if (n < delays.length) {
+            timer = setTimeout(() => attempt(n + 1), delays[n]);
+          } else {
+            setResolveFailed(true);
+          }
+        });
+    };
+    setResolveFailed(false);
+    attempt(0);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [needsResolve, message.id, retryNonce, retryDelaysMs]);
+
+  const retryResolve = () => {
+    invalidateAdminMedia(message.id);
+    setRetryNonce((n) => n + 1);
+  };
+
+  // Signed URLs expire ~15 min after minting; on <img> error refetch with a
+  // fresh signature instead of leaving a broken thumbnail in a long-open tab.
+  const handleImgError = () => {
+    invalidateAdminMedia(message.id);
+    setResolved(null);
+    setRetryNonce((n) => n + 1);
+  };
 
   const mediaType = media ? media.type : null;
   const mediaUrl = directUrl || directSrc || resolved?.url || resolved?.src || null;
   const mediaSrc = directSrc || directUrl || resolved?.src || resolved?.url || null;
   const mediaSrcSet = (directSrc || directUrl) ? media.srcSet : resolved?.srcSet;
-  const mediaResolving = needsResolve && !mediaUrl;
+  const mediaResolving = needsResolve && !mediaUrl && !resolveFailed;
+  const mediaFailed = needsResolve && !mediaUrl && resolveFailed;
 
   return (
     <div
@@ -93,7 +143,7 @@ const AdminMessageItem = React.memo(({ message, sender, isLatest }) => {
         </p>
 
         {/* Media Content (P1-3: private media resolved to signed URL) */}
-        {mediaType && (mediaUrl || mediaResolving) && (
+        {mediaType && (mediaUrl || mediaResolving || mediaFailed) && (
           <div className="media-content">
             {mediaResolving ? (
               <span
@@ -102,6 +152,23 @@ const AdminMessageItem = React.memo(({ message, sender, isLatest }) => {
               >
                 Loading attachment…
               </span>
+            ) : mediaFailed ? (
+              <button
+                type="button"
+                onClick={retryResolve}
+                className="attachment-retry"
+                style={{
+                  fontSize: '0.8rem',
+                  color: '#b91c1c',
+                  background: 'none',
+                  border: '1px dashed #b91c1c',
+                  borderRadius: 6,
+                  padding: '4px 8px',
+                  cursor: 'pointer',
+                }}
+              >
+                ⚠ Attachment unavailable — tap to retry
+              </button>
             ) : mediaType === 'image' ? (
               <img
                 src={mediaSrc || mediaUrl}
@@ -110,6 +177,7 @@ const AdminMessageItem = React.memo(({ message, sender, isLatest }) => {
                 alt="Image Attachment"
                 className="attachment-image"
                 loading="lazy"
+                onError={handleImgError}
               />
             ) : (
               <a

@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import PropTypes from "prop-types";
 import "./MessageItem.css";
-import { resolveGuestMedia } from "./mediaResolver";
+import { resolveGuestMedia, invalidateGuestMedia } from "./mediaResolver";
 
 // Defense-in-depth: never render a raw encrypted payload. If decryption failed
 // upstream, the content may still be a {"ciphertext":...,"iv":...} blob — show
@@ -24,7 +24,12 @@ const looksLikeCiphertext = (t) => {
 };
 const toDisplayText = (t) => (looksLikeCiphertext(t) ? "[Encrypted message]" : t);
 
-const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
+// Backoff schedule for media resolve retries. Module-level const so the
+// default prop keeps a stable identity across renders. Tests inject [0,0,0]
+// to exercise the retry ladder without fake timers.
+const DEFAULT_MEDIA_RETRY_DELAYS_MS = [1000, 3000, 8000];
+
+const MessageItem = ({ message, sender, hideMedia = false, isLatest, retryDelaysMs = DEFAULT_MEDIA_RETRY_DELAYS_MS }) => {
   const isGuest = sender === "guest";
   const isUnsent = message.status === "failed" || message.pendingRetry;
 
@@ -57,23 +62,69 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
       : null;
   const needsResolve = !!(media && media.path && !directUrl && !directSrc);
 
+  // Resolve with bounded retries (1s/3s/8s backoff) so a transient failure —
+  // token refresh in flight, network blip, replica lag on a just-written doc —
+  // heals itself instead of leaving "Loading attachment…" on screen forever.
+  // After the retry budget, we show an explicit tap-to-retry state.
   const [resolved, setResolved] = useState(null);
+  const [resolveFailed, setResolveFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
   useEffect(() => {
-    let cancelled = false;
-    if (needsResolve && message.id) {
-      resolveGuestMedia(message.id)
-        .then((d) => { if (!cancelled) setResolved(d); })
-        .catch(() => { if (!cancelled) setResolved(null); });
-    } else {
+    if (!needsResolve || !message.id) {
       setResolved(null);
+      setResolveFailed(false);
+      return undefined;
     }
-    return () => { cancelled = true; };
-  }, [needsResolve, message.id]);
+    let cancelled = false;
+    let timer = null;
+    const delays = retryDelaysMs;
+    const attempt = (n) => {
+      resolveGuestMedia(message.id)
+        .then((d) => {
+          if (cancelled) return;
+          setResolved(d);
+          setResolveFailed(false);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          console.warn(
+            `[MEDIA] resolve failed for ${message.id} (attempt ${n + 1}):`,
+            err?.message
+          );
+          if (n < delays.length) {
+            timer = setTimeout(() => attempt(n + 1), delays[n]);
+          } else {
+            setResolveFailed(true);
+          }
+        });
+    };
+    setResolveFailed(false);
+    attempt(0);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [needsResolve, message.id, retryNonce, retryDelaysMs]);
+
+  const retryResolve = () => {
+    invalidateGuestMedia(message.id);
+    setRetryNonce((n) => n + 1);
+  };
+
+  // A signed URL expires ~15 min after minting: if the <img> errors on a
+  // long-open chat, refetch once with a fresh signature instead of showing a
+  // broken thumbnail.
+  const handleImgError = () => {
+    invalidateGuestMedia(message.id);
+    setResolved(null);
+    setRetryNonce((n) => n + 1);
+  };
 
   const mediaType = media ? media.type : null;
   const mediaUrl = directUrl || directSrc || resolved?.url || resolved?.src || null;
   const mediaSrc = directSrc || directUrl || resolved?.src || resolved?.url || null;
-  const mediaResolving = needsResolve && !mediaUrl;
+  const mediaResolving = needsResolve && !mediaUrl && !resolveFailed;
+  const mediaFailed = needsResolve && !mediaUrl && resolveFailed;
 
   return (
     <div
@@ -86,7 +137,7 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
         {message.message && <p className="message-text">{toDisplayText(message.message)}</p>}
 
         {/* Media thumbnail + link (P1-3: private media resolved to signed URL) */}
-        {mediaType && !hideMedia && (mediaUrl || mediaResolving) && (
+        {mediaType && !hideMedia && (mediaUrl || mediaResolving || mediaFailed) && (
           <div className="media-content">
             {mediaResolving ? (
               <span
@@ -95,6 +146,23 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
               >
                 Loading attachment…
               </span>
+            ) : mediaFailed ? (
+              <button
+                type="button"
+                onClick={retryResolve}
+                className="attachment-retry"
+                style={{
+                  fontSize: "0.8rem",
+                  color: "#b91c1c",
+                  background: "none",
+                  border: "1px dashed #b91c1c",
+                  borderRadius: 6,
+                  padding: "4px 8px",
+                  cursor: "pointer",
+                }}
+              >
+                ⚠ Attachment unavailable — tap to retry
+              </button>
             ) : mediaType.startsWith("image") ? (
               <a
                 href={mediaUrl}
@@ -107,6 +175,7 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest }) => {
                   alt="Image Attachment"
                   className="attachment-thumbnail"
                   loading="lazy"
+                  onError={handleImgError}
                 />
                 <span className="view-full-overlay">View Full Image</span>
               </a>

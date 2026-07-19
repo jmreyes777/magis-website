@@ -60,9 +60,9 @@ cd user-frontend; npm run build; npm run e2e
 
 | Suite | Where | Count | Runtime |
 | --- | --- | --- | --- |
-| Backend logic + HTTP routes | `backend/tests/*.test.js` | 55 | ~5s |
-| Frontend unit/component/content | `user-frontend/src/**/*.test.js` | 75 | ~6s |
-| Admin unit/component | `admin-frontend/src/**/*.test.js` | 54 | ~9s |
+| Backend logic + HTTP routes | `backend/tests/*.test.js` | 59 | ~6s |
+| Frontend unit/component/content | `user-frontend/src/**/*.test.js` | 78 | ~6s |
+| Admin unit/component | `admin-frontend/src/**/*.test.js` | 57 | ~9s |
 | E2E smoke | `user-frontend/e2e/*.spec.js` | 7 | ~40s |
 
 ### ADM (admin-frontend suite) — added 2026-07-18
