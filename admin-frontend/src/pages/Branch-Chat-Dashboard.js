@@ -388,6 +388,23 @@ const BranchChatDashboard = () => {
   const [lastReadTimestamps, setLastReadTimestamps] = useState({});
   const [media, setMedia] = useState(null);
   const [isOptimizingImage, setIsOptimizingImage] = useState(false);
+  // Blob preview URL for the composer chip. Created ONCE per attached file and
+  // revoked on change/unmount — a render-time URL.createObjectURL(media) would
+  // leak a new blob: URL on every re-render of this (very chatty) page and
+  // throw inside render if `media` were ever not a Blob (→ error boundary).
+  const mediaPreviewUrl = useMemo(() => {
+    if (!media || typeof Blob === "undefined" || !(media instanceof Blob)) return null;
+    try {
+      return URL.createObjectURL(media);
+    } catch {
+      return null;
+    }
+  }, [media]);
+  useEffect(() => {
+    return () => {
+      if (mediaPreviewUrl) URL.revokeObjectURL(mediaPreviewUrl);
+    };
+  }, [mediaPreviewUrl]);
   const [activeGuestIds, setActiveGuestIds] = useState(new Set());
   // D-1: presence is live/server-authoritative. `presenceReady` flips true the
   // first time an authoritative guestPresenceUpdate is applied; until then a brief
@@ -2731,10 +2748,10 @@ const BranchChatDashboard = () => {
               </div>
 
               {/* Attached image preview (mirrors the guest chat box) */}
-              {media && (
+              {media && mediaPreviewUrl && (
                 <div className="px-4 pt-2 border-t flex items-center gap-3">
                   <img
-                    src={URL.createObjectURL(media)}
+                    src={mediaPreviewUrl}
                     alt="attachment preview"
                     className="h-16 w-16 object-cover rounded border"
                   />
