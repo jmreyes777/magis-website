@@ -901,6 +901,18 @@ const BranchChatDashboard = () => {
     return unsubscribe;
   }, []);
 
+  // Write-through the chats snapshot too. Previously `branchChats-<email>`
+  // was only written on incoming messages / chat close, so a session that
+  // merely LOADED chats left a stale/empty snapshot — and the self-feeding
+  // header widgets on other admin pages computed "All caught up" despite
+  // waiting guests. Identity-guarded like unreadCounts; persistChatState
+  // is already debounced.
+  const chatsIdentityRef = useRef(chats);
+  useEffect(() => {
+    if (!branchEmail || chats === chatsIdentityRef.current) return;
+    persistChatState(branchEmail, chats);
+  }, [chats, branchEmail]);
+
   useWakeLock(hydrated);
 
   // ============================================================================

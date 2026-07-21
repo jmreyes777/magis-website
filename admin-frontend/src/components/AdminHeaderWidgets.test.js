@@ -84,6 +84,29 @@ test("live updateUnread events refresh the chip and persist for the dashboard's 
   expect(readUnreadSnapshot(EMAIL)).toEqual({ g1: 2, g2: 4 });
 });
 
+test("counts a BRAND-NEW guest who messages while the dashboard is unmounted", async () => {
+  // Snapshot knows nothing about g9 — only the live event announces them.
+  localStorage.setItem(
+    `branchChats-${EMAIL}`,
+    JSON.stringify({ version: 1, chats: [], activeGuestIds: [] })
+  );
+  let pushUnread;
+  onUnreadUpdate.mockImplementation((cb) => {
+    pushUnread = cb;
+    return () => {};
+  });
+
+  await act(async () => {
+    renderWidgets();
+  });
+  expect(screen.getByText(/All caught up/i)).toBeInTheDocument();
+
+  await act(async () => {
+    pushUnread({ guestId: "g9", unreadCount: 1 });
+  });
+  expect(screen.getByText(/1 waiting/)).toBeInTheDocument();
+});
+
 test("snapshot readers tolerate corrupt storage", () => {
   localStorage.setItem(unreadStorageKey(EMAIL), "{not json");
   localStorage.setItem(`branchChats-${EMAIL}`, "also not json");

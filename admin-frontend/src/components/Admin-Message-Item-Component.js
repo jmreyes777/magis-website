@@ -222,7 +222,8 @@ const AdminMessageItem = React.memo(({ message, sender, isLatest, retryDelaysMs 
             right: '8px',
             fontSize: '0.50em',
             fontStyle: 'italic',
-            color: '#666',
+            // Staff replies sit on the dark navy bubble — gray was illegible.
+            color: sender === 'branch' ? 'rgba(255, 255, 255, 0.9)' : '#666',
           }}
         >
           {formattedTime}

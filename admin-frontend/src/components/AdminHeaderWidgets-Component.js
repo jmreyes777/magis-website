@@ -82,13 +82,32 @@ export default function AdminHeaderWidgets({ chats, unreadCounts }) {
         }
         return next;
       });
+      // A guest messaging for the FIRST time while the dashboard is unmounted
+      // has no row in the chats snapshot yet — synthesize one (in-memory only;
+      // the dashboard rebuilds the real row on remount) so the chip counts them.
+      if (unreadCount > 0) {
+        setSnapChats((prev) =>
+          prev.some((c) => c?.guestId === guestId)
+            ? prev
+            : [...prev, { guestId, timestamp: new Date().toISOString() }]
+        );
+      }
     });
 
     // Cheap periodic re-read keeps chat previews fresh if another tab (with
-    // the dashboard open) is updating the snapshots.
+    // the dashboard open) is updating the snapshots. Synthetic rows are kept
+    // until a real snapshot contains the guest (or unread hits 0 — filtered
+    // out by computeWaiting anyway).
     const t = setInterval(() => {
-      setSnapChats(readChatsSnapshot(branchEmail));
       setSnapUnread(readUnreadSnapshot(branchEmail));
+      setSnapChats((prev) => {
+        const stored = readChatsSnapshot(branchEmail);
+        const have = new Set(stored.map((c) => c?.guestId));
+        const synthetic = prev.filter(
+          (c) => c?.guestId && !have.has(c.guestId)
+        );
+        return [...stored, ...synthetic];
+      });
     }, SNAPSHOT_REFRESH_MS);
 
     return () => {
