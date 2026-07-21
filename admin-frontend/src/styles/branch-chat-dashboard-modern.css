@@ -145,9 +145,106 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Ticker hides on narrow screens before it can crowd the nav */
+/* ── Waiting-guests service-level chip ──────────────────────────────────── */
+.waiting-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
+}
+
+.waiting-chip--clear {
+  background: rgba(76, 175, 125, 0.14);
+  border-color: rgba(76, 175, 125, 0.3);
+  color: #8fe0b4;
+}
+
+.waiting-chip--waiting {
+  background: rgba(242, 193, 20, 0.14);
+  border-color: rgba(242, 193, 20, 0.4);
+  color: var(--brand-gold, #f2c114);
+}
+
+.waiting-chip--late {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+  animation: waiting-chip-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes waiting-chip-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+/* ── Branch identity + connection dot ───────────────────────────────────── */
+.identity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  white-space: nowrap;
+  cursor: default;
+}
+
+.identity-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.identity-chip--ok .identity-chip-dot {
+  background: #4caf7d;
+  box-shadow: 0 0 6px rgba(76, 175, 125, 0.8);
+}
+
+.identity-chip--degraded .identity-chip-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.8);
+}
+
+.identity-chip--down .identity-chip-dot {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.8);
+  animation: waiting-chip-blink 1.2s ease-in-out infinite;
+}
+
+.identity-chip-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Header chips yield progressively on narrow screens; the waiting chip is
+   the most actionable so it survives the longest */
+@media (max-width: 1100px) {
+  .identity-chip {
+    display: none;
+  }
+}
+
 @media (max-width: 900px) {
   .gold-ticker {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .waiting-chip {
     display: none;
   }
 }

@@ -25,6 +25,8 @@ import {
 import AdminMessageItem from "../components/Admin-Message-Item-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
 import GoldPriceTicker from "../components/GoldPriceTicker-Component";
+import HeaderWaitingChip from "../components/HeaderWaitingChip-Component";
+import BranchIdentityChip from "../components/BranchIdentityChip-Component";
 import ConnectionStatus from "../components/ConnectionStatus-Component";
 import { ensureSessionHydrated } from "../utils/sessionHydration";
 import { db, storage } from "../firebase-config";
@@ -2591,8 +2593,10 @@ const BranchChatDashboard = () => {
           <h1 className="text-xl font-semibold">Branch Chat Dashboard</h1>
           <AdminNavigation currentPage="/admin/chats" />
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <HeaderWaitingChip chats={sortedActiveChats} unreadCounts={unreadCounts} />
           <GoldPriceTicker />
+          <BranchIdentityChip branchEmail={branchEmail} />
           {isAuthenticated && <AdminLogoutButton />}
         </div>
       </div>
