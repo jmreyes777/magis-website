@@ -72,6 +72,86 @@
   -webkit-user-drag: none;
 }
 
+/* ── Gold price watch (header) ───────────────────────────────────────────
+   Chip on the navy bar; the price itself is the one gold-text element in
+   the UI — literal and on-brand. Flash pulse on each price change. */
+.gold-ticker {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9999px;
+  white-space: nowrap;
+  transition: background 0.4s ease, border-color 0.4s ease;
+  cursor: default;
+}
+
+.gold-ticker--flash {
+  background: rgba(242, 193, 20, 0.16);
+  border-color: rgba(242, 193, 20, 0.45);
+}
+
+.gold-ticker-dot {
+  align-self: center;
+  font-size: 0.55rem;
+  color: var(--brand-secondary, #4caf7d);
+  animation: gold-ticker-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes gold-ticker-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.gold-ticker-label {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.gold-ticker-price {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--brand-gold, #f2c114);
+  font-variant-numeric: tabular-nums;
+}
+
+.gold-ticker-unit {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.55);
+  margin-left: 2px;
+}
+
+.gold-ticker-arrow {
+  font-size: 0.68rem;
+}
+
+.gold-ticker-arrow--up {
+  color: #6ee7a0;
+}
+
+.gold-ticker-arrow--down {
+  color: #fca5a5;
+}
+
+.gold-ticker-updated {
+  font-size: 0.66rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ticker hides on narrow screens before it can crowd the nav */
+@media (max-width: 900px) {
+  .gold-ticker {
+    display: none;
+  }
+}
+
 /* Logout: quiet ghost button on the navy bar; red only on intent (hover) */
 .logout-ghost-btn {
   padding: 8px 18px;

@@ -24,6 +24,7 @@ import {
 } from "../components/Admin-Utils-socket";
 import AdminMessageItem from "../components/Admin-Message-Item-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
+import GoldPriceTicker from "../components/GoldPriceTicker-Component";
 import ConnectionStatus from "../components/ConnectionStatus-Component";
 import { ensureSessionHydrated } from "../utils/sessionHydration";
 import { db, storage } from "../firebase-config";
@@ -2586,7 +2587,10 @@ const BranchChatDashboard = () => {
           <h1 className="text-xl font-semibold">Branch Chat Dashboard</h1>
           <AdminNavigation currentPage="/admin/chats" />
         </div>
-        {isAuthenticated && <AdminLogoutButton />}
+        <div className="flex items-center gap-4">
+          <GoldPriceTicker />
+          {isAuthenticated && <AdminLogoutButton />}
+        </div>
       </div>
 
       {/* Network/connection status banner (offline / reconnecting / back-online) */}
