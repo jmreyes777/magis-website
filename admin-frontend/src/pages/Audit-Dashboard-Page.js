@@ -4,6 +4,7 @@ import {
 } from "recharts";
 import DateRangePicker from "../components/DateRangePicker-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
+import AdminHeaderWidgets from "../components/AdminHeaderWidgets-Component";
 import AuthContext from "../context/AuthContext";
 
 const API = process.env.REACT_APP_API_URL || "";
@@ -196,7 +197,10 @@ function AuditDashboard() {
           <h1 className="text-xl font-semibold">Audit &amp; Compliance</h1>
           <AdminNavigation currentPage="/admin/audit" />
         </div>
-        <button onClick={handleLogout} className="btn btn-primary">Logout</button>
+        <div className="flex items-center gap-3">
+          <AdminHeaderWidgets />
+          <button onClick={handleLogout} className="btn btn-primary">Logout</button>
+        </div>
       </div>
 
       <div className="flex flex-row flex-grow bg-gray-100">

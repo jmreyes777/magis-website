@@ -24,9 +24,9 @@ import {
 } from "../components/Admin-Utils-socket";
 import AdminMessageItem from "../components/Admin-Message-Item-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
-import GoldPriceTicker from "../components/GoldPriceTicker-Component";
-import HeaderWaitingChip from "../components/HeaderWaitingChip-Component";
-import BranchIdentityChip from "../components/BranchIdentityChip-Component";
+import AdminHeaderWidgets, {
+  unreadStorageKey,
+} from "../components/AdminHeaderWidgets-Component";
 import ConnectionStatus from "../components/ConnectionStatus-Component";
 import { ensureSessionHydrated } from "../utils/sessionHydration";
 import { db, storage } from "../firebase-config";
@@ -855,6 +855,41 @@ const BranchChatDashboard = () => {
       setLastReadTimestamps(JSON.parse(saved));
     }
   }, []);
+
+  // Hydrate unread counts from the per-branch snapshot so navigating to
+  // another admin page and back doesn't zero the waiting-guests state.
+  // Live values (server pushes that raced ahead of hydration) win the merge.
+  const unreadInitialRef = useRef(null);
+  useEffect(() => {
+    if (!branchEmail || unreadInitialRef.current === "hydrated") return;
+    unreadInitialRef.current = "hydrated";
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem(unreadStorageKey(branchEmail)) || "{}"
+      );
+      if (saved && typeof saved === "object" && Object.keys(saved).length) {
+        setUnreadCounts((prev) => ({ ...saved, ...prev }));
+      }
+    } catch {
+      /* corrupt snapshot — start clean */
+    }
+  }, [branchEmail]);
+
+  // Write-through persistence. Skipped until the state object's identity
+  // changes from the initial {} so a pre-hydration render can never clobber
+  // the stored snapshot with emptiness.
+  const unreadIdentityRef = useRef(unreadCounts);
+  useEffect(() => {
+    if (!branchEmail || unreadCounts === unreadIdentityRef.current) return;
+    try {
+      localStorage.setItem(
+        unreadStorageKey(branchEmail),
+        JSON.stringify(unreadCounts)
+      );
+    } catch {
+      /* storage unavailable — in-memory state still correct */
+    }
+  }, [unreadCounts, branchEmail]);
 
   useEffect(() => {
     const unsubscribe = onUnreadUpdate(({ guestId, unreadCount }) => {
@@ -2594,9 +2629,10 @@ const BranchChatDashboard = () => {
           <AdminNavigation currentPage="/admin/chats" />
         </div>
         <div className="flex items-center gap-3">
-          <HeaderWaitingChip chats={sortedActiveChats} unreadCounts={unreadCounts} />
-          <GoldPriceTicker />
-          <BranchIdentityChip branchEmail={branchEmail} />
+          <AdminHeaderWidgets
+            chats={sortedActiveChats}
+            unreadCounts={unreadCounts}
+          />
           {isAuthenticated && <AdminLogoutButton />}
         </div>
       </div>

@@ -11,6 +11,7 @@
 
 import React, { useState, useEffect, useContext, useCallback } from "react";
 import AdminNavigation from "../components/AdminNavigation-Component";
+import AdminHeaderWidgets from "../components/AdminHeaderWidgets-Component";
 import AuthContext from "../context/AuthContext";
 
 const API = process.env.REACT_APP_API_URL || "";
@@ -120,7 +121,10 @@ function Observability() {
           <h1 className="text-xl font-semibold">Observability</h1>
           <AdminNavigation currentPage="/admin/observability" />
         </div>
-        <button onClick={handleLogout} className="btn btn-primary">Logout</button>
+        <div className="flex items-center gap-3">
+          <AdminHeaderWidgets />
+          <button onClick={handleLogout} className="btn btn-primary">Logout</button>
+        </div>
       </div>
 
       <div className="flex flex-row flex-grow bg-gray-100">

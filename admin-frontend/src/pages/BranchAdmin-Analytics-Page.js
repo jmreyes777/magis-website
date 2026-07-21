@@ -4,6 +4,7 @@ import MetricsCard from "../components/MetricsCard-Component";
 import AnalyticsTable from "../components/AnalyticsTable-Component";
 import DateRangePicker from "../components/DateRangePicker-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
+import AdminHeaderWidgets from "../components/AdminHeaderWidgets-Component";
 import AuthContext from "../context/AuthContext";
 
 function BranchAdminAnalytics() {
@@ -200,12 +201,15 @@ function BranchAdminAnalytics() {
           <h1 className="text-xl font-semibold">Branch Analytics Dashboard</h1>
           <AdminNavigation currentPage="/admin/analytics" />
         </div>
-        <button
-          onClick={handleLogout}
-          className="btn btn-primary"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-3">
+          <AdminHeaderWidgets />
+          <button
+            onClick={handleLogout}
+            className="btn btn-primary"
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-row flex-grow bg-gray-100">
