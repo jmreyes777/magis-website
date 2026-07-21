@@ -2576,14 +2576,12 @@ const BranchChatDashboard = () => {
       {/* Header */}
       <div className="w-full bg-gray-800 text-white p-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          {/* Brand mark (logo pairing: gold gem + navy-bar wordmark) */}
-          <span className="brand-mark" aria-hidden="true">
-            <span className="brand-mark-gem">◆</span>
-            <span>
-              <span className="brand-mark-name">MAGI&rsquo;S</span>
-              <span className="brand-mark-sub">Gold &amp; Gems</span>
-            </span>
-          </span>
+          {/* Company logo (public/images) as a rounded brand tile */}
+          <img
+            src={`${process.env.PUBLIC_URL}/images/magis%20cover%20photo.png`}
+            alt="Magi's Gold & Gems — Pawnshop & Jewellery"
+            className="brand-logo"
+          />
           <span className="h-8 w-px bg-white/15" aria-hidden="true" />
           <h1 className="text-xl font-semibold">Branch Chat Dashboard</h1>
           <AdminNavigation currentPage="/admin/chats" />

@@ -59,34 +59,17 @@
   color: #ffffff;
 }
 
-/* Brand mark beside the title (rendered by the dashboard header JSX) */
-.brand-mark {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.brand-mark-gem {
-  color: var(--brand-gold, #f2c114);
-  font-size: 1.05rem;
-  line-height: 1;
-}
-
-.brand-mark-name {
-  font-family: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
-  font-weight: 800;
-  font-size: 0.95rem;
-  letter-spacing: 0.14em;
-  color: #ffffff;
-}
-
-.brand-mark-sub {
-  display: block;
-  font-size: 0.55rem;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  color: rgba(255, 255, 255, 0.55);
-  text-transform: uppercase;
+/* Company logo tile in the header (public/images/magis cover photo.png).
+   The asset carries its own yellow field, so it reads as a brand tile on
+   the navy bar; rounded corners + soft ring keep it corporate. */
+.brand-logo {
+  height: 42px;
+  width: auto;
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.22), 0 2px 6px rgba(0, 0, 0, 0.25);
+  flex-shrink: 0;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 /* Logout: quiet ghost button on the navy bar; red only on intent (hover) */
