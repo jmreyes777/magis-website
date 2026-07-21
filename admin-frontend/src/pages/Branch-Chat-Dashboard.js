@@ -1296,6 +1296,7 @@ const BranchChatDashboard = () => {
             const map = new Map(prev.map((c) => [c.guestId, c])); // keep ours first
 
             payload.chats.forEach((row) => {
+              if (!row?.guestId) return; // 🔕 malformed row (would poison sorts)
               if (row.archived) return; // 🔕 already archived
               if (closedChats[row.guestId]) return; // 🔕 explicitly closed
 
@@ -1358,8 +1359,11 @@ const BranchChatDashboard = () => {
     /* 1️⃣  build a canonical payload – deterministic order */
     const payload = {
       chats: chatsRef.current
-        .filter((c) => !closedChats[c.guestId] && !c.archived) // drop ghosts
-        .sort((a, b) => a.guestId.localeCompare(b.guestId)), // stable sort
+        // Drop ghosts AND malformed entries with no guestId — one such entry
+        // used to crash every tab via localeCompare(undefined) and kept
+        // re-propagating through the cross-tab updateChats broadcast.
+        .filter((c) => c?.guestId && !closedChats[c.guestId] && !c.archived)
+        .sort((a, b) => (a.guestId || "").localeCompare(b.guestId || "")), // stable sort
       activeGuestIds: [...activeIdsRef.current].sort(), // stable sort
       branchEmail,
     };
