@@ -245,7 +245,10 @@ const handleDisconnect = async (reason) => {
     state.reconnectAttempts++;
     setTimeout(() => {
       if (!socketInstance.connected) {
-        connectSocket(token); // Reconnect for admin using token
+        // ⚠️ MUST be the branch email — passing the JWT here used to poison
+        // sessionStorage.branchEmail inside connectSocket (wrong room joined,
+        // receiveMessage branch filter dropped every real message).
+        connectSocket(sessionStorage.getItem("branchEmail"));
       } else {
         state.reconnectAttempts = 0;
       }
@@ -437,9 +440,22 @@ export const connectSocket = async (branchEmailParam, isPassive = false) => {
     const currSessionTabId = getSessionTabId();
     const currentTabId = localStorage.getItem("tabId");
 
+    // Belt-and-suspenders: only accept a param that is plausibly an e-mail.
+    // A JWT/garbage param would otherwise be persisted into
+    // sessionStorage.branchEmail below and silently break rooms + filters.
+    const safeEmailParam =
+      typeof branchEmailParam === "string" && branchEmailParam.includes("@")
+        ? branchEmailParam
+        : null;
+    if (branchEmailParam && !safeEmailParam) {
+      console.warn(
+        "[SOCKET] ⚠️ connectSocket called with a non-email param — falling back to stored branchEmail"
+      );
+    }
+
     let session = {
       token: sessionStorage.getItem("branchAdminToken"),
-      email: normalizeEmail(branchEmailParam || sessionStorage.getItem("branchEmail")),
+      email: normalizeEmail(safeEmailParam || sessionStorage.getItem("branchEmail")),
     };
 
     if (isPassive) {
@@ -449,7 +465,9 @@ export const connectSocket = async (branchEmailParam, isPassive = false) => {
 
     let { token, email: freshBranchEmail } = session;
     freshBranchEmail = normalizeEmail(freshBranchEmail);
-    sessionStorage.setItem("branchEmail", freshBranchEmail);
+    if (freshBranchEmail) {
+      sessionStorage.setItem("branchEmail", freshBranchEmail);
+    }
 
     const fallbackEligible =
       isPassive &&
