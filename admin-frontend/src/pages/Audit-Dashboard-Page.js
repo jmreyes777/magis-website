@@ -145,7 +145,7 @@ function AuditDashboard() {
       setTruncated(!!data.truncated);
     } catch (e) {
       console.error("[AUDIT] events fetch failed:", e.message);
-      if (reset) { setEvents([]); setError("Failed to load audit events."); }
+      if (reset) { setEvents([]); setError("Failed to load activity."); }
     } finally {
       reset ? setLoading(false) : setLoadingMore(false);
     }
@@ -170,7 +170,7 @@ function AuditDashboard() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `audit-export-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.download = `activity-export-${new Date().toISOString().slice(0, 10)}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -194,7 +194,9 @@ function AuditDashboard() {
       {/* Header */}
       <div className="w-full bg-gray-800 text-white p-4 flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <h1 className="text-xl font-semibold">Audit &amp; Compliance</h1>
+          <h1 className="text-xl font-semibold">
+            {isSuper ? "Audit & Compliance" : "Activity History"}
+          </h1>
           <AdminNavigation currentPage="/admin/audit" />
         </div>
         <div className="flex items-center gap-3">
@@ -211,7 +213,7 @@ function AuditDashboard() {
               <span>Viewing <strong>all branches</strong> across every event category.</span>
             ) : (
               <span>
-                Viewing the audit trail for <strong>{meta?.scope?.branchEmail || "your branch"}</strong>
+                Activity history for <strong>{meta?.scope?.branchEmail || "your branch"}</strong>
                 {" "}(chat &amp; data-access events only).
               </span>
             )}
@@ -320,7 +322,7 @@ function AuditDashboard() {
           {/* Trend chart */}
           <div className="admin-card mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">Event volume over time</h3>
-            <p className="text-sm text-gray-600 mb-4">Daily audit events in the selected window</p>
+            <p className="text-sm text-gray-600 mb-4">Daily activity in the selected window</p>
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={summary?.series || []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -335,12 +337,14 @@ function AuditDashboard() {
           {/* Events table */}
           <div className="admin-card mb-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Audit events</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+            {isSuper ? "Audit events" : "Recent activity"}
+          </h3>
               <span className="text-sm text-gray-500">{events.length} shown</span>
             </div>
 
             {loading ? (
-              <div className="text-center text-gray-500 py-8">Loading audit events…</div>
+              <div className="text-center text-gray-500 py-8">Loading activity…</div>
             ) : events.length === 0 ? (
               <div className="text-center text-gray-500 py-8">No events match the current filters.</div>
             ) : (
