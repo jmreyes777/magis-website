@@ -355,11 +355,20 @@ document.addEventListener("visibilitychange", () => {
     // For admin users, always keep __suppressDisconnect true regardless of visibility.
     socketInstance.__suppressDisconnect = true;
     console.log("[SOCKET] Admin visibility change – always keeping __suppressDisconnect = true");
-    // Optionally, if the tab becomes visible, emit an immediate heartbeat.
-    if (document.visibilityState === "visible" && socketInstance.connected) {
-      socketInstance.emit("heartbeat");
-      console.log("[SOCKET] Emitted immediate heartbeat on visibility change (admin)");
-    }
+  }
+  if (document.visibilityState !== "visible") return;
+  if (socketInstance?.connected) {
+    socketInstance.emit("heartbeat");
+    console.log("[SOCKET] Emitted immediate heartbeat on visibility change (admin)");
+  } else if (!state.isConnecting && sessionStorage.getItem("branchEmail")) {
+    // Heal on focus. The old handler was gated on socketInstance.user — a
+    // server-side property the client never sets — so it never ran, and even
+    // if it had, it only emitted a heartbeat when ALREADY connected. A socket
+    // that died while the window was idle/minimized stayed dead. Passive
+    // reconnect also refreshes a token that expired during the idle period.
+    console.warn("[SOCKET] 🔦 Window visible with dead socket — reconnecting");
+    state.reconnectAttempts = 0;
+    connectSocket(sessionStorage.getItem("branchEmail"), true);
   }
 });
 
@@ -435,6 +444,13 @@ export const connectSocket = async (branchEmailParam, isPassive = false) => {
   // Acquire the connect lock before entering any connect/disconnect logic
   const release = await connectMutex.lock();
   try {
+    // Re-entry guard: if a handshake is already in flight, don't build a
+    // second socket over it — the orphaned twin's disconnect events kept
+    // flapping the connection banner and doubled every room join.
+    if (state.isConnecting && socketInstance && !socketInstance.connected) {
+      console.info("[SOCKET] ⏭️ Connect already in flight — skipping duplicate");
+      return;
+    }
     window.__SOCKET_CONNECTED = false;
     const activeTabId = localStorage.getItem("activeSocketTabId");
     const currSessionTabId = getSessionTabId();
@@ -475,8 +491,10 @@ export const connectSocket = async (branchEmailParam, isPassive = false) => {
       currSessionTabId &&
       (!token || token === "__FALLBACK_FAKE_TOKEN__");
 
-    // Refresh expired fallback token
-    if (isPassive && isTokenExpired(token)) {
+    // Refresh expired fallback token — on EVERY path, not just passive ones;
+    // reconnects after long idle carry an expired token and must renew it or
+    // the server rejects each handshake forever.
+    if (token && isTokenExpired(token)) {
       console.warn("[SOCKET] ⚠️ Expired fallback token detected — reissuing...");
       try {
         // Prove prior auth so the backend will rotate the token (P0-1): a fresh
@@ -776,6 +794,12 @@ const startHeartbeat = (currSessionTabId) => {
           timestamp,
         });
         console.log("[HEARTBEAT] (hidden) Sent heartbeat + tabAlive + broadcastAlive");
+      } else if (!state.isConnecting) {
+        // Minimized/tray windows must self-heal too — this branch used to
+        // return without ever attempting a reconnect, so a socket that died
+        // while the app sat in the tray stayed dead until reload.
+        console.warn("[HEARTBEAT] (hidden) Socket disconnected — reconnecting");
+        connectSocket(email, true);
       }
       return;
     } else {
@@ -802,7 +826,10 @@ const startHeartbeat = (currSessionTabId) => {
       state.missedPings = 0;
     } else if (!state.isConnecting) {
       console.warn("[HEARTBEAT] Socket disconnected — reconnecting");
-      connectSocket(email);
+      // Passive: non-passive connects skip the expired-token refresh, which
+      // after long idle produced an endless reject loop (fresh socket, stale
+      // token, connect_error, retry…) with the banner pinned on screen.
+      connectSocket(email, true);
     }
 
     // Keep BroadcastChannel in sync
@@ -899,33 +926,25 @@ const handleAutoReconnect = async (reason) => {
   const token = sessionStorage.getItem("branchAdminToken");
   const branchEmail = sessionStorage.getItem("branchEmail");
   if (!token || !branchEmail) return;
-  if (reason !== "io client disconnect" && state.reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-    const delay = Math.min(1000 * 2 ** state.reconnectAttempts, 30000);
+  if (reason !== "io client disconnect") {
+    // Backoff grows 1s → 30s but retries NEVER stop. The old 5-attempt cap
+    // (~31s of total trying) burned out before a cold-starting/redeploying
+    // backend came back, leaving a permanently dead socket and a stuck
+    // "Reconnecting to chat…" banner until the app was restarted.
+    const delay = Math.min(1000 * 2 ** Math.min(state.reconnectAttempts, 5), 30000);
     state.reconnectAttempts++;
     setTimeout(() => {
-      if (!socketInstance.connected) {
-        console.info(
-          "[SOCKET] Auto-reconnect triggered, rejoining admin room + rebind listeners"
-        );
-        // reuse the existing auth payload
-
-        initializeSocketListeners(socketInstance);
-        socketInstance.connect();
-        socketInstance.once("connect", async () => {
-          const room = `admin-${(sessionStorage.getItem("branchEmail") || "")
-            .toLowerCase()
-            .trim()}`;
-          socketInstance.emit("joinRoom", room, () => {
-            console.log("[SOCKET] 🔁 Re-joined admin room on auto-reconnect", room);
-          });
-          // rebind any onNewMessage hooks
-          await socketInstance.__rebindListeners();
-          // trigger UI refresh
-          window.dispatchEvent(new Event("adminSocketReconnected"));
-        });
-      } else {
+      if (socketInstance.connected) {
         state.reconnectAttempts = 0;
+        return;
       }
+      console.info("[SOCKET] Auto-reconnect triggered — full passive reconnect");
+      // Full connectSocket instead of a raw socketInstance.connect(): the raw
+      // path reused the OLD auth token, so after long idle every handshake
+      // was rejected (expired token) and all retries burned out. Passive
+      // connectSocket hydrates the session, refreshes an expired token,
+      // rejoins rooms, rebinds listeners and restarts the heartbeat.
+      connectSocket(branchEmail, true);
     }, delay);
   }
 };
