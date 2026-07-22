@@ -76,6 +76,51 @@ export const isTokenExpired = (token) => {
   }
 };
 
+// Single-flight fallback-token refresh shared by the socket layer and HTTP
+// callers (e.g. the E2EE conversation-key fetch). Deliberately NOT mutex-based:
+// handleStorageChange holds tokenRefreshMutex while awaiting connectSocket, so
+// locking it here from inside connectSocket would deadlock. Concurrent callers
+// share one in-flight request instead.
+let inflightTokenRefresh = null;
+export const refreshAdminToken = async (branchEmailParam) => {
+  if (inflightTokenRefresh) return inflightTokenRefresh;
+  const branchEmail = normalizeEmail(
+    branchEmailParam || sessionStorage.getItem("branchEmail") || ""
+  );
+  if (!branchEmail || !branchEmail.includes("@")) return null;
+  inflightTokenRefresh = (async () => {
+    try {
+      const currentToken =
+        sessionStorage.getItem("branchAdminToken") ||
+        localStorage.getItem("branchAdminToken");
+      // Prove prior auth (P0-1): fresh Firebase ID token when available, plus
+      // the possibly-expired HMAC token; the HTTP-only cookie is the fallback.
+      const fbToken = await getFirebaseIdToken();
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/issue-fallback-token`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(fbToken ? { Authorization: `Bearer ${fbToken}` } : {}),
+        },
+        body: JSON.stringify({ branchEmail, currentToken }),
+      });
+      const data = await res.json();
+      if (!data?.token) return null;
+      sessionStorage.setItem("branchAdminToken", data.token);
+      localStorage.setItem("branchAdminToken", data.token);
+      console.info("[SOCKET] ✅ Refreshed fallback token (shared refresher)");
+      return data.token;
+    } catch (e) {
+      console.error("[SOCKET] ❌ Token refresh failed:", e.message);
+      return null;
+    } finally {
+      inflightTokenRefresh = null;
+    }
+  })();
+  return inflightTokenRefresh;
+};
+
 // --------------------
 // Simple Promise-based Mutex
 // --------------------
@@ -496,31 +541,11 @@ export const connectSocket = async (branchEmailParam, isPassive = false) => {
     // the server rejects each handshake forever.
     if (token && isTokenExpired(token)) {
       console.warn("[SOCKET] ⚠️ Expired fallback token detected — reissuing...");
-      try {
-        // Prove prior auth so the backend will rotate the token (P0-1): a fresh
-        // Firebase ID token when available, plus the just-expired HMAC token.
-        const fbToken = await getFirebaseIdToken();
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/issue-fallback-token`, {
-          method: "POST",
-          credentials: "include",
-          headers: {
-            "Content-Type": "application/json",
-            ...(fbToken ? { Authorization: `Bearer ${fbToken}` } : {}),
-          },
-          body: JSON.stringify({ branchEmail: freshBranchEmail, currentToken: token }),
-        });
-        const data = await res.json();
-        if (data?.token) {
-          token = data.token;
-          sessionStorage.setItem("branchAdminToken", token);
-          localStorage.setItem("branchAdminToken", token);
-          console.info("[SOCKET] ✅ Refreshed fallback token");
-        } else {
-          console.error("[SOCKET] ❌ Failed to refresh fallback token");
-          return;
-        }
-      } catch (err) {
-        console.error("[SOCKET] ❌ Error during token refresh:", err.message);
+      const renewed = await refreshAdminToken(freshBranchEmail);
+      if (renewed) {
+        token = renewed;
+      } else {
+        console.error("[SOCKET] ❌ Failed to refresh fallback token");
         return;
       }
     }

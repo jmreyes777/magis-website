@@ -14,6 +14,7 @@ import {
   onSocketConnected,
   onSocketDisconnected,
   isTokenExpired,
+  refreshAdminToken,
   sendMessage,
   connectSocket,
   onUnreadUpdate,
@@ -419,6 +420,7 @@ const BranchChatDashboard = () => {
   // E2EE state per guest
   const [e2eeStatus, setE2eeStatus] = useState({}); // { guestId: "initializing" | "exchanging" | "established" | "failed" }
   const [e2eeErrors, setE2eeErrors] = useState({}); // { guestId: errorMessage }
+  const [e2eeRetryNonce, setE2eeRetryNonce] = useState(0); // bumped on reconnect to retry failed E2EE
 
   // MFA Session State (works with Firebase MFA)
   const [showMFASession, setShowMFASession] = useState(false);
@@ -528,14 +530,26 @@ const BranchChatDashboard = () => {
       const token =
         sessionStorage.getItem("branchAdminToken") ||
         localStorage.getItem("branchAdminToken");
-      const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/api/messages/conversation-key/${encodeURIComponent(guestId)}`,
-        {
-          method: "GET",
-          credentials: "include",
-          headers: { Authorization: `Bearer ${token}` },
+      const keyUrl = `${process.env.REACT_APP_API_URL}/api/messages/conversation-key/${encodeURIComponent(guestId)}`;
+      let res = await fetch(keyUrl, {
+        method: "GET",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401 || res.status === 403) {
+        // Refresh-after-idle: on page load this fetch races the socket layer's
+        // own token renewal and loses with the stale token — the chat then
+        // sticks on "[Encrypted message]" + the failed-banner. Refresh once
+        // (single-flight, shared with the socket layer) and retry.
+        const fresh = await refreshAdminToken(branchEmail);
+        if (fresh) {
+          res = await fetch(keyUrl, {
+            method: "GET",
+            credentials: "include",
+            headers: { Authorization: `Bearer ${fresh}` },
+          });
         }
-      );
+      }
       if (!res.ok) throw new Error(`conversation-key fetch failed (${res.status})`);
       const { key } = await res.json();
       if (!key) throw new Error("no conversation key returned");
@@ -574,7 +588,7 @@ const BranchChatDashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedChat?.guestId, branchEmail, ensureConversationKey]);
+  }, [selectedChat?.guestId, branchEmail, ensureConversationKey, e2eeRetryNonce]);
 
   // ============================================================================
   // E2EE: DECRYPT SIDEBAR LAST-MESSAGE PREVIEW
@@ -627,7 +641,28 @@ const BranchChatDashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [chats, branchEmail, ensureConversationKey]);
+  }, [chats, branchEmail, ensureConversationKey, e2eeRetryNonce]);
+
+  // After every successful socket (re)connect the token is known-good, so
+  // failed E2EE attempts deserve another shot: clear the failure caches and
+  // bump the retry nonce so both effects above re-run. Heals the stuck
+  // "Secure connection failed" banner without a manual refresh.
+  useEffect(() => {
+    const onReconnected = () => {
+      previewFailedRef.current.clear();
+      setE2eeErrors({});
+      setE2eeStatus((prev) => {
+        const next = {};
+        for (const [gid, st] of Object.entries(prev)) {
+          if (st !== "failed") next[gid] = st;
+        }
+        return next;
+      });
+      setE2eeRetryNonce((n) => n + 1);
+    };
+    window.addEventListener("adminSocketReconnected", onReconnected);
+    return () => window.removeEventListener("adminSocketReconnected", onReconnected);
+  }, []);
 
   // ============================================================================
   // SECURITY: COPY/PASTE PROTECTION (DLP Controls)
