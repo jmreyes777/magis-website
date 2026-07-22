@@ -80,6 +80,12 @@ const branchGuests = new Map();     // branchEmail -> Set(guestIds)
 const onlineAdminsMap = {};         // branchEmail -> { sessionTabId: socketId }
 const branchAwayGuests = new Map(); // branchEmail -> Set(guestIds considered idle)
 
+// Guest-facing OFFLINE notices are debounced through this grace window so a
+// transient socket cycle (token rotation, reconnect self-heal, one of several
+// tabs closing) never flashes "offline" at guests while the branch is staffed.
+const pendingBranchOfflineTimers = new Map(); // branchEmail -> Timeout
+const BRANCH_OFFLINE_GRACE_MS = Number(process.env.BRANCH_OFFLINE_GRACE_MS || 15000);
+
 // ─────────────────────────────────────────────────────────────
 // Presence in Redis: TTL keys to mark branch online
 // ─────────────────────────────────────────────────────────────
@@ -576,7 +582,25 @@ const initializeSocket = (server) => {
       onlineAdminsMap[branchEmail][sessionTabId] = socket.id;
       console.log(`[SOCKET] ✅ Registered admin ${branchEmail} tab ${sessionTabId} with socket ID: ${socket.id}`);
 
+      // Admin is back — cancel any pending guest-facing OFFLINE notice.
+      const pendingOffline = pendingBranchOfflineTimers.get(branchEmail);
+      if (pendingOffline) {
+        clearTimeout(pendingOffline);
+        pendingBranchOfflineTimers.delete(branchEmail);
+        console.log(`[SOCKET] ⏳ Cancelled pending OFFLINE notice for ${branchEmail} — admin back within grace`);
+      }
+
       try { await touchBranchOnline(branchEmail); } catch (_) {}
+
+      // Timer-throttled browser tabs (minimized/backgrounded) can stretch the
+      // app-level heartbeat past the Redis presence TTL. Engine-level pongs are
+      // event-driven — immune to timer throttling — so refresh presence on them:
+      // as long as the socket is genuinely alive, the branch stays online.
+      socket.conn.on("packet", (packet) => {
+        if (packet.type === "pong") {
+          try { touchBranchOnline(branchEmail); } catch (_) {}
+        }
+      });
 
       // Persist ONLINE to the Firestore branchStatus doc via the Admin SDK (this
       // bypasses security rules). /api/branch-status falls back to this doc when
@@ -1179,15 +1203,30 @@ const initializeSocket = (server) => {
           }
         }
 
-        const guestSet = branchGuests.get(branchEmail) || new Set();
-        guestSet.forEach((gId) => {
-          io.to(getRoomName("guest", gId)).emit("branchStatus", {
-            branchEmail,
-            online: false,
-            lastSeen: new Date().toISOString(),
-          });
-        });
-        console.log(`[SOCKET] 🔕 Emitted branchStatus OFFLINE to guests for ${branchEmail}:`, [...guestSet]);
+        // Tell guests OFFLINE only when the LAST admin tab is gone AND stays
+        // gone through the grace window. This used to broadcast on EVERY admin
+        // socket drop — token rotations, reconnect self-heals and extra-tab
+        // closes all flashed "offline" at guests while the branch was staffed.
+        if (branchWentOffline && !pendingBranchOfflineTimers.has(branchEmail)) {
+          const offlineTimer = setTimeout(() => {
+            pendingBranchOfflineTimers.delete(branchEmail);
+            const stillOffline =
+              !onlineAdminsMap[branchEmail] ||
+              Object.keys(onlineAdminsMap[branchEmail]).length === 0;
+            if (!stillOffline) return; // an admin tab returned during grace
+            const guestSet = branchGuests.get(branchEmail) || new Set();
+            guestSet.forEach((gId) => {
+              io.to(getRoomName("guest", gId)).emit("branchStatus", {
+                branchEmail,
+                online: false,
+                lastSeen: new Date().toISOString(),
+              });
+            });
+            console.log(`[SOCKET] 🔕 Emitted branchStatus OFFLINE to guests for ${branchEmail} (after ${BRANCH_OFFLINE_GRACE_MS}ms grace):`, [...guestSet]);
+          }, BRANCH_OFFLINE_GRACE_MS);
+          offlineTimer.unref?.();
+          pendingBranchOfflineTimers.set(branchEmail, offlineTimer);
+        }
 
         // Audit: branch transitioned to fully OFFLINE (last admin tab gone).
         if (branchWentOffline) {
