@@ -664,6 +664,7 @@ const branchAuthLimiter = rateLimit({
 app.use("/api/branch/login", branchAuthLimiter);
 app.use("/api/branch/forgot", branchAuthLimiter);
 app.use("/api/branch/reset", branchAuthLimiter);
+app.use("/api/branch/stepup", branchAuthLimiter);
 app.use("/api/branch", branchAuthRoutes);
 
 // Super-Admin login handler (VERIFY Firebase ID token TOTP)
@@ -859,7 +860,13 @@ async function identityFromHmacToken(token) {
     email: decoded.email.toLowerCase(),
     branchId: decoded.branchId,
     branchName: decoded.branchName || "Branch Admin",
-    authVia: "rotation",
+    // Preserve auth provenance across silent rotations: the dashboard's step-up
+    // modal and the /stepup gates key off authVia/staff to choose the email-OTP
+    // re-verification path. Stamping "rotation" here erased that after the
+    // first rotation (~4h), silently downgrading staff/branch email-OTP
+    // accounts to the Firebase TOTP modal they cannot complete.
+    authVia: decoded.authVia || "rotation",
+    staff: decoded.staff === true,
   };
 }
 
@@ -902,6 +909,7 @@ app.post("/api/issue-fallback-token", async (req, res) => {
       role: "branchadmin",
       fallback: true,
       authVia: identity.authVia,
+      ...(identity.staff === true ? { staff: true } : {}),
     };
 
     const token = await signJWT(payload, { expiresIn: `${FALLBACK_TTL_MIN}m` });

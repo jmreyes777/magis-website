@@ -30,20 +30,25 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
   const [totpCode, setTotpCode] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // ── Staff (email-OTP) step-up ─────────────────────────────────────────
-  // Staff accounts have no Firebase user, so the password+TOTP step-up below
-  // can't work for them; detect them from their token and use the emailed-code
-  // step-up endpoints instead.
-  const isStaff = (() => {
+  // ── Email-OTP step-up (staff AND branch email-OTP accounts) ──────────
+  // Neither has a Firebase TOTP factor, so the password+TOTP step-up below
+  // can't work for them; detect the account kind from the token and use the
+  // matching emailed-code step-up endpoints instead. authVia survives silent
+  // token rotation (issue-fallback-token preserves provenance).
+  const emailOtpKind = (() => {
     try {
       const t = sessionStorage.getItem('branchAdminToken') || localStorage.getItem('branchAdminToken');
-      if (!t) return false;
+      if (!t) return null;
       const d = jwtDecode(t);
-      return d.staff === true || d.authVia === 'staff_email_otp';
+      if (d.authVia === 'branch_email_otp') return 'branch';
+      if (d.staff === true || d.authVia === 'staff_email_otp') return 'staff';
+      return null;
     } catch {
-      return false;
+      return null;
     }
   })();
+  const isStaff = emailOtpKind !== null; // email-OTP UI (staff or branch)
+  const stepupBase = emailOtpKind === 'branch' ? '/api/branch/stepup' : '/api/staff/stepup';
   const [staffCode, setStaffCode] = useState('');
   const [staffSent, setStaffSent] = useState(false);
   const [staffResendIn, setStaffResendIn] = useState(0);
@@ -110,13 +115,14 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
   const authToken = () =>
     sessionStorage.getItem('branchAdminToken') || localStorage.getItem('branchAdminToken');
 
-  // Staff step-up: email a fresh 6-digit code, then verify it. The backend
-  // (/api/staff/stepup/*) writes a fresh 8h MFA session keyed by the same
-  // X-Session-Id the dashboard polls, so chat access resumes immediately.
+  // Email-OTP step-up: email a fresh 6-digit code, then verify it. The backend
+  // (/api/staff/stepup/* or /api/branch/stepup/*) writes a fresh 8h MFA session
+  // keyed by the same X-Session-Id the dashboard polls, so chat access resumes
+  // immediately.
   const requestStaffCode = async () => {
     setError(null);
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/staff/stepup/request`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}${stepupBase}/request`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${authToken()}`,
@@ -142,7 +148,7 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/staff/stepup/verify`, {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}${stepupBase}/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

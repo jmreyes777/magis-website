@@ -40,6 +40,20 @@ describe("protected surface rejects credential-less requests (no 200, no 500)", 
       "branch/reset-mfa"
     );
   });
+
+  test("POST /api/branch/stepup/request (branch email-OTP step-up)", async () => {
+    expectRejected(
+      await request("/api/branch/stepup/request", { method: "POST" }),
+      "branch/stepup-request"
+    );
+  });
+
+  test("POST /api/branch/stepup/verify (branch email-OTP step-up)", async () => {
+    expectRejected(
+      await request("/api/branch/stepup/verify", { method: "POST" }),
+      "branch/stepup-verify"
+    );
+  });
 });
 
 describe("garbage bearer tokens are rejected, not crashed on", () => {

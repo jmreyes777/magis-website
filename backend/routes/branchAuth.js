@@ -566,6 +566,64 @@ router.post("/reset", express.json(), async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Step-up re-verification (authenticated branch email-OTP account): used by the
+// dashboard when the 8h MFA session expires or a geo anomaly locks it. Emails a
+// fresh 6-digit code and, on success, rewrites the mfa_sessions doc — the
+// branch analogue of /api/staff/stepup/* (routes/staffAuth.js) and the Firebase
+// TOTP step-up (routes/mfa.js). Gated on authVia so Firebase-TOTP admins keep
+// their stronger step-up.
+// ─────────────────────────────────────────────────────────────────────────────
+router.post("/stepup/request", authenticateBranchAdmin, async (req, res) => {
+  try {
+    if (!req.user || req.user.authVia !== "branch_email_otp") {
+      return res.status(403).json({ error: "Not a branch email-OTP account." });
+    }
+    const account = await findByEmail(normalizeEmail(req.user.email));
+    if (!account || account.status === "disabled") {
+      return res.status(403).json({ error: "Account unavailable." });
+    }
+    const { ip } = getClientGeo(req);
+    const otp = await requestOtp({
+      email: account.email,
+      sessionId: sessionIdFrom(req, account),
+      ip,
+      userAgent: req.headers["user-agent"],
+    });
+    if (!otp.ok) {
+      return res.status(429).json({
+        error: "Please wait before requesting another code.",
+        retryAfterSec: otp.retryAfterSec,
+      });
+    }
+    await sendCodeEmail(account.email, otp.code, otp.ttlSec);
+    return res.json({ sent: true, expiresAt: otp.expiresAt });
+  } catch (e) {
+    console.error("[BRANCH:stepup:request] \u274c", e.message);
+    return res.status(500).json({ error: "Could not send code." });
+  }
+});
+
+router.post("/stepup/verify", authenticateBranchAdmin, express.json(), async (req, res) => {
+  try {
+    if (!req.user || req.user.authVia !== "branch_email_otp") {
+      return res.status(403).json({ error: "Not a branch email-OTP account." });
+    }
+    const account = await findByEmail(normalizeEmail(req.user.email));
+    if (!account) return res.status(404).json({ error: "Account not found." });
+    const result = await verifyOtp({ email: account.email, code: (req.body || {}).code });
+    if (!result.ok) {
+      const [status, msg] = OTP_ERROR_MAP[result.code] || [400, "Verification failed."];
+      return res.status(status).json({ error: msg, attemptsLeft: result.attemptsLeft });
+    }
+    await writeMfaSession(req, account.email, sessionIdFrom(req, account), "branch_email_otp_stepup");
+    return res.json({ success: true, verified: true });
+  } catch (e) {
+    console.error("[BRANCH:stepup:verify] \u274c", e.message);
+    return res.status(500).json({ error: "Verification failed. Please try again." });
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────
 // Super-admin: predefine/reset a branch's login password (writes to branchAdmins)
 // and list which branches have credentials. Edge-bypassed like /api/admin/staff;
