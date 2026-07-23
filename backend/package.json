@@ -26,7 +26,7 @@
     "nodemailer": "^9.0.3",
     "qrcode": "^1.5.4",
     "rate-limit-redis": "^4.2.2",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.0",
     "socket.io": "^4.8.3",
     "uuid": "^11.1.0",
     "zod": "^3.24.2"
