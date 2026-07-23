@@ -171,6 +171,7 @@ const ACTIONS = {
   ADMIN_STAFF_DELETED: "admin.staff.deleted",
   ADMIN_BRANCH_PASSWORD_SET: "admin.branch_password.set",
   ADMIN_BRANCH_PASSWORD_RESET: "admin.branch_password.reset",
+  ADMIN_BRANCH_MFA_RESET: "admin.branch_mfa.reset",
   ADMIN_CLAIMS_ASSIGNED: "admin.claims.assigned",
   // ── security ────────────────────────────────────────────────────
   SECURITY_GEO_ANOMALY: "security.geo_anomaly",

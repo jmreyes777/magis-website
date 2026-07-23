@@ -33,6 +33,13 @@ describe("protected surface rejects credential-less requests (no 200, no 500)", 
       "backup/run"
     );
   });
+
+  test("POST /api/branch/admin/reset-mfa (super-admin MFA reset)", async () => {
+    expectRejected(
+      await request("/api/branch/admin/reset-mfa", { method: "POST" }),
+      "branch/reset-mfa"
+    );
+  });
 });
 
 describe("garbage bearer tokens are rejected, not crashed on", () => {
@@ -44,6 +51,13 @@ describe("garbage bearer tokens are rejected, not crashed on", () => {
 
   test("GET /api/audit/events with forged token", async () => {
     expectRejected(await request("/api/audit/events", garbage), "audit+garbage");
+  });
+
+  test("POST /api/branch/admin/reset-mfa with forged token", async () => {
+    expectRejected(
+      await request("/api/branch/admin/reset-mfa", { method: "POST", ...garbage }),
+      "branch/reset-mfa+garbage"
+    );
   });
 
   test("expired superadmin JWT → 401 'expired', NOT 500 (worker error-identity regression)", async () => {

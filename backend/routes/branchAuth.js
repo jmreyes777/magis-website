@@ -618,6 +618,99 @@ router.post("/admin/set-password", authenticateSuperAdmin, express.json(), async
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────
+// Super-admin: reset a branch's MFA (lost/replaced authenticator recovery).
+// Clears the Firebase-enrolled TOTP factors so the branch's NEXT login drops
+// into the existing QR re-enrollment flow (BranchAdmin-Login already handles
+// zero enrolled factors), revokes outstanding Firebase refresh tokens, and
+// deletes active mfa_sessions step-up docs so the SPI gate demands a fresh
+// verification. Secrets are never read or exposed — this is a reset, not an
+// escrow. Edge-bypassed via the /api/branch/admin* rule like set-password;
+// authenticateSuperAdmin is the authority.
+// ─────────────────────────────────────────────────────────────────────────
+router.post("/admin/reset-mfa", authenticateSuperAdmin, express.json(), async (req, res) => {
+  try {
+    const { branchId, email } = req.body || {};
+    let loginEmail = normalizeEmail(email);
+    if (!loginEmail && branchId) {
+      const existing = await findByBranchId(branchId);
+      loginEmail = existing?.email || "";
+      if (!loginEmail) {
+        const branchSnap = await db.collection("branches").doc(String(branchId)).get();
+        loginEmail = normalizeEmail(branchSnap.exists && branchSnap.data().email);
+      }
+    }
+    if (!loginEmail) {
+      return res.status(400).json({ error: "Provide a branch email or branchId." });
+    }
+
+    // Firebase-MFA branches: clear enrolled factors + revoke refresh tokens.
+    // Email-OTP branches have no Firebase user (second factor is the emailed
+    // code) — nothing to unenroll; still clear their step-up sessions below.
+    let userRecord = null;
+    try {
+      userRecord = await admin.auth().getUserByEmail(loginEmail);
+    } catch (e) {
+      if (e.code !== "auth/user-not-found") throw e;
+    }
+    let factorsCleared = 0;
+    if (userRecord) {
+      factorsCleared = (userRecord.multiFactor?.enrolledFactors || []).length;
+      if (factorsCleared > 0) {
+        await admin.auth().updateUser(userRecord.uid, {
+          multiFactor: { enrolledFactors: null },
+        });
+      }
+      // Sessions minted with the old factor must not outlive it.
+      await admin.auth().revokeRefreshTokens(userRecord.uid);
+    }
+
+    const sessSnap = await db
+      .collection(MFA_SESSION_COLLECTION)
+      .where("email", "==", loginEmail)
+      .get();
+    if (!sessSnap.empty) {
+      const batch = db.batch();
+      sessSnap.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    recordAuditEvent({
+      category: "admin",
+      action: ACTIONS.ADMIN_BRANCH_MFA_RESET,
+      severity: "warning",
+      actor: {
+        type: "superadmin",
+        id: req.superAdminId,
+        email: req.superAdminEmail,
+        role: "superadmin",
+      },
+      branchEmail: loginEmail,
+      target: { type: "branch", id: branchId || userRecord?.uid || loginEmail },
+      context: auditContextFromReq(req),
+      meta: {
+        factorsCleared,
+        mfaSessionsCleared: sessSnap.size,
+        hadFirebaseUser: Boolean(userRecord),
+      },
+    });
+
+    return res.json({
+      success: true,
+      email: loginEmail,
+      factorsCleared,
+      mfaSessionsCleared: sessSnap.size,
+      hadFirebaseUser: Boolean(userRecord),
+      message: userRecord
+        ? `MFA reset for ${loginEmail}. The branch will scan a new QR code to re-enroll at next login.`
+        : `${loginEmail} has no authenticator enrollment (email-OTP branch). Active verification sessions were cleared.`,
+    });
+  } catch (e) {
+    console.error("[BRANCH:reset-mfa] \u274c", e.message);
+    return res.status(500).json({ error: "Could not reset branch MFA." });
+  }
+});
+
 router.get("/admin/list", authenticateSuperAdmin, async (req, res) => {
   try {
     const list = await listBranchAdmins();

@@ -33,6 +33,7 @@ function BranchPasswords() {
   const [pw, setPw] = useState({}); // branchId -> typed password
   const [show, setShow] = useState({}); // branchId -> reveal input
   const [busyId, setBusyId] = useState(null);
+  const [mfaBusyId, setMfaBusyId] = useState(null);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -117,6 +118,30 @@ function BranchPasswords() {
     }
   };
 
+  const handleResetMfa = async (b) => {
+    setError("");
+    if (!b.email) {
+      return setError(`${b.name}: this branch has no email. Add an email to the branch first.`);
+    }
+    const ok = window.confirm(
+      `Reset MFA for ${b.name} (${b.email})?\n\nThis removes the branch's enrolled authenticator and signs out its active sessions. At the next login the branch will scan a new QR code to re-enroll.\n\nThis action is recorded in the audit log.`
+    );
+    if (!ok) return;
+    setMfaBusyId(b.id);
+    try {
+      const res = await api.post(
+        "/api/branch/admin/reset-mfa",
+        { branchId: b.id, email: b.email },
+        { headers: authHeaders() }
+      );
+      flash(res.data?.message || `MFA reset for ${b.name}.`);
+    } catch (e) {
+      setError(e.response?.data?.error || "Could not reset branch MFA.");
+    } finally {
+      setMfaBusyId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
       <div className="max-w-5xl mx-auto">
@@ -153,6 +178,7 @@ function BranchPasswords() {
                     <th className="px-4 py-3 font-semibold">Login email</th>
                     <th className="px-4 py-3 font-semibold">Password</th>
                     <th className="px-4 py-3 font-semibold">Set / reset password</th>
+                    <th className="px-4 py-3 font-semibold">MFA</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -204,6 +230,17 @@ function BranchPasswords() {
                               {busyId === b.id ? "Saving..." : hasPw ? "Reset" : "Set"}
                             </button>
                           </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => handleResetMfa(b)}
+                            disabled={mfaBusyId === b.id || !b.email}
+                            title="Remove the branch's enrolled authenticator; they re-enroll via QR at next login"
+                            className={`px-3 py-1.5 rounded-md text-xs font-semibold ${mfaBusyId === b.id || !b.email ? "bg-gray-200 text-gray-400" : "bg-amber-100 text-amber-700 hover:bg-amber-200"}`}
+                          >
+                            {mfaBusyId === b.id ? "Resetting..." : "Reset MFA"}
+                          </button>
                         </td>
                       </tr>
                     );
