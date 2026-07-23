@@ -537,11 +537,14 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
               <p>You need to complete MFA enrollment before accessing chat.</p>
             </div>
             
+            {/* UAT finding: this pointed at /profile, which is not a route in
+                this app — a dead-end. Enrollment happens during login, so send
+                the user back through it. */}
             <button
-              onClick={() => window.location.href = '/profile?setupMFA=true'}
+              onClick={() => window.location.href = '/branch-admin-login'}
               className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mb-3"
             >
-              Go to Profile to Set Up MFA
+              Sign in again to set up MFA
             </button>
           </div>
         )}

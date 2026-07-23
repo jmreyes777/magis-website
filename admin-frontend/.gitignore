@@ -11,6 +11,10 @@
 # production
 /build
 
+# playwright UAT artifacts
+/test-results
+/playwright-report
+
 # misc
 .DS_Store
 npm-debug.log*

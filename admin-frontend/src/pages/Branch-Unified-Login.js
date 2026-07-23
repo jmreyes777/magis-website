@@ -423,8 +423,12 @@ function BranchUnifiedLogin() {
     localStorage.setItem("fallbackBranchId", customClaims.branchId);
     localStorage.setItem("fallbackBranchRole", "branchadmin");
     localStorage.setItem("fallbackBranchName", branchName);
+    // UAT finding: the legacy testing autofill stored the PLAINTEXT password in
+    // localStorage on every Firebase login — on a shared branch PC anyone with
+    // DevTools could read it. The page that consumed it (BranchAdmin-Login) is
+    // no longer routed; keep only the harmless email hint.
     localStorage.setItem("testBranchAdminEmail", branchEmail);
-    localStorage.setItem("testBranchAdminPassword", password);
+    localStorage.removeItem("testBranchAdminPassword");
 
     setIsAuthenticated(true);
     setUserRole("branchadmin");
@@ -433,7 +437,7 @@ function BranchUnifiedLogin() {
     goToDashboard({ branchEmail, branchId: customClaims.branchId, branchName, tabId });
   }, [password, goToDashboard, setIsAuthenticated, setUserRole, setAdminEmail]);
 
-  const runFirebaseLogin = useCallback(async (cleanEmail, cleanPassword) => {
+  const runFirebaseLogin = useCallback(async (cleanEmail, cleanPassword, attempt = 0) => {
     const auth = getAuth();
     try {
       if (!isValidEmail(cleanEmail)) throw new Error("Please enter a valid email address.");
@@ -444,7 +448,15 @@ function BranchUnifiedLogin() {
         return;
       }
       if (!window.grecaptcha || !window.grecaptcha.execute) {
-        setTimeout(() => runFirebaseLogin(cleanEmail, cleanPassword), 1000);
+        // UAT finding: this used to retry FOREVER with no feedback — a user
+        // whose network blocks reCAPTCHA (adblock, captive portal) saw nothing
+        // happen at all after a failed staff-login fall-through. Bound the wait
+        // and surface a readable error instead.
+        if (attempt >= 5) {
+          setError("Authentication service unavailable. Please check your connection and try again.");
+          return;
+        }
+        setTimeout(() => runFirebaseLogin(cleanEmail, cleanPassword, attempt + 1), 1000);
         return;
       }
       try {

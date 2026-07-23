@@ -39,6 +39,7 @@
     "electron:dev": "npm start",
     "electron:staging": "cross-env ELECTRON_START_URL=https://magis-admin-staging.onrender.com electron .",
     "build": "react-scripts build",
+    "e2e": "playwright test",
     "analyze": "react-scripts build && npx source-map-explorer \"build/static/js/*.js\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
@@ -71,12 +72,14 @@
     }
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@testing-library/dom": "^10.4.1",
     "babel-plugin-transform-remove-console": "^6.9.4",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^42.2.0",
+    "serve": "^14.2.6",
     "wait-on": "^8.0.3"
   }
 }
