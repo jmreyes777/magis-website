@@ -37,10 +37,12 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 - **F2 (medium, fixed)** — `MFASessionModal` "MFA Not Set Up" state sent users to `/profile?setupMFA=true` — **a route that does not exist** (dead-end button). Now returns to the login page, where enrollment actually happens.
 - **F3 (high, fixed)** — `Branch-Unified-Login` stored the **plaintext password** in `localStorage` (`testBranchAdminPassword`, legacy autofill) on every Firebase login — readable via DevTools on shared branch PCs. Write removed; existing values are actively cleaned up on next login.
 
-### Recommendations (not blocking, not implemented)
-- **F4 (low)** — Login OTP view ignores the backend's `attemptsLeft`; users don't know how close they are to lockout. Consider "Incorrect code — 4 attempts left."
-- **F5 (low)** — Step-up modal "Cancel" performs a **full logout**; consider copy that warns "Cancel signs you out" (the behavior itself is right for DPA compliance).
-- **F6 (info)** — Superadmin Branch Passwords page needs client-side Firestore for the branches list; with Firestore down it shows an error but offers no retry button (`loadAll` is only re-run on Refresh). Acceptable; noted for completeness.
+### Fixed in follow-up (2026-07-24)
+- **F4 (low, fixed)** — Wrong OTP now shows the backend's `attemptsLeft` ("Incorrect code. 4 attempts left before you need a new code.") in BOTH the login OTP view and the step-up modal. Backend already returned it on all five verify paths; the UI just ignored it. Covered by e2e assertions.
+- **F5 (low, fixed)** — Step-up modal's bare "Cancel" is now "Cancel & sign out" with helper copy ("Cancelling ends your session — you'll need to sign in again."). The full-logout behavior itself is unchanged (right call for DPA compliance).
+- **F6 (info, fixed)** — Branch Passwords error banner now includes a **Try again** button that re-runs `loadAll` in place.
+
+### Remaining notes (deliberate, no action)
 - **F7 (info)** — MFA gate soft-passes on backend 5xx (documented design decision in `Branch-Chat-Dashboard.js`) — a deliberate availability-over-strictness trade-off; flagged so it stays a conscious choice.
 
 ## 4. Coverage limits

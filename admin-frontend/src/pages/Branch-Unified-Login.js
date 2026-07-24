@@ -240,7 +240,12 @@ function BranchUnifiedLogin() {
         loginTicket, code: theCode,
       });
       if (!ok) {
-        setError(data.error || (status === 429 ? "Too many attempts." : "Verification failed."));
+        // UAT F4: show how many tries remain before a new code is required.
+        const left =
+          typeof data.attemptsLeft === "number"
+            ? ` ${data.attemptsLeft} attempt${data.attemptsLeft === 1 ? "" : "s"} left before you need a new code.`
+            : "";
+        setError((data.error || (status === 429 ? "Too many attempts." : "Verification failed.")) + left);
         setCode("");
         return;
       }

@@ -161,7 +161,18 @@ function BranchPasswords() {
           </button>
         </div>
 
-        {error && <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm">{error}</div>}
+        {error && (
+          <div className="mb-4 p-3 rounded-lg bg-red-50 text-red-700 text-sm flex items-center justify-between gap-3">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={loadAll}
+              className="shrink-0 px-3 py-1 rounded-md bg-red-100 hover:bg-red-200 text-red-800 text-xs font-semibold"
+            >
+              Try again
+            </button>
+          </div>
+        )}
         {notice && <div className="mb-4 p-3 rounded-lg bg-green-50 text-green-700 text-sm">{notice}</div>}
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">

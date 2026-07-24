@@ -44,7 +44,8 @@ test.describe("W2: MFA step-up re-verification (branch email-OTP)", () => {
     await expect(page.getByText(/security verification/i)).toBeVisible({ timeout: 15_000 });
     await page.getByPlaceholder("6-digit code").fill(OTP_BAD);
     await page.getByRole("button", { name: /verify & continue/i }).click();
-    await expect(page.getByText(/incorrect code/i)).toBeVisible();
+    // UAT F4: the error must include how many tries remain (mock says 4).
+    await expect(page.getByText(/incorrect code.*4 attempts left/i)).toBeVisible();
 
     // Recovery: correct code still works after the failure.
     await page.getByPlaceholder("6-digit code").fill(OTP_GOOD);
@@ -69,7 +70,9 @@ test.describe("W2: MFA step-up re-verification (branch email-OTP)", () => {
     await page.goto("/admin/chats");
 
     await expect(page.getByText(/security verification/i)).toBeVisible({ timeout: 15_000 });
-    await page.getByRole("button", { name: /^cancel$/i }).click();
+    // UAT F5: the destructive consequence is spelled out before the click.
+    await expect(page.getByText(/cancelling ends your session/i)).toBeVisible();
+    await page.getByRole("button", { name: /cancel & sign out/i }).click();
     await page.waitForURL(/branch-admin-login/, { timeout: 15_000 });
 
     // Session artifacts wiped: reloading a protected page must not re-enter.

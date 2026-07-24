@@ -160,7 +160,12 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || 'Verification failed.');
+        // UAT F4: show how many tries remain before a new code is required.
+        const left =
+          typeof data.attemptsLeft === 'number'
+            ? ` ${data.attemptsLeft} attempt${data.attemptsLeft === 1 ? '' : 's'} left before you need a new code.`
+            : '';
+        setError((data.error || 'Verification failed.') + left);
         setStaffCode('');
         return;
       }
@@ -551,14 +556,19 @@ const MFASessionModal = ({ isOpen, onVerify, onCancel, operation = 'access chat 
 
         {/* Actions */}
         {!loading && status !== 'verified' && (
-          <div className="flex gap-3 mt-4">
+          <div className="mt-4">
+            {/* UAT F5: cancelling abandons verification and ends the session —
+                say so instead of a bare "Cancel". */}
             <button
               onClick={onCancel}
-              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300"
+              className="w-full bg-gray-200 text-gray-700 py-2 rounded hover:bg-gray-300"
               disabled={loading}
             >
-              Cancel
+              Cancel &amp; sign out
             </button>
+            <p className="text-xs text-gray-500 text-center mt-2">
+              Cancelling ends your session — you'll need to sign in again.
+            </p>
           </div>
         )}
 

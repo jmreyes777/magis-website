@@ -50,7 +50,8 @@ test.describe("W1: unified branch login (email-OTP path)", () => {
 
     const otpBox = page.getByPlaceholder("••••••");
     await otpBox.fill(OTP_BAD);
-    await expect(page.getByText(/incorrect code/i)).toBeVisible();
+    // UAT F4: the error must include how many tries remain (mock says 4).
+    await expect(page.getByText(/incorrect code.*4 attempts left/i)).toBeVisible();
     await expect(otpBox).toHaveValue(""); // cleared for immediate retry
 
     await otpBox.fill(OTP_GOOD);
