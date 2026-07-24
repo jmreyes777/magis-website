@@ -49,6 +49,13 @@ const test = base.test.extend({
     const violations = [];
 
     // ── hermetic network ──────────────────────────────────────────────────
+    // HTTP routing never sees WebSocket upgrades — refuse socket.io WS
+    // handshakes too, or the page talks to the REAL staging socket server
+    // (engine.io-client ≥6.6.6 then piles up reconnects until same-origin
+    // fetches starve; see admin-frontend/e2e/fixtures.js).
+    await page.routeWebSocket(/\/socket\.io\//, (ws) => {
+      ws.close({ code: 1008, reason: "blocked by e2e fixtures" });
+    });
     await context.route("**/*", async (route) => {
       const url = route.request().url();
       if (!url.startsWith("http://localhost:4173")) return route.abort();

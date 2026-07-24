@@ -63,6 +63,14 @@ async function mockNetwork(page, opts = {}) {
     (route) => route.fulfill({ status: 403, contentType: "text/plain", body: "blocked by UAT fixture" })
   );
   await page.route("**/socket.io/**", (route) => route.abort());
+  // page.route only sees HTTP — WebSocket upgrades sailed through to the REAL
+  // staging socket server ("Unauthorized" storms). Harmless under
+  // engine.io-client 6.6.5, but 6.6.6's reconnect behavior piles up pending
+  // connections until same-origin API fetches starve (stuck "Verifying…").
+  // Refuse the handshake so the suite is hermetic for realtime too.
+  await page.routeWebSocket(/\/socket\.io\//, (ws) => {
+    ws.close({ code: 1008, reason: "blocked by e2e fixtures" });
+  });
 
   await page.route("**/api/**", async (route) => {
     const req = route.request();
