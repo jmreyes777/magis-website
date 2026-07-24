@@ -612,6 +612,11 @@ export const connectSocket = async (guestIdParam) => {
   socket.on("connect_error", (err) => {
     console.error("[SOCKET] ❌ Connection error:", err.message);
     isConnecting = false;
+    // The chat UI starts optimistic (isConnected=true) and, before this,
+    // only a *disconnect* flipped it. A socket that never connects at all
+    // left the guest in silent limbo: no offline banner, composer enabled,
+    // every send's delivery phase failing (UAT F-G3).
+    notifyConnectionStatus(false);
   });
 };
 

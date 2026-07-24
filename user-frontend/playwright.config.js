@@ -7,6 +7,11 @@ const { defineConfig, devices } = require("@playwright/test");
 module.exports = defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
+  // ONE worker, on purpose: the UAT chat specs drive the full (heavy) bundle
+  // through hydration + a socket handshake, and concurrent chromium instances
+  // starve those windows into misfired clicks/timeouts (measured: 14/14 green
+  // serial, variable failures at 2-4 workers). Whole suite still runs ~1 min.
+  workers: 1,
   forbidOnly: !!process.env.CI, // a stray .only must never gut the suite in CI
   retries: 0, // deterministic by design (all I/O mocked) — flakes are bugs
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],

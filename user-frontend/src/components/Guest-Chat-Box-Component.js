@@ -113,7 +113,10 @@ const SENSITIVE_PATTERNS = [
   
   // Pawnshop specific - Pawn Ticket Numbers (alphanumeric, varying lengths)
   // Matches: PTN123456, SGL-A1B2C3, TKT-2024-001234, P-12345, etc.
-  { name: 'Pawn Ticket', regex: /\b(?:ptn|pt|pkt|ticket|tkt|sangla|sgl|pawn|p)[-#:\s]*[A-Z0-9]{4,15}\b/i, icon: '🎫' },
+  // The identifier must contain at least one digit — otherwise the bare "p"/
+  // "pawn" prefixes match ordinary words ("please", "pawnshop") and the
+  // security review interrupts normal conversation (UAT F-G1).
+  { name: 'Pawn Ticket', regex: /\b(?:ptn|pt|pkt|ticket|tkt|sangla|sgl|pawn|p)[-#:\s]*(?=[A-Z]*\d)[A-Z0-9]{4,15}\b/i, icon: '🎫' },
   { name: 'Item Value', regex: /\b(?:value|amount|appraisal)[\s:]*[\d,]+(?:\.\d{2})?\b/i, icon: '💰' },
   
   // ============================================================================
@@ -246,8 +249,9 @@ function maskSensitiveData(text) {
   masked = masked.replace(/\b(?:\+63|0)?\(?0?2\)?[-.\s]?\d{7,8}\b/g, '[LANDLINE-REDACTED]');
   // PH Trunk lines (3-4 digits, could be office extensions)
   masked = masked.replace(/\b\d{3}[-.\s]?\d{4}\b/g, '[EXTENSION-REDACTED]');
-  // Pawn Ticket Numbers (alphanumeric formats)
-  masked = masked.replace(/\b(?:ptn|pt|pkt|ticket|tkt|sangla|sgl|pawn|p)[-#:\s]*[A-Z0-9]{4,15}\b/gi, '[PAWNTICKET-REDACTED]');
+  // Pawn Ticket Numbers (alphanumeric formats; digit required — see
+  // SENSITIVE_PATTERNS note)
+  masked = masked.replace(/\b(?:ptn|pt|pkt|ticket|tkt|sangla|sgl|pawn|p)[-#:\s]*(?=[A-Z]*\d)[A-Z0-9]{4,15}\b/gi, '[PAWNTICKET-REDACTED]');
   // API keys
   masked = masked.replace(/(?:api[_-]?key|token|secret)[:=\s]+[a-zA-Z0-9]{16,}/gi, '[API-KEY-REDACTED]');
   
@@ -880,6 +884,23 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
         return;
       }
 
+      // E2EE parity with the live send path: a retry must not silently
+      // downgrade an established secure channel to plaintext (UAT F-G6).
+      let encryptedPayload = null;
+      let encryptionMetadata = null;
+      if (isE2EEEstablished(guestId) && contentToRetry) {
+        try {
+          encryptedPayload = await e2eeEncrypt(guestId, contentToRetry);
+          encryptionMetadata = {
+            e2ee: true,
+            algorithm: "AES-256-GCM",
+            keyExchange: "ECDH-P-256",
+          };
+        } catch (e2eeError) {
+          console.error("[E2EE] Retry encryption failed, sending plaintext:", e2eeError.message);
+        }
+      }
+
       const tempId = generateTempId();
       const clientMessageId = existingClientMessageId || generateClientMessageId();
 
@@ -897,7 +918,13 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
         tempId,
         clientMessageId,
       };
-      setMessages((prev) => [...prev, optimistic]);
+      // Replace the stale failed bubble (same clientMessageId) instead of
+      // appending a duplicate — otherwise every retry leaves a dead "failed"
+      // copy with its own Retry button behind the fresh attempt (UAT F-G7).
+      setMessages((prev) => [
+        ...prev.filter((m) => !(m.clientMessageId === clientMessageId && m.status === "failed")),
+        optimistic,
+      ]);
 
       try {
         const token = sessionStorage.getItem("guestToken") || localStorage.getItem("guestToken");
@@ -915,9 +942,13 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
           formData.append("branchId", localBranchId);
           formData.append("branchEmail", branchEmail);
           formData.append("guestId", guestId);
-          formData.append("content", contentToRetry);
+          formData.append("content", encryptedPayload ? JSON.stringify(encryptedPayload) : contentToRetry);
           formData.append("media", mediaToRetry);
           formData.append("clientMessageId", clientMessageId);
+          if (encryptedPayload) {
+            formData.append("e2ee", "true");
+            formData.append("encryptionMeta", JSON.stringify(encryptionMetadata));
+          }
           opts.body = formData;
           if (token) opts.headers.Authorization = `Bearer ${token}`;
         } else {
@@ -927,8 +958,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
             branchId: localBranchId,
             branchEmail,
             guestId,
-            content: contentToRetry,
+            content: encryptedPayload ? JSON.stringify(encryptedPayload) : contentToRetry,
             clientMessageId,
+            e2ee: !!encryptedPayload,
+            encryptionMeta: encryptionMetadata,
           });
         }
 
@@ -948,8 +981,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
             status: "sent",
             pending: false,
             archived: false,
-            message: saved.content || contentToRetry,
-            content: saved.content || contentToRetry,
+            // Show local plaintext — when E2EE is on the server echoes ciphertext.
+            message: encryptedPayload ? contentToRetry : (saved.content || contentToRetry),
+            content: encryptedPayload ? contentToRetry : (saved.content || contentToRetry),
+            e2ee: !!encryptedPayload,
             tempId,
           };
 
@@ -967,10 +1002,13 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
             room: `guest-${guestId.replace(/^guest-/, "")}`,
             guestId,
             branchEmail,
-            content: confirmed.content,
+            // Emit ciphertext when E2EE is on — same rule as the live send path.
+            content: encryptedPayload ? JSON.stringify(encryptedPayload) : confirmed.content,
             media: confirmed.media || null,
             sender: "guest",
             id: confirmed.id,
+            clientMessageId,
+            e2ee: !!encryptedPayload,
             timestamp: confirmed.timestamp,
           })
             .then((ack) => {
@@ -1731,6 +1769,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
     } catch (err) {
       console.error("[CLIENT:GUEST] ❌ Error during handleChatClose:", err.message);
     } finally {
+      // The chat is over: drop the open-flag so the Branches page can't
+      // auto-resurrect a conversation the guest explicitly ended (UAT F-G9).
+      // Keep guestId/guestToken — session reuse for a NEW chat is intended.
+      sessionStorage.removeItem("chatOpen");
       disconnectSocket(false, "manual");
       if (!keepMounted) onClose();
     }
