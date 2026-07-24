@@ -206,6 +206,18 @@ const MessageItem = ({ message, sender, hideMedia = false, isLatest, retryDelays
             )}
           </div>
         )}
+
+        {/* UAT F-G2: saved on the server (REST + backend broadcast) but the
+            realtime delivery ack never came back — an informational state, not
+            an error, so no Retry (resending would only risk duplicates). */}
+        {isGuest && message.status === "unconfirmed" && (
+          <div
+            className="message-status-unconfirmed"
+            style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "2px" }}
+          >
+            Sent · delivery unconfirmed
+          </div>
+        )}
       </div>
 
       {/* Seen Indicator - only on latest message, outside message bubble */}

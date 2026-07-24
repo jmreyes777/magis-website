@@ -56,6 +56,7 @@ async function mockGuestNetwork(page, opts = {}) {
     sendFails: opts.sendFails ?? false,
     convKeyFails: opts.convKeyFails ?? false,
     expireFirstSend: opts.expireFirstSend ?? false,
+    wsAckFails: opts.wsAckFails ?? false, // sendMessage acks report failure (F-G2)
     convKeyB64: crypto.randomBytes(32).toString("base64"),
     sendCount: 0,
     savedCount: 0,
@@ -155,7 +156,11 @@ async function fakeSocketIO(page, state) {
       if (m[1] !== "") {
         // Acknowledge (joinRoom, sendMessage, chatClosed all use acks). The
         // app's sendMessage() resolves only when ack.success is truthy.
-        ws.send(`43${m[1]}${JSON.stringify([{ success: true, message: { status: "delivered" } }])}`);
+        const ack =
+          event === "sendMessage" && state.wsAckFails
+            ? { success: false, error: "relay unavailable (e2e)" }
+            : { success: true, message: { status: "delivered" } };
+        ws.send(`43${m[1]}${JSON.stringify([ack])}`);
       }
     });
     // engine.io OPEN packet — client then sends "40" to join the namespace.

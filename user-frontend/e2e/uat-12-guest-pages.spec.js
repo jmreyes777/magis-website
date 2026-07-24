@@ -14,7 +14,7 @@ const {
 test.describe.configure({ timeout: 60_000 });
 
 test.describe("G3: guest pages & chat lifecycle", () => {
-  test("contact form: submit succeeds (via blocking alert) and clears the form", async ({ page }) => {
+  test("contact form: submit shows inline success (no blocking alert) and clears the form", async ({ page }) => {
     const state = await mockGuestNetwork(page);
     await fakeSocketIO(page, state);
     await page.goto("/contact-us");
@@ -24,12 +24,16 @@ test.describe("G3: guest pages & chat lifecycle", () => {
     await page.getByLabel("Email").fill("juan@example.com");
     await page.getByLabel("Message").fill("Do you accept 18k gold?");
 
-    // FRICTION (report F-G4): success feedback is a blocking window.alert().
-    const dialogPromise = page.waitForEvent("dialog");
+    // F-G4 (fixed): success is an inline, non-blocking status banner.
+    let sawDialog = false;
+    page.on("dialog", (d) => {
+      sawDialog = true;
+      d.dismiss().catch(() => {});
+    });
     await page.getByRole("button", { name: /send message/i }).click();
-    const dialog = await dialogPromise;
-    expect(dialog.message()).toMatch(/thank you for reaching out/i);
-    await dialog.accept();
+
+    await expect(page.getByText(/thank you for reaching out/i)).toBeVisible({ timeout: 15_000 });
+    expect(sawDialog).toBe(false); // regression trap: no window.alert
 
     await expect
       .poll(() => callsTo(state, "/api/contact").length, { timeout: 15_000 })
@@ -48,23 +52,20 @@ test.describe("G3: guest pages & chat lifecycle", () => {
     await expect(notice).toBeVisible();
     await expect(page.locator(".guest-chat-box a[href='/privacy-policy']")).toHaveCount(1);
 
-    // Minimize → compact pill; restore → full text again. Both toggles are
-    // bare <span>s, not buttons — keyboard users can't reach them (report
-    // F-G8) — so these locators must target text/title instead of roles.
-    await page.locator(".guest-chat-box span[title='Hide']").click();
+    // F-G8 (fixed): both toggles are real, keyboard-reachable buttons now.
+    await page.getByRole("button", { name: "Hide privacy notice" }).click();
     await expect(page.locator(".guest-chat-box a[href='/privacy-policy']")).toHaveCount(0);
-    await page.locator(".guest-chat-box").getByText("Privacy Policy", { exact: true }).click();
+    await page.getByRole("button", { name: "Show privacy notice" }).click();
     await expect(page.locator(".guest-chat-box a[href='/privacy-policy']")).toHaveCount(1);
   });
 
-  test("transcript button opens the Contact Branch modal (copy mismatch noted)", async ({ page }) => {
+  test("contact-branch button opens the matching modal (F-G5 copy aligned)", async ({ page }) => {
     const state = await mockGuestNetwork(page);
     await fakeSocketIO(page, state);
     await openSupportChat(page, expect);
 
-    // FRICTION (report F-G5): tooltip promises a downloadable transcript, but
-    // the modal is a direct-message form titled "Contact Branch".
-    await page.locator("button[title='Download and send chat transcript to branch']").click();
+    // F-G5 (fixed): the tooltip now says what the modal actually is.
+    await page.getByRole("button", { name: "Contact branch" }).click();
     await expect(page.getByRole("heading", { name: /contact branch/i })).toBeVisible();
     await page.locator(".modal-close-btn").click(); // modal-scoped: the chat header has its own Close
     await expect(page.getByRole("heading", { name: /contact branch/i })).toHaveCount(0);
@@ -84,9 +85,23 @@ test.describe("G3: guest pages & chat lifecycle", () => {
       .poll(() => callsTo(state, "/api/messages/send").length, { timeout: 15_000 })
       .toBe(1);
 
-    // FRICTION (report F-G4): confirmation is a native window.confirm.
-    page.once("dialog", (d) => d.accept());
+    // F-G4 (fixed): closing asks via the in-app dialog, not window.confirm.
+    let sawDialog = false;
+    page.on("dialog", (d) => {
+      sawDialog = true;
+      d.dismiss().catch(() => {});
+    });
     await page.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: /end this chat/i })).toBeVisible();
+
+    // Cancel keeps the conversation.
+    await page.getByRole("button", { name: /keep chatting/i }).click();
+    await expect(page.locator(".guest-chat-box")).toBeVisible();
+
+    // Confirm ends it.
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+    await page.getByRole("button", { name: /end chat/i }).click();
+    expect(sawDialog).toBe(false); // regression trap: no native confirm
 
     await expect(page.locator(".guest-chat-box")).toHaveCount(0, { timeout: 15_000 });
     // The X-close path tells the branch over the socket (chatClosed); the

@@ -19,6 +19,7 @@ import { optimizeImage } from "../Shared/Utils-imageOptimization";
 import "./Guest-Chat-Box-Component.css";
 import GuestIdleNotice from "./Guest-Idle-Notice-Component";
 import TranscriptModal from "../components/TranscriptModal";
+import GuestConfirmDialog from "../components/Guest-Confirm-Dialog";
 import {
   isE2EEEstablished,
   e2eeEncrypt,
@@ -580,6 +581,8 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
   const [isConnected, setIsConnected] = useState(true);
   const [showTranscriptModal, setShowTranscriptModal] = useState(false);
   const [transcriptSuccessMsg, setTranscriptSuccessMsg] = useState("");
+  // UAT F-G4: in-app close confirmation (replaces window.confirm).
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [showNetworkModal, setShowNetworkModal] = useState(false);
   const [showOffline, setShowOffline] = useState(false);
   const [networkType, setNetworkType] = useState(
@@ -1020,16 +1023,13 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
               );
             })
             .catch((err) => {
-              console.error("[RETRY] ❌ WS error:", err);
+              // UAT F-G2: persisted via REST + broadcast by the backend — only
+              // the delivery tick is missing. See the live-send path.
+              console.warn("[RETRY] ⚠️ Delivery ack failed (message persisted):", err);
               setMessages((prev) =>
                 prev.map((m) =>
                   m.id === confirmed.id
-                    ? {
-                        ...m,
-                        status: "failed",
-                        pending: true,
-                        retry: () => retrySendMessage(contentToRetry, mediaToRetry, clientMessageId),
-                      }
+                    ? { ...m, status: "unconfirmed", pending: false }
                     : m
                 )
               );
@@ -1536,7 +1536,7 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
       if (response.status === 401) {
         console.warn("[GUEST] ⚠️ Token expired, refreshing token and retrying...");
         if (!window.__CSRF_TOKEN__) await fetchCsrfToken();
-        await fetch(`${process.env.REACT_APP_API_URL}/api/guest/refresh-token`, {
+        const refreshRes = await fetch(`${process.env.REACT_APP_API_URL}/api/guest/refresh-token`, {
           method: "POST",
           credentials: "include",
           headers: {
@@ -1545,6 +1545,16 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
             "Authorization": `Bearer ${sessionStorage.getItem("guestToken") || localStorage.getItem("guestToken") || ""}`,
           },
         });
+        // UAT: persist the refreshed token — previously the response was
+        // discarded and the retry silently reused the stale header token
+        // (it only worked because the refreshed cookie rode along).
+        try {
+          const refreshData = await refreshRes.json();
+          if (refreshData && refreshData.token) {
+            sessionStorage.setItem("guestToken", refreshData.token);
+            localStorage.setItem("guestToken", refreshData.token);
+          }
+        } catch (_) { /* non-JSON response — fall back to stored token */ }
         const newToken = sessionStorage.getItem("guestToken");
         if (!newToken) throw new Error("Unable to refresh guest token");
         opts.headers.Authorization = `Bearer ${newToken}`;
@@ -1634,16 +1644,15 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
           );
         })
         .catch((err) => {
-          console.error("[SOCKET] ❌ WS error:", err);
+          // UAT F-G2: the message IS saved — the REST call succeeded and the
+          // backend broadcasts it to the branch room on save. Only the
+          // delivery-tick ack failed, so mark it "unconfirmed" instead of
+          // scaring the guest into resending with a false "Failed to send".
+          console.warn("[SOCKET] ⚠️ Delivery ack failed (message persisted):", err);
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === confirmedMessage.id
-                ? {
-                    ...msg,
-                    status: "failed",
-                    pending: true,
-                    retry: () => retrySendMessage(msg.message, msg.media, clientMessageId),
-                  }
+                ? { ...msg, status: "unconfirmed", pending: false }
                 : msg
             )
           );
@@ -2087,14 +2096,9 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
                 type="button"
                 className="gc-icon-btn gc-icon-danger"
                 onClick={() => {
-                  if (
-                    messages.length === 0 ||
-                    window.confirm(
-                      "Closing this will require a new conversation. Are you sure?"
-                    )
-                  ) {
-                    handleUserClose();
-                  }
+                  // UAT F-G4: in-app confirm instead of window.confirm.
+                  if (messages.length === 0) handleUserClose();
+                  else setShowCloseConfirm(true);
                 }}
                 aria-label="Close"
                 title="Close"
@@ -2363,12 +2367,14 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
             {/* Zero-Click Privacy Consent Notice - Minimizable */}
             <div className="bg-gray-50 text-gray-400 text-[9px] px-2 py-1 border-t border-gray-200 text-center leading-tight">
               {isPrivacyNoticeMinimized ? (
-                <span 
+                <button
+                  type="button"
                   onClick={() => setIsPrivacyNoticeMinimized(false)}
-                  className="cursor-pointer underline hover:text-gray-600 transition-colors"
+                  className="cursor-pointer underline hover:text-gray-600 transition-colors bg-transparent border-0 p-0 text-inherit"
+                  aria-label="Show privacy notice"
                 >
                   Privacy Policy
-                </span>
+                </button>
               ) : (
                 <div className="flex items-center justify-between gap-1">
                   <span className="flex-1">
@@ -2383,13 +2389,15 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
                     </a>
                     .
                   </span>
-                  <span 
+                  <button
+                    type="button"
                     onClick={() => setIsPrivacyNoticeMinimized(true)}
-                    className="cursor-pointer hover:text-gray-600 ml-1"
+                    className="cursor-pointer hover:text-gray-600 ml-1 bg-transparent border-0 p-0 text-inherit"
                     title="Hide"
+                    aria-label="Hide privacy notice"
                   >
                     ×
-                  </span>
+                  </button>
                 </div>
               )}
             </div>
@@ -2469,11 +2477,14 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
                   />
                 </label>
 
-                {/* Download & send transcript */}
+                {/* Message the branch via the email-style form (UAT F-G5: the
+                    old tooltip promised a transcript download that the modal
+                    never offered) */}
                 <button
                   type="button"
                   onClick={() => setShowTranscriptModal(true)}
-                  title="Download and send chat transcript to branch"
+                  title="Contact branch"
+                  aria-label="Contact branch"
                   className="email-icon p-2 rounded focus:outline-none hover:bg-gray-100"
                 >
                   <svg
@@ -2545,6 +2556,20 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
         branchEmail={branchEmail}
         branchName={branchName}
         guestId={guestId}
+      />
+
+      {/* UAT F-G4: in-app close confirmation (replaces window.confirm) */}
+      <GuestConfirmDialog
+        open={showCloseConfirm}
+        title="End this chat?"
+        body="Closing will end the conversation — starting again requires a new chat."
+        confirmLabel="End chat"
+        cancelLabel="Keep chatting"
+        onConfirm={() => {
+          setShowCloseConfirm(false);
+          handleUserClose();
+        }}
+        onCancel={() => setShowCloseConfirm(false)}
       />
     </>
   );

@@ -66,6 +66,27 @@ test.describe("G2: guest chat resilience", () => {
     await expect(page.getByText("plain message during kms outage")).toBeVisible();
   });
 
+  test("failed delivery ack: message shows 'delivery unconfirmed', not a false failure (F-G2)", async ({ page }) => {
+    const state = await mockGuestNetwork(page, { wsAckFails: true });
+    await fakeSocketIO(page, state);
+    await openSupportChat(page, expect);
+    await expect(page.getByText("Active Now")).toBeVisible({ timeout: 20_000 });
+    await waitForSocketReady(state, expect);
+
+    await page.getByPlaceholder("Chat branch").fill("did this arrive?");
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+
+    // REST persisted it (and the backend broadcasts on save) — only the
+    // realtime ack failed. The guest must NOT be told the message failed.
+    await expect
+      .poll(() => callsTo(state, "/api/messages/send").length, { timeout: 15_000 })
+      .toBe(1);
+    await expect(page.getByText(/delivery unconfirmed/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/failed to send/i)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^retry$/i })).toHaveCount(0);
+    await expect(page.getByText("did this arrive?")).toBeVisible();
+  });
+
   test("expired guest token mid-chat: silent refresh + retried send succeeds", async ({ page }) => {
     const state = await mockGuestNetwork(page, { expireFirstSend: true });
     await fakeSocketIO(page, state);

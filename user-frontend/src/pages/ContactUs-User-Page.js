@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import GuestChatBox from '../components/Guest-Chat-Box-Component'; // Ensure GuestChatBox is imported
 import Seo from '../components/Seo';
@@ -27,12 +27,16 @@ function ContactUs() {
   const [isSubmitting, setIsSubmitting] = useState(false); // Loading state for form submission
   const [isStartingChat, setIsStartingChat] = useState(false); // Loading state for chat initiation
   const [error, setError] = useState(null); // Error state
+  // UAT F-G4: inline success feedback (replaces the blocking window.alert).
+  const [success, setSuccess] = useState(null);
+  const successTimer = useRef(null);
 
   useEffect(() => {
     // Warm up the Turnstile widget so a token is ready on submit / chat start.
     try {
       preloadTurnstile && preloadTurnstile();
     } catch (_) {}
+    return () => clearTimeout(successTimer.current);
   }, []);
 
   const handleChange = (e) => {
@@ -44,6 +48,7 @@ function ContactUs() {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setSuccess(null);
 
     try {
       let turnstileToken = null;
@@ -53,7 +58,10 @@ function ContactUs() {
         { ...formData, turnstileToken },
         { withCredentials: true }
       );
-      alert('Thank you for reaching out! We will get back to you soon.');
+      // UAT F-G4: inline banner instead of a blocking alert().
+      setSuccess('Thank you for reaching out! We will get back to you soon.');
+      clearTimeout(successTimer.current);
+      successTimer.current = setTimeout(() => setSuccess(null), 8000);
       setFormData({ name: '', email: '', message: '' }); // Clear the form
     } catch (error) {
       console.error('Error submitting form:', error.message);
@@ -156,6 +164,16 @@ function ContactUs() {
 
         {/* Error Message */}
         {error && <p className="error-message">{error}</p>}
+
+        {/* Success Message (inline, auto-dismisses) */}
+        {success && (
+          <p
+            className="success-message text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2 text-sm"
+            role="status"
+          >
+            {success}
+          </p>
+        )}
 
         <form onSubmit={handleSubmit} className="contact-form">
           <div className="form-group">

@@ -1,6 +1,6 @@
 # UAT Report — Guest Website (Support Chat, Contact, Privacy Surfaces)
 
-**Date:** 2026-07-24 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright; API mocked with real response shapes, socket.io faked at the engine.io protocol level so tests can act as the branch side — see `e2e/uat-fixtures.js`) · **Result: 14/14 UAT scenarios passing** (21/21 with the TST3 smoke suite) after fixes. Unit suite 86/86.
+**Date:** 2026-07-24 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright; API mocked with real response shapes, socket.io faked at the engine.io protocol level so tests can act as the branch side — see `e2e/uat-fixtures.js`) · **Result: 15/15 UAT scenarios passing** (22/22 with the TST3 smoke suite) after fixes + follow-ups. Unit suite 86/86.
 
 Run locally: `npm run build && npm run e2e` (from `user-frontend/`).
 
@@ -16,9 +16,10 @@ Run locally: `npm run build && npm run e2e` (from `user-frontend/`).
 | W4 | Sensitive-data pre-flight: card number → masked "Security Review" interstitial (nothing sent) → Confirm & Send → sent once | PASS |
 | W5 | Failed send → failed bubble with Retry → backend recovers → retry delivers, no duplicate bubbles | PASS (after F-G7) |
 | W6 | Offline branch: composer disabled + "Branch is currently offline" → live `branchStatus` presence flip re-enables composer | PASS |
-| W7 | Contact form: validate → submit → success feedback → form cleared | PASS |
-| W8 | Privacy notice (zero-click) links to `/privacy-policy`, minimizes to a pill, restores; transcript button opens/closes the "Contact Branch" modal | PASS |
-| W9 | Close chat: confirm dialog → `chatClosed` to the branch → box unmounts → `chatOpen` cleared (no resurrection) | PASS (after F-G9) |
+| W7 | Contact form: validate → submit → inline success banner (no alert) → form cleared | PASS |
+| W8 | Privacy notice (zero-click) links to `/privacy-policy`, minimizes/restores via accessible buttons; "Contact branch" button opens/closes its modal | PASS |
+| W9 | Close chat: in-app confirm (cancel keeps chatting) → `chatClosed` to the branch → box unmounts → `chatOpen` cleared (no resurrection) | PASS (after F-G9) |
+| W10 | Delivery ack lost after REST save → bubble shows "Sent · delivery unconfirmed" (no false failure, no Retry) | PASS (F-G2) |
 
 ## 2. Exploratory probes (failure paths)
 
@@ -38,13 +39,16 @@ Run locally: `npm run build && npm run e2e` (from `user-frontend/`).
 - **F-G7 (low, fixed)** — every retry appended a fresh bubble and left the old failed one (with its own Retry button) in the thread — after one flaky send + retry the guest saw the message twice, once marked failed. The stale failed bubble (same `clientMessageId`) is now replaced in place.
 - **F-G9 (low, fixed)** — `chatOpen` survived an explicit X-close (`disconnectSocket(false, "manual")` only clears it for tab-close), so the Branches page could auto-resurrect a conversation the guest had deliberately ended. The close flow now drops the flag (guest identity is kept — session reuse for a *new* chat is intended).
 
-### Recommendations (not fixed here)
+### Fixed in follow-up (2026-07-24, same day)
 
-- **F-G2 (medium)** — a message that persists via REST but whose WS delivery ack fails is marked **"Failed to send"** with a Retry — even though the branch has it. Guests will resend (server-side `clientMessageId` dedup saves the data, not the confusion). Recommend a distinct "sent — delivery unconfirmed" state instead of `failed`.
-- **F-G4 (low)** — native blocking dialogs: contact-form success uses `window.alert`, chat close/switch use `window.confirm`, and a failed chat-open uses `alert`. Recommend inline/toast feedback consistent with the rest of the UI.
-- **F-G5 (low)** — the composer's transcript icon tooltip says "Download and send chat transcript to branch", but the modal it opens is a direct-message form titled "Contact Branch" (no download). Align the copy or the feature.
-- **F-G8 (low, a11y)** — the privacy notice's minimize (`×`) and restore ("Privacy Policy") controls are bare `<span>`s: not focusable, no role, invisible to keyboard/screen-reader users. Make them buttons.
-- **Observed (brittle, works today)** — the in-chat 401 recovery calls `/api/guest/refresh-token` but never persists the response token; the retried request reuses the *old* header token and succeeds only because the refreshed cookie rides along. Worth persisting the returned token explicitly.
+- **F-G2 (medium, fixed)** — a message that persisted via REST but whose WS delivery ack failed was marked **"Failed to send"** with a Retry — even though the branch already had it (the backend broadcasts to the branch room on REST save). Both WS-catch paths now mark it **`unconfirmed`**, rendered as a quiet "Sent · delivery unconfirmed" note — no false alarm, no duplicate-risking Retry. Covered by a dedicated spec (`wsAckFails` fixture).
+- **F-G4 (low, fixed)** — all native blocking dialogs replaced: contact-form success is an inline auto-dismissing status banner; chat close and chat switch use the new accessible `Guest-Confirm-Dialog` (focus management, Escape, labelled dialog role); failed chat-open on the Branches page is an inline dismissible alert banner. Specs carry regression traps asserting **no** `window.alert`/`confirm` fires.
+- **F-G5 (low, fixed)** — the composer button that opens the "Contact Branch" modal is now titled/labelled **"Contact branch"** (was "Download and send chat transcript to branch" — a download that never existed).
+- **F-G8 (low, a11y, fixed)** — the privacy notice's minimize (`×`) and restore ("Privacy Policy") toggles are now real `<button>`s with `aria-label`s ("Hide/Show privacy notice") — keyboard-reachable and announced.
+- **Token persistence (fixed)** — the in-chat 401 recovery now persists the token returned by `/api/guest/refresh-token` to session/local storage before retrying, instead of silently reusing the stale header token and relying on the cookie.
+
+### Recommendations (open)
+
 - **Product sign-off wanted** — conversation-key outage fails open to plaintext (messages keep flowing, `e2ee:false`). If policy prefers fail-closed, the composer should lock with an explanation instead.
 
 ## 4. Suite notes

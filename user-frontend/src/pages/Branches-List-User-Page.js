@@ -16,6 +16,7 @@ import {
 import { FaMapMarkerAlt, FaPhoneAlt, FaClock, FaSearch, FaTimes } from "react-icons/fa";
 import "./BranchesMapView.css";
 import { getSocketInstance, connectSocket, disconnectSocket } from "../Shared/User-Utils-socket";
+import GuestConfirmDialog from "../components/Guest-Confirm-Dialog";
 import { getTurnstileToken, preloadTurnstile } from "../Shared/turnstile";
 import { findBranchBySlug, buildBranchSeo } from "../utils/branchSeo";
 import { SITE_ORIGIN } from "../components/Seo";
@@ -111,6 +112,9 @@ function BranchesMapView() {
   const [filter, setFilter] = useState(initialFilter);
   const [openingBranchId, setOpeningBranchId] = useState(null);
   const [openingStage, setOpeningStage] = useState(""); // "verifying" | "connecting"
+  // UAT F-G4: in-app replacements for window.confirm / alert() on chat open.
+  const [pendingSwitch, setPendingSwitch] = useState(null); // { branch, activeEmail }
+  const [openError, setOpenError] = useState(null);
 
   // Branch matched from the :slug URL segment (null until branches load).
   const slugBranch = useMemo(
@@ -313,8 +317,9 @@ function BranchesMapView() {
   };
 
   // 🚪 Open chat with prompt if another branch is active
-  const openChatBox = async (branch) => {
+  const openChatBox = async (branch, { skipSwitchPrompt = false } = {}) => {
     if (openingBranchId) return; // prevent concurrent opens / double-clicks
+    setOpenError(null);
     setOpeningBranchId(branch.id);
     setOpeningStage("connecting");
     try {
@@ -330,14 +335,14 @@ function BranchesMapView() {
         const cachedMessages = sessionStorage.getItem(activeCacheKey);
         const hasMessages = cachedMessages && JSON.parse(cachedMessages).length > 0;
 
-        if (hasMessages) {
-          // ✅ Prompt only if there’s real conversation content
-          const ok = window.confirm(
-            `You already have an active conversation with ${activeEmail}.\n` +
-            `Close it and start a new chat with ${branch.email}?`
-          );
-          if (!ok) return;
-        } else {
+        if (hasMessages && !skipSwitchPrompt) {
+          // ✅ Prompt only if there’s real conversation content — via the
+          // in-app dialog (UAT F-G4), which re-enters here with
+          // skipSwitchPrompt on confirm.
+          setPendingSwitch({ branch, activeEmail });
+          return;
+        }
+        if (!hasMessages) {
           console.log("[CHAT SWITCH] Skipping prompt — active chat is empty.");
         }
 
@@ -450,7 +455,8 @@ function BranchesMapView() {
 
     } catch (err) {
       console.error("[SOCKET] ❌ Failed to open guest chat:", err);
-      alert("Could not open chat. Please try again later.");
+      // UAT F-G4: inline dismissible banner instead of a blocking alert().
+      setOpenError("Could not open chat. Please try again later.");
     } finally {
       setOpeningBranchId(null);
       setOpeningStage("");
@@ -486,6 +492,44 @@ function BranchesMapView() {
         />
       )}
       <h1 className="sr-only">Find a Magis Gold &amp; Gems Pawnshop Branch</h1>
+
+      {/* UAT F-G4: inline chat-open error (was a blocking alert) */}
+      {openError && (
+        <div
+          className="mx-4 mt-2 px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded text-sm flex items-center justify-between gap-2"
+          role="alert"
+        >
+          <span>{openError}</span>
+          <button
+            type="button"
+            onClick={() => setOpenError(null)}
+            className="bg-transparent border-0 p-0 text-red-700 underline cursor-pointer"
+            aria-label="Dismiss error"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {/* UAT F-G4: in-app switch-conversation confirmation (was window.confirm) */}
+      <GuestConfirmDialog
+        open={!!pendingSwitch}
+        title="Switch conversations?"
+        body={
+          pendingSwitch
+            ? `You already have an active conversation with ${pendingSwitch.activeEmail}. ` +
+              `Close it and start a new chat with ${pendingSwitch.branch.name || pendingSwitch.branch.email}?`
+            : ""
+        }
+        confirmLabel="Switch chat"
+        cancelLabel="Keep current chat"
+        onConfirm={() => {
+          const target = pendingSwitch.branch;
+          setPendingSwitch(null);
+          openChatBox(target, { skipSwitchPrompt: true });
+        }}
+        onCancel={() => setPendingSwitch(null)}
+      />
       <div className="map-list-container">
         {/* 🌍 Google Map */}
         <div
