@@ -40,6 +40,16 @@ body {
     grid-column: 2;
     grid-row: 2;
   }
+
+  /* Fit map + list inside one viewport so browsing the list never scrolls
+     the map away or drags the footer up. 270px ≈ fixed header (110) +
+     container padding (24+24) + search row (~80) + row gap (24) + slack.
+     Fallback vh first for engines without dvh. */
+  .map-container,
+  .branch-list {
+    height: clamp(420px, calc(100vh - 270px), 600px);
+    height: clamp(420px, calc(100dvh - 270px), 600px);
+  }
 }
 
 /* 🌍 Google Map - Premium Presentation */
@@ -359,8 +369,16 @@ body {
     gap: 16px;
   }
 
+  /* Stacked layout: pin the map under the fixed header (110px) while the
+     list scrolls, so it stays visible during browsing/chat instead of the
+     footer taking over. Search moves above the map (order) so filtering
+     stays reachable from the top. */
   .map-container {
-    height: 400px;
+    height: min(400px, 42vh);
+    height: min(400px, 42dvh);
+    position: sticky;
+    top: 118px;
+    z-index: 20;
   }
 
   .map-container.reduced-height {
@@ -368,11 +386,20 @@ body {
   }
 
   .branch-list {
-    height: 400px;
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  /* scrollIntoView targets the page here (list is no longer its own
+     scroller) — land cards below the fixed header + pinned map. */
+  .branch-item {
+    scroll-margin-top: calc(130px + min(400px, 42dvh));
   }
 
   .search-filter-container {
-    margin-bottom: 16px;
+    order: -1;
+    margin-bottom: 0;
     flex-direction: column;
     align-items: stretch;
   }
@@ -396,7 +423,9 @@ body {
   }
 
   .map-container {
-    height: 300px;
+    height: min(300px, 38vh);
+    height: min(300px, 38dvh);
+    top: 98px; /* tablet header offset (90px) + slack */
     border-radius: 12px;
   }
 
@@ -405,7 +434,6 @@ body {
   }
 
   .branch-list {
-    height: 350px;
     padding: 12px;
     border-radius: 12px;
   }
@@ -428,6 +456,7 @@ body {
   .branch-item {
     padding: 14px;
     margin-bottom: 12px;
+    scroll-margin-top: calc(110px + min(300px, 38dvh));
   }
 
   .branch-name {
@@ -454,20 +483,22 @@ body {
 
 @media (max-width: 480px) {
   .map-container {
-    height: 250px;
+    height: min(250px, 34vh);
+    height: min(250px, 34dvh);
+    top: 88px; /* mobile header offset (80px) + slack */
   }
 
   .map-container.reduced-height {
     height: 180px;
   }
 
-  .branch-list {
-    height: 300px;
-  }
-
   .search-input {
     padding: 10px 32px 10px 36px;
     font-size: 0.85rem;
+  }
+
+  .branch-item {
+    scroll-margin-top: calc(100px + min(250px, 34dvh));
   }
 
   .branch-name {
