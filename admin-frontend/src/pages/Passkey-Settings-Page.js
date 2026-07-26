@@ -109,7 +109,9 @@ export default function PasskeySettingsPage() {
       <div className="p-8 bg-white shadow-lg rounded-lg w-[28rem]">
         <h1 className="text-2xl font-bold mb-1 text-center">Passkeys</h1>
         <p className="text-xs text-gray-500 text-center mb-6">
-          Sign in with your fingerprint, face, or device PIN — no code needed.
+          Sign in with this device's PIN (Windows Hello) — no emailed code needed.
+          Passkeys work only on the computer where you add them; phones and QR
+          codes are not supported.
         </p>
 
         {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}

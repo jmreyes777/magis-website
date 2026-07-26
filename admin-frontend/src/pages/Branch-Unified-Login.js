@@ -128,18 +128,28 @@ function BranchUnifiedLogin() {
   }, [resendIn]);
 
   const post = useCallback(async (path, body) => {
-    const res = await fetch(`${API}${path}`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Session-Id": sessionStorage.getItem("mfaSessionId") || "",
-      },
-      body: JSON.stringify(body || {}),
-    });
-    let data = {};
-    try { data = await res.json(); } catch { /* no body */ }
-    return { ok: res.ok, status: res.status, data };
+    // Bound every call: a hung request (stalled proxy/SMTP-blocked backend)
+    // used to pin the busy label ("Sending…", "Signing in…") forever. Aborting
+    // lands in each caller's catch → readable "try again" error.
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 30_000);
+    try {
+      const res = await fetch(`${API}${path}`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionStorage.getItem("mfaSessionId") || "",
+        },
+        body: JSON.stringify(body || {}),
+        signal: ctrl.signal,
+      });
+      let data = {};
+      try { data = await res.json(); } catch { /* no body */ }
+      return { ok: res.ok, status: res.status, data };
+    } finally {
+      clearTimeout(timer);
+    }
   }, []);
 
   // ── Shared session/dashboard helpers ───────────────────────────────────────
@@ -231,12 +241,16 @@ function BranchUnifiedLogin() {
   // Phase 5: passkey sign-in. Same finalizer as the OTP path — the server
   // response has the identical shape ({ token, firebaseToken, branchName }).
   const handlePasskeyLogin = useCallback(async () => {
-    setError(""); setInfo(""); setBusy(true);
+    setError(""); setInfo("");
+    // Platform-only policy: the email anchors the server's allow-list so the
+    // browser goes straight to this device's PIN prompt (usernameless requests
+    // would surface the cross-device QR picker, which is disabled server-side).
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail) { setError("Enter your email first, then use your passkey."); return; }
+    setBusy(true);
     try {
       const { startAuthentication } = await import("@simplewebauthn/browser");
-      const opts = await post("/api/webauthn/login-options", {
-        email: email.trim().toLowerCase() || undefined,
-      });
+      const opts = await post("/api/webauthn/login-options", { email: cleanEmail });
       if (!opts.ok) { setError(opts.data.error || "Could not start passkey sign-in."); return; }
       let assertion;
       try {

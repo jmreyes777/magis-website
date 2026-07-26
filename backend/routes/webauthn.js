@@ -64,6 +64,16 @@ const ORIGINS = (process.env.WEBAUTHN_ORIGINS ||
 const FALLBACK_TTL_MIN = Number(
   process.env.JWT_FALLBACK_TTL_MIN || process.env.JWT_ADMIN_TTL_MIN || "240"
 );
+
+// Policy: passkeys are STRICTLY the device's built-in authenticator (Windows
+// Hello PIN/biometric). No cross-device QR ("hybrid"), no phones, no USB
+// security keys. Enforced at enrollment (authenticatorAttachment: "platform"
+// + server-side attachment check) and at sign-in (allowCredentials transports
+// forced to ["internal"], so browsers never offer the QR picker).
+const PLATFORM_ONLY_TRANSPORTS = ["internal"];
+// WebAuthn L3 hint — steers browsers straight to the built-in authenticator
+// UI instead of the multi-option (QR / security key) picker.
+const PLATFORM_HINTS = ["client-device"];
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const CREDS = () => db.collection("webauthnCredentials");
 const CHALLENGES = () => db.collection("webauthnChallenges");
@@ -119,13 +129,16 @@ router.post("/register-options", authenticateBranchAdmin, requireMFA, async (req
       attestationType: "none",
       excludeCredentials: existing.map((c) => ({
         id: c.id,
-        transports: c.transports || undefined,
+        transports: PLATFORM_ONLY_TRANSPORTS,
       })),
       authenticatorSelection: {
-        residentKey: "preferred", // discoverable → usernameless sign-in
-        userVerification: "preferred",
+        residentKey: "preferred",
+        userVerification: "required", // always challenge PIN/biometric
+        authenticatorAttachment: "platform", // built-in authenticator only — no QR/phone/USB
       },
     });
+    // Appended after generation so we don't depend on library param support.
+    options.hints = PLATFORM_HINTS;
 
     const challengeId = await saveChallenge("register", options.challenge, {
       email,
@@ -149,12 +162,21 @@ router.post("/register-verify", authenticateBranchAdmin, requireMFA, async (req,
       return res.status(400).json({ error: "Enrollment challenge expired — try again." });
     }
 
+    // Defense-in-depth for the platform-only policy: the browser reports which
+    // attachment actually produced the credential; refuse anything that is not
+    // this device's built-in authenticator (e.g. a phone linked via QR).
+    if (attestation?.authenticatorAttachment && attestation.authenticatorAttachment !== "platform") {
+      return res.status(400).json({
+        error: "Only this device's built-in authenticator (PIN) can be enrolled.",
+      });
+    }
+
     const verification = await verifyRegistrationResponse({
       response: attestation,
       expectedChallenge: ch.challenge,
       expectedOrigin: ORIGINS,
       expectedRPID: RP_ID,
-      requireUserVerification: false,
+      requireUserVerification: true, // PIN/biometric must have been performed
     });
     if (!verification.verified || !verification.registrationInfo) {
       return res.status(400).json({ error: "Passkey could not be verified." });
@@ -197,24 +219,37 @@ router.post("/register-verify", authenticateBranchAdmin, requireMFA, async (req,
 router.post("/login-options", express.json(), async (req, res) => {
   try {
     const email = String(req.body?.email || "").toLowerCase().trim();
-    // With discoverable credentials the email is optional (usernameless flow).
+    // Email is REQUIRED: the usernameless (empty allowCredentials) flow makes
+    // browsers open their multi-option picker — QR / phone / security key —
+    // which the platform-only policy forbids. An email-anchored allow-list
+    // with "internal" transports sends browsers straight to the local PIN.
+    if (!email) return res.status(400).json({ error: "Enter your email to use a passkey." });
+
+    const creds = await credentialsForEmail(email);
     let allowCredentials;
-    if (email) {
-      const creds = await credentialsForEmail(email);
-      if (creds.length === 0) {
-        // Anti-enumeration: identical response shape whether or not the
-        // account exists / has passkeys — the browser will simply find no
-        // matching credential and the user falls back to password login.
-        allowCredentials = undefined;
-      } else {
-        allowCredentials = creds.map((c) => ({ id: c.id, transports: c.transports || undefined }));
-      }
+    if (creds.length === 0) {
+      // Anti-enumeration: identical response shape whether or not the account
+      // exists / has passkeys. The decoy id is HMAC-derived — stable per email
+      // (repeat queries can't detect it) and unpredictable without the server
+      // secret (it can't be recomputed and compared). The browser simply finds
+      // no matching credential and the user falls back to password login.
+      const decoy = crypto
+        .createHmac("sha256", process.env.JWT_SECRET || RP_ID)
+        .update(`webauthn-decoy:${email}`)
+        .digest("base64url");
+      allowCredentials = [{ id: decoy, transports: PLATFORM_ONLY_TRANSPORTS }];
+    } else {
+      // Transports are forced to "internal" regardless of what was stored:
+      // any legacy hybrid/USB-capable credential stops being offered, and the
+      // browser never shows the cross-device QR option.
+      allowCredentials = creds.map((c) => ({ id: c.id, transports: PLATFORM_ONLY_TRANSPORTS }));
     }
     const options = await generateAuthenticationOptions({
       rpID: RP_ID,
-      userVerification: "preferred",
+      userVerification: "required", // always challenge PIN/biometric
       allowCredentials,
     });
+    options.hints = PLATFORM_HINTS;
     const challengeId = await saveChallenge("login", options.challenge, {});
     return res.json({ challengeId, options });
   } catch (e) {
@@ -255,7 +290,7 @@ router.post("/login-verify", express.json(), async (req, res) => {
       expectedChallenge: ch.challenge,
       expectedOrigin: ORIGINS,
       expectedRPID: RP_ID,
-      requireUserVerification: false,
+      requireUserVerification: true, // PIN/biometric must have been performed
       credential: {
         id: credSnap.id,
         publicKey: Buffer.from(cred.publicKey, "base64url"),
