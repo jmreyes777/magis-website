@@ -20,6 +20,11 @@ module.exports = defineConfig({
     baseURL: "http://localhost:4173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    // The workbox SW serves the cached "/" app shell for every navigation
+    // after first install — multi-page tests would silently assert against
+    // the homepage document (home title/canonical on /faqs etc.). Hermetic
+    // suites test the network we mock, not the SW cache.
+    serviceWorkers: "block",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {

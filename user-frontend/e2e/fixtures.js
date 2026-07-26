@@ -33,6 +33,10 @@ const BENIGN = [
   /google.*maps|staticmap/i,
   /favicon/i,
   /Manifest/i,
+  // Playwright runs with serviceWorkers:"block" (the workbox shell cache would
+  // otherwise hijack multi-page navigations); the app already catches the
+  // resulting registration failure and warns — environmental, not a bug.
+  /SW registration failed/i,
 ];
 const isBenign = (text) => BENIGN.some((re) => re.test(text));
 

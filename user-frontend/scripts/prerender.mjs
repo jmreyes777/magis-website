@@ -264,6 +264,19 @@ async function captureRoute(browser, origin, route, shell, shellNonceCount) {
           document.querySelector('meta[name="description"]')?.content ||
           "",
         canonical: document.querySelector('link[rel="canonical"]')?.href || "",
+        // Helmet-owned OG/Twitter tags (UAT F-G11): the LAST tag per key wins
+        // — when the shell default and <Seo>'s tag briefly coexist, Helmet's
+        // per-route value is the later one in document order.
+        socialMetas: (() => {
+          const byKey = new Map();
+          for (const m of document.querySelectorAll("meta[data-rh]")) {
+            const key = m.getAttribute("property") || m.getAttribute("name");
+            if (key && /^(og:|twitter:)/.test(key)) {
+              byKey.set(key, m.getAttribute("content") || "");
+            }
+          }
+          return [...byKey.entries()];
+        })(),
         ldJson: Array.from(
           document.querySelectorAll('script[type="application/ld+json"][data-rh="true"]')
         ).map((s) => s.textContent),
@@ -304,9 +317,19 @@ async function captureRoute(browser, origin, route, shell, shellNonceCount) {
     html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtmlText(captured.title)}</title>`);
     if (captured.description) {
       html = html.replace(
-        /<meta name="description" content="[^"]*"\s*\/?>/,
-        `<meta name="description" content="${escapeAttr(captured.description)}"/>`
+        /<meta[^>]*name="description"[^>]*\/?>/,
+        `<meta data-rh="true" name="description" content="${escapeAttr(captured.description)}"/>`
       );
+    }
+    // UAT F-G11: bake the per-route OG/Twitter values over the shell's static
+    // homepage defaults, so non-JS scrapers (FB/X/LinkedIn, GPTBot…) see the
+    // right og:url/title/description on every prerendered route. Tags keep
+    // data-rh="true" so react-helmet-async adopts them on hydration.
+    for (const [key, content] of captured.socialMetas || []) {
+      const attr = key.startsWith("og:") ? "property" : "name";
+      const re = new RegExp(`<meta[^>]*${attr}="${key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"[^>]*\\/?>`);
+      const tag = `<meta data-rh="true" ${attr}="${key}" content="${escapeAttr(content)}"/>`;
+      html = re.test(html) ? html.replace(re, tag) : html.replace("</head>", `${tag}</head>`);
     }
     const headExtras = [];
     if (captured.canonical && !html.includes('rel="canonical"')) {

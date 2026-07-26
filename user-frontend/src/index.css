@@ -39,7 +39,12 @@ html, body, #root {
 }
 
 html, body {
-  overflow-x: hidden;          /* prevents accidental horizontal reflow */
+  /* Prevent accidental horizontal reflow. `hidden` alone silently DISABLES
+     position:sticky for every descendant (it turns html/body into a scroll
+     container) — the branches map pin never engaged. `clip` clips without
+     that side effect; `hidden` stays first as the old-browser fallback. */
+  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 #root {

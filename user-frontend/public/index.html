@@ -5,10 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#000000" />
-    <meta
-      name="description"
-      content="Magis Gold & Gems Pawnshop - Pawning Services, Jewelry Sales, and Bills Payment"
-    />
+    <meta data-rh="true" name="description" content="Magis Gold & Gems Pawnshop - Pawning Services, Jewelry Sales, and Bills Payment" />
     <meta
       name="keywords"
       content="Pawning, Jewelry, Bills Payment, Magis Pawnshop"
@@ -16,23 +13,23 @@
     <meta name="author" content="Magis Gold & Gems" />
     <title>Magis Pawnshop & Jewelry</title>
 
-    <!-- Default Open Graph / Twitter card. Per-page values are set at runtime by <Seo> (react-helmet-async); per-route STATIC values for non-JS scrapers come in Wave 4 (edge-worker injection). -->
-    <meta property="og:site_name" content="Magis Gold & Gems Pawnshop & Jewelry" />
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="Magis Pawnshop & Jewelry | Instant Cash for Your Gold" />
-    <meta
-      property="og:description"
-      content="Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing."
-    />
-    <meta property="og:url" content="https://www.magispawnshop.com/" />
-    <meta property="og:image" content="https://www.magispawnshop.com/logo512.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Magis Pawnshop & Jewelry | Instant Cash for Your Gold" />
-    <meta
-      name="twitter:description"
-      content="Trusted pawning, auctions, and jewelry sales since 1996."
-    />
-    <meta name="twitter:image" content="https://www.magispawnshop.com/logo512.png" />
+    <!-- Default Open Graph / Twitter card (homepage values). data-rh="true"
+         (UAT F-G11): react-helmet-async only REPLACES tags it owns — without
+         the marker, <Seo>'s per-page tags were APPENDED next to these, and
+         scrapers (which take the first match) saw the homepage og:url/title
+         on every page. With the marker Helmet adopts + rewrites them on every
+         route, and scripts/prerender.mjs bakes the per-route values for
+         non-JS crawlers. -->
+    <meta data-rh="true" property="og:site_name" content="Magis Gold & Gems Pawnshop & Jewelry" />
+    <meta data-rh="true" property="og:type" content="website" />
+    <meta data-rh="true" property="og:title" content="Magis Pawnshop & Jewelry | Instant Cash for Your Gold" />
+    <meta data-rh="true" property="og:description" content="Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing." />
+    <meta data-rh="true" property="og:url" content="https://www.magispawnshop.com/" />
+    <meta data-rh="true" property="og:image" content="https://www.magispawnshop.com/logo512.png" />
+    <meta data-rh="true" name="twitter:card" content="summary_large_image" />
+    <meta data-rh="true" name="twitter:title" content="Magis Pawnshop & Jewelry | Instant Cash for Your Gold" />
+    <meta data-rh="true" name="twitter:description" content="Trusted pawning, auctions, and jewelry sales since 1996." />
+    <meta data-rh="true" name="twitter:image" content="https://www.magispawnshop.com/logo512.png" />
 
     <!-- 🔎 Structured data (JSON-LD, Wave 2). NON-executable data block:
          type="application/ld+json" is NOT gated by the nonce CSP (script-src),
