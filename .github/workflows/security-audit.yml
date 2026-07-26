@@ -7,6 +7,27 @@ name: Security audit
 # check can be added to branch protection without blocking existing work;
 # flip STRICT to "true" after the initial two-week triage window so NEW
 # high/critical findings fail the check.
+#
+# ── Triage log (2026-07-26) — accepted findings, revisit when noted ──────────
+# All lockfile-fixable highs were fixed (backend brace-expansion/glob/minimatch/
+# sucrase chains; frontend audit-fix passes). What intentionally remains:
+#   1. react-router GHSA-qwww-vcr4-c8h2 (admin-frontend, high): "RSC Mode CSRF
+#      bypass" — vulnerable >=7.12.0 <8.3.0, fixed only in the v8 major. NOT
+#      APPLICABLE: both SPAs use classic client-side BrowserRouter; no React
+#      Server Components / server actions exist anywhere in this repo. Revisit
+#      on the react-router v8 migration.
+#   2. react-scripts@5 transitive chain (both frontends: jest/eslint/svgo/
+#      webpack-dev-server/workbox/ejs/nth-check/postcss…): BUILD-TIME tooling
+#      only — none of it ships in the browser bundle or runs on a server. CRA
+#      is EOL upstream; npm's only "fix" is the nonsensical react-scripts@0.0.0
+#      downgrade. Accepted until a Vite/CRACO migration; the runtime bundle is
+#      what this workflow's --omit=dev audit is for.
+#   3. serve@14 (both frontends, devDependencies): Playwright's local static
+#      server for e2e only — never deployed (render.yaml serves prebuilt SPAs
+#      via node/static hosting). Outside the --omit=dev gate already.
+#   4. backend firebase-admin@13 chain (moderate x8): fix requires the v14
+#      major. Moderates don't trip the high/critical gate; take with the next
+#      planned firebase-admin upgrade.
 
 on:
   push:
