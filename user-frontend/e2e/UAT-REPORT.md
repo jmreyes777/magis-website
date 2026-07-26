@@ -1,6 +1,6 @@
 # UAT Report — Guest Website (Support Chat, Contact, Privacy Surfaces)
 
-**Date:** 2026-07-24 · pages/SEO round (Phase B of the UAT megaplan) 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright; API mocked with real response shapes, socket.io faked at the engine.io protocol level so tests can act as the branch side — see `e2e/uat-fixtures.js`) · **Result: 28/28 UAT scenarios passing** (35/35 with the TST3 smoke suite) after fixes + follow-ups. Unit suite 86/86.
+**Date:** 2026-07-24 · pages/SEO round (megaplan Phase B) 2026-07-26 · a11y round (Phase D) 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright; API mocked with real response shapes, socket.io faked at the engine.io protocol level so tests can act as the branch side — see `e2e/uat-fixtures.js`) · **Result: 30/30 UAT scenarios passing** (37/37 with the TST3 smoke suite) after fixes + follow-ups. Unit suite 86/86. Cross-suite index: `../UAT-MEGAPLAN.md`.
 
 Run locally: `npm run build && npm run e2e` (from `user-frontend/`).
 
@@ -23,6 +23,7 @@ Run locally: `npm run build && npm run e2e` (from `user-frontend/`).
 | W11 | Info pages (Phase B): FAQs accordions toggle; Terms + Privacy render real content (closing the W8 link loop); all three untested guide hubs render; unknown routes hit the REAL 404 (no soft-404 redirect) with recovery links | PASS |
 | W12 | SEO head contract on the money pages: unique title/description, canonical pinned to the production origin, OG/Twitter cards correct per page, JSON-LD parses (@graph), 404 is noindex without canonical | PASS (after F-G11) |
 | W13 | Branches layout: sticky-map mechanism (mobile pin below header, `overflow-x: clip` on html/body, desktop viewport-fit with footer below the fold) | PASS (after F-G12) |
+| W14 | Keyboard-only chat (Phase D): composer Enter-to-send; close → confirm dialog receives focus, Escape backs out, Enter confirms; no nameless buttons in the chat surface | PASS (after F-G14) |
 
 ## 2. Exploratory probes (failure paths)
 
@@ -56,6 +57,10 @@ Run locally: `npm run build && npm run e2e` (from `user-frontend/`).
 - **F-G12 (medium, fixed)** — `overflow-x: hidden` on `html, body` (`index.css`) silently **disables `position: sticky` for every descendant** — the branches-page sticky map never actually pinned. Now `overflow-x: clip` (same horizontal-reflow protection, no scroll-container side effect) with `hidden` kept as the legacy fallback.
 - **F-G13 (info, logged)** — dead page files with zero references: `Bills-Payment-User-Page.js`, `Jewelry-Display-User-Page.js`, `Privacy-Policy-User-Page.js` (the routed privacy page is `Footer-Privacy-Policy-User-Page.js`). Left in place pending a product call — delete or route them.
 - **Suite hygiene** — Playwright now runs with `serviceWorkers: "block"`: the workbox app-shell cache served the **homepage document for every navigation after first install**, so multi-page specs silently asserted against "/" (found while the uniqueness check reported one title across six pages). The SW-blocked registration warning is allowlisted in the tripwire as environmental.
+
+### Fixed in the a11y round (2026-07-26, Phase D)
+
+- **F-G14 (low, a11y, fixed)** — the chat composer had **no Enter-to-send**: pressing Enter in the message input did nothing, forcing keyboard users to Tab to the Send button (and defying the universal chat idiom). Enter now sends under exactly the Send button's guard; Shift+Enter stays reserved. Same fix applied to the admin composer (F13 in the admin report).
 
 ### Recommendations (open)
 

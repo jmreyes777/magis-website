@@ -2412,6 +2412,15 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
                 onChange={handleLocalTyping}
                 onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
+                onKeyDown={(e) => {
+                  // UAT F-G14: Enter sends (the universal chat idiom). Same
+                  // guard as the Send button; Shift+Enter reserved.
+                  if (e.key !== "Enter" || e.shiftKey) return;
+                  e.preventDefault();
+                  if (isSendDisabled) return;
+                  emitTyping(guestId, guestId, false);
+                  handleSendMessage();
+                }}
                 disabled={showOffline || !branchStatus.online}
                 placeholder={showOffline || !branchStatus.online 
                   ? "Branch is currently offline" 

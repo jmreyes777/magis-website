@@ -2957,6 +2957,14 @@ const BranchChatDashboard = () => {
                   value={newMessage}
                   placeholder="Type your reply…"
                   className="flex-grow p-2 border rounded"
+                  onKeyDown={(e) => {
+                    // UAT F13: Enter sends (the universal chat idiom). Same
+                    // guard as the Send button; Shift+Enter reserved.
+                    if (e.key !== "Enter" || e.shiftKey) return;
+                    e.preventDefault();
+                    if ((!newMessage && !media) || !selectedChat || isOptimizingImage) return;
+                    handleSendMessage();
+                  }}
                   onChange={(e) => {
                     const txt = e.target.value;
                     setNewMessage(txt);

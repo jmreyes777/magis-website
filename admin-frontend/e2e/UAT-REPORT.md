@@ -1,6 +1,6 @@
 # UAT Report — Admin Dashboard (Branch Login, MFA Step-up, Access Control, Chat Dashboard)
 
-**Date:** 2026-07-23 · chat-dashboard round (megaplan Phase A) 2026-07-26 · superadmin-tooling round (Phase C) 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright, all network mocked; the chat round adds a fake socket.io server at the engine.io v4 protocol level playing the GUEST side — see `e2e/fixtures.js`) · **Result: 46/46 scenarios passing** after fixes. Unit suite 73/73.
+**Date:** 2026-07-23 · chat-dashboard round (megaplan Phase A) 2026-07-26 · superadmin-tooling round (Phase C) 2026-07-26 · a11y round (Phase D) 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright, all network mocked; the chat round adds a fake socket.io server at the engine.io v4 protocol level playing the GUEST side — see `e2e/fixtures.js`) · **Result: 49/49 scenarios passing** after fixes. Unit suite 73/73. Cross-suite index: `../UAT-MEGAPLAN.md`.
 
 Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 
@@ -23,6 +23,7 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 | W6 | Lifecycle: `chatClosed` removes conversation + resets pane; authoritative `guestPresenceUpdate` prunes ghost rows/badges/open thread (incl. empty set); WS ack failure → failed + Retry → recovers without duplicates; reply REST 500 → failed + Retry → single bubble; dead realtime layer → shell stays usable, no crash | PASS (after F8, F10) |
 | W7 | Superadmin tooling: Branch Passwords Firestore-outage error + working Try again (F6 trap) and 401 → sign-in-again; Staff Management list/reset-password (one-time reveal incl. email-failure notice)/2FA toggle/enable·disable/revoke-devices/delete-with-confirm against `/api/admin/staff/*`; Observability snapshot; Audit & Compliance summary + events table | PASS (after F12) |
 | W8 | Analytics (branch-admin view) renders mocked metrics + degrades honestly on 500; landing portal; superadmin-login domain validation + graceful auth-outage error; role matrix extended — superadmin ⇎ branchadmin can never open each other's tools; audit as branch admin = scoped "Activity History" | PASS (after F11) |
+| W9 | Keyboard a11y (Phase D): login operable by keyboard alone (Tab order + Enter submit → readable failure); composer Enter-to-send; no nameless buttons on the dashboard | PASS (after F13) |
 
 ## 2. Exploratory probes (failure paths)
 
@@ -55,6 +56,9 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 ### Fixed in the superadmin-tooling round (2026-07-26, Phase C)
 - **F11 (medium, fixed)** — `AuthContext.hydrate()`'s no-session logout path whitelisted only `/`: a signed-out user DIRECTLY loading `/super-admin-login` (or `/staff-login`) was force-redirected to `/branch-admin-login` — **superadmins couldn't reach their own login page by URL or refresh**. All public login routes are whitelisted now; deep-link bouncing for `/admin/*` is unchanged.
 - **F12 (medium, fixed)** — Branch Passwords: with Firestore unreachable, `getDocs` resolves an **empty cache-only snapshot** instead of rejecting, so the page showed a misleading "No branches found." with no error and no Try again (the F8 mechanism, different symptom). A cache-only empty snapshot is now treated as the outage it is → error banner + working Try again.
+
+### Fixed in the a11y round (2026-07-26, Phase D)
+- **F13 (low, a11y, fixed)** — the reply composer had **no Enter-to-send**: staff had to click (or Tab to) the Send button for every reply. Enter now sends under exactly the Send button's guard; Shift+Enter stays reserved. Mirrors the guest-side F-G14.
 
 ### Remaining notes (deliberate, no action)
 - **F7 (info)** — MFA gate soft-passes on backend 5xx (documented design decision in `Branch-Chat-Dashboard.js`) — a deliberate availability-over-strictness trade-off; flagged so it stays a conscious choice.
