@@ -1,13 +1,13 @@
 // Gold pricing intel — pure-math guardrails (utils/goldPrice.js).
 // The sampler/routes are thin wrappers; the business truth (retention ladder,
-// delta windows, drift/reprice flag, stooq parsing) lives in these helpers.
+// delta windows, drift/reprice flag, yahoo chart parsing) lives in these helpers.
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
   prunePoints,
   computeSummary,
-  parseStooqCsv,
+  parseYahooChart,
   mergeBackfill,
   downsample,
   phpPerGram,
@@ -117,29 +117,44 @@ describe("computeSummary", () => {
   });
 });
 
-describe("stooq backfill parsing", () => {
-  const XAU_CSV = [
-    "Date,Open,High,Low,Close,Volume",
-    "2026-07-20,4000,4010,3990,4005.5,0",
-    "2026-07-21,4005,4030,4000,4020,0",
-    "not,a,row",
-    "2026-07-22,4020,4025,3995,4010,0",
-    "",
-  ].join("\n");
-  const FX_CSV = [
-    "Date,Open,High,Low,Close,Volume",
-    "2026-07-20,61.5,61.9,61.4,61.8,0",
-    "2026-07-22,61.8,62.1,61.7,62,0",
-  ].join("\n");
+describe("yahoo backfill parsing", () => {
+  // Shape of https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF —
+  // timestamps in seconds, closes padded with null on holidays.
+  const yahoo = (rows) => ({
+    chart: {
+      result: [
+        {
+          timestamp: rows.map(([date]) => Date.parse(`${date}T14:30:00Z`) / 1000),
+          indicators: { quote: [{ close: rows.map(([, close]) => close) }] },
+        },
+      ],
+    },
+  });
+  const XAU = yahoo([
+    ["2026-07-20", 4005.5],
+    ["2026-07-21", 4020],
+    ["2026-07-22", 4010],
+    ["2026-07-23", null], // holiday padding — must be skipped
+  ]);
+  const FX = yahoo([
+    ["2026-07-20", 61.8],
+    ["2026-07-22", 62],
+  ]);
 
-  test("parseStooqCsv skips headers and malformed rows", () => {
-    const rows = parseStooqCsv(XAU_CSV);
+  test("parseYahooChart pairs timestamps with closes, skips null pads", () => {
+    const rows = parseYahooChart(XAU);
     assert.equal(rows.length, 3);
     assert.deepEqual(rows[0], { date: "2026-07-20", close: 4005.5 });
   });
 
+  test("parseYahooChart tolerates empty/malformed payloads", () => {
+    assert.deepEqual(parseYahooChart(null), []);
+    assert.deepEqual(parseYahooChart({}), []);
+    assert.deepEqual(parseYahooChart({ chart: { result: [{}] } }), []);
+  });
+
   test("mergeBackfill joins on date and converts to PHP/gram", () => {
-    const merged = mergeBackfill(parseStooqCsv(XAU_CSV), parseStooqCsv(FX_CSV), 45, NOW);
+    const merged = mergeBackfill(parseYahooChart(XAU), parseYahooChart(FX), 45, NOW);
     // 07-21 has no FX row → dropped; 07-20 and 07-22 survive.
     assert.equal(merged.length, 2);
     const expected = (4005.5 * 61.8) / GRAMS_PER_TROY_OUNCE;

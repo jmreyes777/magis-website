@@ -7,8 +7,11 @@
 //   • A 15-min sampler (poller in server.js) appends PHP/gram points to ONE
 //     Firestore doc (goldPrice/latest) — pruned to stay a few KB forever:
 //     full 15-min resolution for 48h, hourly to 7d, daily closes to 90d.
-//   • First boot backfills ~45 days of daily closes from stooq.com's free CSV
-//     endpoints (XAU/USD + USD/PHP), so trends are useful on day one.
+//   • First boot backfills ~45 days of daily closes from Yahoo Finance's
+//     chart API (GC=F gold futures + PHP=X), so trends are useful on day one.
+//     (stooq.com's CSV endpoint — the original source — now sits behind a
+//     JavaScript proof-of-work wall and serves HTML to servers. GC=F tracks
+//     spot within ~0.5%, fine for trend deltas; LIVE quotes stay gold-api.)
 //   • Management records a pricing baseline ("current loan/retail prices
 //     assume ₱X/g"); when spot drifts ≥ thresholdPct from it, the summary
 //     flags `reprice` and the ticker turns amber (see GoldPriceTicker).
@@ -20,8 +23,13 @@ const { db } = require("./firebase");
 
 const GOLD_API_URL = "https://api.gold-api.com/price/XAU";
 const FX_API_URL = "https://open.er-api.com/v6/latest/USD";
-const STOOQ_XAU_URL = "https://stooq.com/q/d/l/?s=xauusd&i=d";
-const STOOQ_PHP_URL = "https://stooq.com/q/d/l/?s=usdphp&i=d";
+const YAHOO_XAU_URL =
+  "https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF?range=45d&interval=1d";
+const YAHOO_PHP_URL =
+  "https://query1.finance.yahoo.com/v8/finance/chart/PHP%3DX?range=45d&interval=1d";
+// Yahoo answers bare clients with 429/403; a browser-ish UA is sufficient.
+const YAHOO_HEADERS = { "User-Agent": "Mozilla/5.0 (compatible; MagisGoldTicker/1.0)" };
+const FETCH_TIMEOUT_MS = 15_000;
 const GRAMS_PER_TROY_OUNCE = 31.1034768;
 
 const HOUR = 60 * 60 * 1000;
@@ -136,17 +144,21 @@ function computeSummary(points, baseline, now = Date.now()) {
 }
 
 /**
- * Parse a stooq daily CSV (Date,Open,High,Low,Close,Volume) → [{ date, close }].
- * Tolerates the header row, blank lines, and malformed rows.
+ * Parse a Yahoo v8 chart response → [{ date, close }] (UTC dates).
+ * Tolerates missing result blocks and the nulls Yahoo pads holidays with.
  */
-function parseStooqCsv(text) {
+function parseYahooChart(payload) {
+  const result = payload?.chart?.result?.[0];
+  const ts = Array.isArray(result?.timestamp) ? result.timestamp : [];
+  const closes = Array.isArray(result?.indicators?.quote?.[0]?.close)
+    ? result.indicators.quote[0].close
+    : [];
   const out = [];
-  for (const line of String(text || "").split(/\r?\n/)) {
-    const cols = line.split(",");
-    if (cols.length < 5) continue;
-    const date = cols[0].trim();
-    const close = Number(cols[4]);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(close) || close <= 0) continue;
+  for (let i = 0; i < ts.length; i++) {
+    const close = Number(closes[i]);
+    if (!Number.isFinite(close) || close <= 0) continue;
+    const date = new Date(ts[i] * 1000).toISOString().slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     out.push({ date, close });
   }
   return out;
@@ -190,7 +202,10 @@ async function saveDoc(fields) {
 // ── Operations (poller + routes call these) ──────────────────────────────────
 
 async function fetchSpotPhpPerGram() {
-  const [goldRes, fxRes] = await Promise.all([fetch(GOLD_API_URL), fetch(FX_API_URL)]);
+  const [goldRes, fxRes] = await Promise.all([
+    fetch(GOLD_API_URL, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }),
+    fetch(FX_API_URL, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) }),
+  ]);
   if (!goldRes.ok) throw new Error(`gold-api ${goldRes.status}`);
   if (!fxRes.ok) throw new Error(`er-api ${fxRes.status}`);
   const gold = await goldRes.json();
@@ -214,28 +229,39 @@ async function sampleOnce(now = Date.now()) {
   return { t: now, g };
 }
 
-/** Seed daily closes from stooq when history is sparse (first boot). Never
+/** Seed daily closes from Yahoo when history is sparse (first boot). Never
  *  overwrites live samples; purely additive for past days. Best-effort. */
 async function backfillIfSparse(now = Date.now()) {
   const { points } = await loadDoc();
   const oldest = points.length ? Math.min(...points.map((p) => p.t)) : now;
   if (now - oldest > 8 * DAY) return false; // already have real history
-  const [xauRes, fxRes] = await Promise.all([fetch(STOOQ_XAU_URL), fetch(STOOQ_PHP_URL)]);
-  if (!xauRes.ok || !fxRes.ok) throw new Error("stooq unavailable");
+  const opts = { headers: YAHOO_HEADERS, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) };
+  const [xauRes, fxRes] = await Promise.all([
+    fetch(YAHOO_XAU_URL, opts),
+    fetch(YAHOO_PHP_URL, opts),
+  ]);
+  if (!xauRes.ok || !fxRes.ok) {
+    throw new Error(`yahoo chart unavailable (${xauRes.status}/${fxRes.status})`);
+  }
   const backfill = mergeBackfill(
-    parseStooqCsv(await xauRes.text()),
-    parseStooqCsv(await fxRes.text()),
+    parseYahooChart(await xauRes.json()),
+    parseYahooChart(await fxRes.json()),
     BACKFILL_DAYS,
     now
   );
-  if (backfill.length === 0) return false;
+  if (backfill.length === 0) {
+    // Loudly, not silently — a source going dark (as stooq did) should be
+    // visible in the logs, not discovered via a flat trend panel weeks later.
+    console.warn("[gold] backfill sources returned no usable rows");
+    return false;
+  }
   // Live points win on any near-duplicate timestamp (±2h).
   const merged = [
     ...backfill.filter((b) => !points.some((p) => Math.abs(p.t - b.t) < 2 * HOUR)),
     ...points,
   ];
   await saveDoc({ points: prunePoints(merged, now), backfilledAt: now });
-  console.log(`[gold] backfilled ${backfill.length} daily closes from stooq`);
+  console.log(`[gold] backfilled ${backfill.length} daily closes from yahoo`);
   return true;
 }
 
@@ -268,7 +294,7 @@ module.exports = {
   pctChange,
   downsample,
   computeSummary,
-  parseStooqCsv,
+  parseYahooChart,
   mergeBackfill,
   fetchSpotPhpPerGram,
   sampleOnce,

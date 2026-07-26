@@ -1606,7 +1606,7 @@ if (process.env.NODE_ENV !== "test") server.listen(PORT);
 
 // ── Gold price sampler ───────────────────────────────────────────────────────
 // Appends a PHP/gram point to goldPrice/latest every 15 min (pruned — the doc
-// stays a few KB forever) and seeds ~45 days of stooq daily closes on first
+// stays a few KB forever) and seeds ~45 days of Yahoo daily closes on first
 // boot, so the header ticker's trend panel has real history from day one.
 // Same lifecycle discipline as the cutout poller above: dormant under tests,
 // unref'd timers, each tick isolated.
