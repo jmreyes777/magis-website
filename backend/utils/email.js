@@ -45,9 +45,26 @@ function getTransporter() {
   if (cachedTransporter) return cachedTransporter;
   const { user, pass } = resolveCreds();
 
+  // Shared latency/robustness settings:
+  //   pool           — keep the authenticated TLS connection warm between
+  //                    sends. Without it EVERY OTP email pays a fresh
+  //                    DNS + TCP + TLS + AUTH handshake (seconds on a cold
+  //                    Gmail connection) — the "Sending…" delay users saw.
+  //   *Timeout       — nodemailer's defaults allow a stalled SMTP conversation
+  //                    to hang for ~2 minutes; login's awaited email path must
+  //                    fail fast instead so the UI gets its emailSent:false.
+  const shared = {
+    pool: true,
+    maxConnections: 2,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  };
+
   const host = process.env.BRANCH_SMTP_HOST || process.env.SMTP_HOST;
   if (host) {
     cachedTransporter = nodemailer.createTransport({
+      ...shared,
       host,
       port: Number(process.env.BRANCH_SMTP_PORT || process.env.SMTP_PORT || 587),
       secure:
@@ -57,6 +74,7 @@ function getTransporter() {
   } else {
     // Matches the existing Gmail-based contact mailer (routes/guest.js).
     cachedTransporter = nodemailer.createTransport({
+      ...shared,
       service: "gmail",
       auth: { user, pass },
     });

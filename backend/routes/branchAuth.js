@@ -507,29 +507,34 @@ router.post("/firebase-token", authenticateBranchAdmin, async (req, res) => {
 // POST /api/branch/forgot  { email }  — emails a reset code (anti-enumeration:
 // always returns ok). POST /api/branch/reset { email, code, newPassword }.
 // ─────────────────────────────────────────────────────────────────────────────
-router.post("/forgot", express.json(), async (req, res) => {
-  try {
-    const email = normalizeEmail(req.body.email);
-    if (!email) return res.status(400).json({ error: "Email is required." });
+router.post("/forgot", express.json(), (req, res) => {
+  const email = normalizeEmail(req.body.email);
+  if (!email) return res.status(400).json({ error: "Email is required." });
+  const { ip } = getClientGeo(req);
+  const userAgent = req.headers["user-agent"];
+
+  // Respond IMMEDIATELY. The generic body never depends on what follows, so
+  // awaiting Firestore + a cold SMTP handshake here only pinned the UI on
+  // "Sending…" for seconds — and made response TIME an account-enumeration
+  // oracle (real accounts paid for OTP + SMTP, unknown ones returned at once).
+  // Now every caller gets the same instant answer.
+  res.json({ ok: true });
+
+  (async () => {
     const account = await findByEmail(email);
-    if (account && account.status !== "disabled") {
-      const { ip } = getClientGeo(req);
-      const otp = await requestOtp({
-        email: account.email,
-        sessionId: "reset",
-        ip,
-        userAgent: req.headers["user-agent"],
-      });
-      if (otp.ok) {
-        await sendCodeEmail(account.email, otp.code, otp.ttlSec, { reset: true });
-      }
+    if (!account || account.status === "disabled") return;
+    const otp = await requestOtp({
+      email: account.email,
+      sessionId: "reset",
+      ip,
+      userAgent,
+    });
+    if (otp.ok) {
+      await sendCodeEmail(account.email, otp.code, otp.ttlSec, { reset: true });
     }
-    // Always generic so we never reveal whether an email exists.
-    return res.json({ ok: true });
-  } catch (e) {
-    console.error("[BRANCH:forgot] ❌", e.message);
-    return res.json({ ok: true });
-  }
+  })().catch((e) => {
+    console.error("[BRANCH:forgot] ❌ background:", e.message);
+  });
 });
 
 router.post("/reset", express.json(), async (req, res) => {
