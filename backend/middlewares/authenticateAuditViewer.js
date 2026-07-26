@@ -83,6 +83,10 @@ module.exports = async function authenticateAuditViewer(req, res, next) {
       branchEmail: isSuper ? null : email,
       branchId: decoded?.branchId || null,
       branchName: decoded?.branchName || null,
+      // Staff chat identities share role "branchadmin" but carry staff:true —
+      // lets additive consumers (e.g. /api/gold/baseline) keep writes
+      // management-only without a new middleware. Audit routes ignore it.
+      staff: decoded?.staff === true,
     };
 
     return next();

@@ -127,6 +127,22 @@ async function mockNetwork(page, opts = {}) {
         createdAt: new Date(Date.now() - 172_800_000).toISOString(),
       },
     ],
+    // ── gold ticker trend intel (header widget polls this on mount) ──────
+    goldSummary: {
+      current: { t: Date.now(), phpPerGram: 5594.23 },
+      deltas: {
+        d1: { pct: 0.42, from: 5570.85, fromT: Date.now() - 86_400_000 },
+        d7: { pct: 1.8, from: 5495.32, fromT: Date.now() - 7 * 86_400_000 },
+        d30: { pct: 4.1, from: 5373.9, fromT: Date.now() - 30 * 86_400_000 },
+      },
+      week: { high: 5601.1, low: 5488.4 },
+      sparkline: Array.from({ length: 12 }, (_, i) => ({
+        t: Date.now() - (11 - i) * 14_400_000,
+        g: 5490 + i * 9.5,
+      })),
+      baseline: null,
+      drift: null,
+    },
     // populated by the fake socket server when { socket: "fake" }:
     wsConnections: [],
     socketEmits: [], // { event, args } — everything the dashboard emits
@@ -441,6 +457,23 @@ async function mockNetwork(page, opts = {}) {
         at: new Date().toISOString(),
         backup: { ok: true, stale: false, date: "2026-07-26", docs: 1234, gzBytes: 1_048_576 },
       });
+    }
+
+    // ── Gold pricing intel (routes/gold.js shapes) — the header ticker polls
+    //    /summary on mount; POST /baseline returns the refreshed summary. ────
+    if (path === "/api/gold/summary" && method === "GET") {
+      return json(200, state.goldSummary);
+    }
+    if (path === "/api/gold/baseline" && method === "POST") {
+      const g = Number.isFinite(body.phpPerGram)
+        ? body.phpPerGram
+        : state.goldSummary.current.phpPerGram;
+      state.goldSummary = {
+        ...state.goldSummary,
+        baseline: { phpPerGram: g, thresholdPct: body.thresholdPct ?? 2, setAt: Date.now() },
+        drift: { pct: 0, thresholdPct: body.thresholdPct ?? 2, reprice: false },
+      };
+      return json(200, state.goldSummary);
     }
 
     // Everything else the dashboard fires on mount (presence, chats REST,

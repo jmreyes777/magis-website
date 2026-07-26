@@ -594,6 +594,9 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/mfa", mfaRoutes);
+// Gold pricing intel for the admin header ticker (history + reprice baseline).
+// Authed surface (admin/staff sessions only) — no public limiter needed.
+app.use("/api/gold", require("./routes/gold"));
 
 // Login Rate Limiting (NOW using Redis store for multi-instance correctness)
 // skipSuccessfulRequests: only FAILED attempts consume the budget (OWASP-style
@@ -1598,6 +1601,42 @@ if (process.env.NODE_ENV !== "test") server.listen(PORT);
   if (timer.unref) timer.unref(); // don't keep the event loop alive just to poll
   console.log(
     `[cutout-poll] enabled — checking latest album every ${Math.round(intervalMs / 1000)}s`
+  );
+})();
+
+// ── Gold price sampler ───────────────────────────────────────────────────────
+// Appends a PHP/gram point to goldPrice/latest every 15 min (pruned — the doc
+// stays a few KB forever) and seeds ~45 days of stooq daily closes on first
+// boot, so the header ticker's trend panel has real history from day one.
+// Same lifecycle discipline as the cutout poller above: dormant under tests,
+// unref'd timers, each tick isolated.
+(function startGoldPriceSampler() {
+  if (process.env.NODE_ENV === "test") return;
+  const raw = Number(process.env.GOLD_SAMPLE_MS);
+  if (raw === 0) return; // GOLD_SAMPLE_MS=0 explicitly disables the sampler
+  const intervalMs = Math.max(5 * 60_000, raw || 15 * 60_000);
+  const { sampleOnce, backfillIfSparse } = require("./utils/goldPrice");
+
+  const tick = async () => {
+    try {
+      await sampleOnce();
+    } catch (err) {
+      console.warn("[gold-sampler] tick failed:", err?.message || err);
+    }
+  };
+  const kickoff = setTimeout(async () => {
+    try {
+      await backfillIfSparse();
+    } catch (err) {
+      console.warn("[gold-sampler] backfill skipped:", err?.message || err);
+    }
+    await tick();
+  }, 20_000); // small delay so it doesn't race startup
+  const timer = setInterval(tick, intervalMs);
+  if (kickoff.unref) kickoff.unref();
+  if (timer.unref) timer.unref(); // don't keep the event loop alive just to sample
+  console.log(
+    `[gold-sampler] enabled — sampling PHP/gram every ${Math.round(intervalMs / 1000)}s`
   );
 })();
 
