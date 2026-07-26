@@ -4,7 +4,16 @@
 // localhost:5000 or the staging edge-worker URL), and third-party surfaces
 // (Firebase, reCAPTCHA, socket.io) are blocked so pages must degrade the way
 // they would during a real outage. Handlers mirror the REAL response shapes
-// from backend/routes/branchAuth.js + routes/mfa.js.
+// from backend/routes/branchAuth.js + routes/mfa.js + routes/messages.js.
+//
+// Phase A (chat-dashboard UAT) additions: pass { socket: "fake" } to
+// mockNetwork and the suite runs a fake socket.io server (engine.io v4 over
+// routeWebSocket — same protocol fake as the guest suite, but playing the
+// GUEST/server role): the dashboard truly connects, joins its admin room, and
+// the test can push receiveMessage / typing / guestPresenceUpdate / chatClosed
+// as the guest side while recording everything the dashboard emits.
+
+const crypto = require("crypto");
 
 const BRANCH = {
   id: "branch-1",
@@ -39,13 +48,43 @@ const makeJwt = (payload = {}) => {
 const OTP_GOOD = "123456";
 const OTP_BAD = "000000";
 
+const GUEST = { id: "guest-e2e-77", name: "Maria" };
+
+// ── AES-256-GCM helpers (same wire format as src/utils/e2eeCrypto.js) ───────
+// The dashboard fetches the per-conversation key from the backend and feeds it
+// to WebCrypto; these mirror that so tests can decrypt what the dashboard
+// sends and encrypt fake guest messages under the same key.
+const subtle = crypto.webcrypto.subtle;
+
+async function encryptWithKey(keyB64, plaintext) {
+  const key = await subtle.importKey(
+    "raw", Buffer.from(keyB64, "base64"), { name: "AES-GCM" }, false, ["encrypt"]);
+  const iv = crypto.webcrypto.getRandomValues(new Uint8Array(12));
+  const ct = await subtle.encrypt({ name: "AES-GCM", iv }, key, Buffer.from(plaintext, "utf8"));
+  return { ciphertext: Buffer.from(ct).toString("base64"), iv: Buffer.from(iv).toString("base64") };
+}
+
+async function decryptWithKey(keyB64, { ciphertext, iv }) {
+  const key = await subtle.importKey(
+    "raw", Buffer.from(keyB64, "base64"), { name: "AES-GCM" }, false, ["decrypt"]);
+  const pt = await subtle.decrypt(
+    { name: "AES-GCM", iv: Buffer.from(iv, "base64") }, key, Buffer.from(ciphertext, "base64"));
+  return Buffer.from(pt).toString("utf8");
+}
+
+// 1×1 red PNG — served as the "signed URL" target and used as an upload file.
+const TINY_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64"
+);
+
 /**
  * Install the network mock. Returns a `state` object the test can inspect
  * (recorded calls) and mutate (e.g. flip mfaVerified) mid-test.
  */
 async function mockNetwork(page, opts = {}) {
   const state = {
-    calls: [], // { method, path, postData } in arrival order
+    calls: [], // { method, path, postData, contentType } in arrival order
     mfaVerified: opts.mfaVerified ?? false,
     mfaEnrolled: opts.mfaEnrolled ?? true,
     mfaExpired: opts.mfaExpired ?? false,
@@ -53,6 +92,19 @@ async function mockNetwork(page, opts = {}) {
     rotationFails: opts.rotationFails ?? false,
     stepupRequestFails: opts.stepupRequestFails ?? false,
     loginRateLimited: opts.loginRateLimited ?? false,
+    // ── chat-dashboard messaging (Phase A) ───────────────────────────────
+    replyFails: opts.replyFails ?? false, // POST /api/messages/reply → 500
+    convKeyFails: opts.convKeyFails ?? false, // conversation-key → 500
+    mediaResolveFails: opts.mediaResolveFails ?? false, // admin-media → 500
+    sendMessageAckFails: opts.sendMessageAckFails ?? false, // WS ack → failure
+    convKeyB64: crypto.randomBytes(32).toString("base64"),
+    replyCount: 0,
+    // populated by the fake socket server when { socket: "fake" }:
+    wsConnections: [],
+    socketEmits: [], // { event, args } — everything the dashboard emits
+    pushEvent: () => {
+      throw new Error("pushEvent needs mockNetwork(page, { socket: 'fake' })");
+    },
   };
 
   // Third-party surfaces: fail FAST (fulfill errors, don't abort) so SDK retry
@@ -67,10 +119,20 @@ async function mockNetwork(page, opts = {}) {
   // staging socket server ("Unauthorized" storms). Harmless under
   // engine.io-client 6.6.5, but 6.6.6's reconnect behavior piles up pending
   // connections until same-origin API fetches starve (stuck "Verifying…").
-  // Refuse the handshake so the suite is hermetic for realtime too.
-  await page.routeWebSocket(/\/socket\.io\//, (ws) => {
-    ws.close({ code: 1008, reason: "blocked by e2e fixtures" });
-  });
+  // Refuse the handshake so the suite is hermetic for realtime too — unless
+  // the test asked for the fake socket server (chat-dashboard UAT).
+  if (opts.socket === "fake") {
+    await fakeAdminSocket(page, state);
+  } else {
+    await page.routeWebSocket(/\/socket\.io\//, (ws) => {
+      ws.close({ code: 1008, reason: "blocked by e2e fixtures" });
+    });
+  }
+
+  // Same-origin "signed URL" target for resolved chat media.
+  await page.route("**/e2e-media.png", (route) =>
+    route.fulfill({ status: 200, contentType: "image/png", body: TINY_PNG })
+  );
 
   await page.route("**/api/**", async (route) => {
     const req = route.request();
@@ -80,9 +142,10 @@ async function mockNetwork(page, opts = {}) {
     try {
       body = req.postDataJSON() || {};
     } catch {
-      /* not JSON */
+      /* not JSON (multipart uploads land here) */
     }
-    state.calls.push({ method, path, postData: body });
+    const contentType = req.headers()["content-type"] || "";
+    state.calls.push({ method, path, postData: body, contentType });
 
     const json = (status, payload) =>
       route.fulfill({ status, contentType: "application/json", body: JSON.stringify(payload) });
@@ -175,6 +238,39 @@ async function mockNetwork(page, opts = {}) {
       return json(503, { error: "unavailable in UAT" });
     }
 
+    // ── Chat messaging (Phase A: routes/messages.js shapes) ──────────────
+    if (path.startsWith("/api/messages/conversation-key/") && method === "GET") {
+      if (state.convKeyFails) return json(500, { error: "kms unavailable" });
+      return json(200, { key: state.convKeyB64 });
+    }
+    if (path === "/api/messages/reply" && method === "POST") {
+      state.replyCount += 1;
+      if (state.replyFails) return json(500, { error: "Message could not be saved." });
+      const isMultipart = contentType.includes("multipart/form-data");
+      // Multipart bodies aren't JSON — recover the text fields from the raw
+      // form payload so specs can still assert on what was sent.
+      let content = body.content ?? "";
+      if (isMultipart) {
+        const raw = req.postData() || "";
+        const m = /name="content"\r?\n\r?\n([\s\S]*?)\r?\n--/.exec(raw);
+        content = m ? m[1] : "";
+      }
+      return json(200, {
+        savedReply: {
+          id: `reply-${state.replyCount}`,
+          content, // echoed opaquely — ciphertext stays ciphertext
+          timestamp: new Date().toISOString(),
+          // Private media carries a storage path (resolved to a signed URL
+          // via /api/messages/admin-media/:id), never a direct link.
+          media: isMultipart ? { type: "image", path: `chat-media/e2e-${state.replyCount}.jpg` } : null,
+        },
+      });
+    }
+    if (path.startsWith("/api/messages/admin-media/") && method === "GET") {
+      if (state.mediaResolveFails) return json(500, { error: "unavailable" });
+      return json(200, { url: "/e2e-media.png" });
+    }
+
     // Everything else the dashboard fires on mount (presence, chats REST,
     // logout, audit pings...) — benign empty success.
     return json(200, {});
@@ -214,6 +310,89 @@ async function seedBranchSession(page, { token } = {}) {
   return jwt;
 }
 
-const callsTo = (state, pathPrefix) => state.calls.filter((c) => c.path.startsWith(pathPrefix));
+/**
+ * Fake socket.io server (engine.io v4 over WebSocket) playing the guest side.
+ * Ack-replies to every emit-with-ack (joinRoom, sendMessage, chatClosed…);
+ * records all dashboard emits into state.socketEmits; exposes
+ * state.pushEvent(event, ...args) so tests can act as the guest/backend.
+ */
+async function fakeAdminSocket(page, state) {
+  await page.routeWebSocket(/\/socket\.io\//, (ws) => {
+    state.wsConnections.push(ws);
+    ws.onMessage((raw) => {
+      const msg = String(raw);
+      if (msg.startsWith("40")) return ws.send('40{"sid":"e2e-nsp-sid"}');
+      if (msg === "2") return ws.send("3"); // ping → pong (either direction)
+      if (msg === "3") return; // pong
+      const m = /^42(\d*)(\[[\s\S]*\])$/.exec(msg);
+      if (!m) return;
+      let parsed = [];
+      try { parsed = JSON.parse(m[2]); } catch { return; }
+      const [event, ...args] = parsed;
+      state.socketEmits.push({ event, args });
+      if (m[1] !== "") {
+        // sendMessage() resolves only when ack.success is truthy; joinRoom's
+        // callback ignores its args, so one ack shape serves every event.
+        const ack =
+          event === "sendMessage" && state.sendMessageAckFails
+            ? { success: false, error: "relay unavailable (e2e)" }
+            : { success: true, message: { status: "delivered" } };
+        ws.send(`43${m[1]}${JSON.stringify([ack])}`);
+      }
+    });
+    // engine.io OPEN packet — client then sends "40" to join the namespace.
+    ws.send('0{"sid":"e2e-eio-sid","upgrades":[],"pingInterval":25000,"pingTimeout":20000,"maxPayload":1000000}');
+    // EIO4: the SERVER initiates heartbeats — without them the client watchdog
+    // kills the connection after ~45s and long tests watch it die mid-flight.
+    const heartbeat = setInterval(() => {
+      try { ws.send("2"); } catch { clearInterval(heartbeat); }
+    }, 20_000);
+    ws.onClose(() => clearInterval(heartbeat));
+  });
 
-module.exports = { BRANCH, OTP_GOOD, OTP_BAD, makeJwt, mockNetwork, seedBranchSession, callsTo };
+  state.pushEvent = (event, ...args) => {
+    for (const ws of state.wsConnections) {
+      try { ws.send(`42${JSON.stringify([event, ...args])}`); } catch { /* closed */ }
+    }
+  };
+  return state;
+}
+
+/** Gate: the dashboard has joined its admin room over the fake socket. */
+async function waitForAdminSocket(state, expect) {
+  await expect
+    .poll(() => state.socketEmits.some((e) => e.event === "joinRoom"), { timeout: 20_000 })
+    .toBe(true);
+}
+
+const callsTo = (state, pathPrefix) => state.calls.filter((c) => c.path.startsWith(pathPrefix));
+const emitsOf = (state, event) => state.socketEmits.filter((e) => e.event === event);
+
+/** A well-formed incoming guest message (override any field per test). */
+const guestMessage = (overrides = {}) => ({
+  id: `gm-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  guestId: GUEST.id,
+  guestName: GUEST.name,
+  branchEmail: BRANCH.email,
+  sender: "guest",
+  content: "Hello, is my item ready for pickup?",
+  timestamp: new Date().toISOString(),
+  ...overrides,
+});
+
+module.exports = {
+  BRANCH,
+  GUEST,
+  OTP_GOOD,
+  OTP_BAD,
+  TINY_PNG,
+  makeJwt,
+  mockNetwork,
+  seedBranchSession,
+  callsTo,
+  emitsOf,
+  guestMessage,
+  waitForAdminSocket,
+  encryptWithKey,
+  decryptWithKey,
+};

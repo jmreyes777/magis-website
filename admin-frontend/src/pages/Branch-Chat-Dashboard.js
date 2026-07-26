@@ -506,7 +506,12 @@ const BranchChatDashboard = () => {
     return () => {
       offTyping(handleIncomingTyping);
     };
-  }, []);
+    // UAT F9: keyed on the live socket id (chatClosed-binder pattern), not []:
+    // on a cold load the socket doesn't exist yet at mount, so a once-only
+    // bind attached to nothing and the typing indicator stayed dead for the
+    // whole session. Rebinding on (re)connect keeps it alive.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socketInstance?.id]);
 
   // ============================================================================
   // E2EE: ESTABLISH VIA SERVER-MANAGED CONVERSATION KEY
@@ -1225,7 +1230,23 @@ const BranchChatDashboard = () => {
           return m;
         })
       );
-      setMessages(msgs);
+      // UAT F8: MERGE with what's already on screen instead of replacing.
+      // When Firestore is unreachable, getDocs resolves from the (empty)
+      // local cache instead of rejecting — a plain setMessages(msgs) then
+      // WIPES messages that arrived live over the socket, exactly in the
+      // degraded mode the dashboard is designed to survive. Keep any
+      // in-memory message (by id, or tempId for optimistic sends) that the
+      // snapshot doesn't know about yet.
+      setMessages((prev) => {
+        const known = new Set(msgs.map((m) => m.id));
+        const liveExtras = prev.filter(
+          (m) => !(m.id && known.has(m.id)) && !(m.tempId && msgs.some((s) => s.tempId === m.tempId))
+        );
+        if (liveExtras.length === 0) return msgs;
+        return [...msgs, ...liveExtras].sort(
+          (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
+        );
+      });
       return msgs;
     } catch (err) {
       console.error("[DASHBOARD] ❌ Error fetching messages:", err);
@@ -1899,7 +1920,18 @@ const BranchChatDashboard = () => {
                     return m;
                   })
                 );
-                setMessages(msgs);
+                // UAT F8: merge — never let a cache-empty snapshot from a
+                // sibling tab's broadcast wipe live socket messages.
+                setMessages((prev) => {
+                  const known = new Set(msgs.map((m) => m.id));
+                  const liveExtras = prev.filter(
+                    (m) => !(m.id && known.has(m.id)) && !(m.tempId && msgs.some((s) => s.tempId === m.tempId))
+                  );
+                  if (liveExtras.length === 0) return msgs;
+                  return [...msgs, ...liveExtras].sort(
+                    (a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0)
+                  );
+                });
               } catch (err) {
                 console.warn(
                   "[SYNC] Failed to fetch messages from BC sync:",
@@ -2451,7 +2483,11 @@ const BranchChatDashboard = () => {
   // ✅ Fetch full message history when selected chat changes
   useEffect(() => {
     if (!selectedChat) return;
-    setMessages([]);
+    // UAT F8: no blind setMessages([]) here. Manual switches already clear the
+    // pane in handleChatSelect; the socket auto-select path deliberately seeds
+    // the thread with the message that opened it. Wiping here erased that live
+    // message whenever Firestore resolved empty-from-cache (offline/outage) —
+    // fetchMessages() merges by id/tempId, so a stale thread can't survive.
     fetchMessages();
   }, [selectedChat, fetchMessages]);
 

@@ -21,8 +21,12 @@
   pointer-events: none; /* Prevent most interactions */
 }
 
-/* Allow pointer events for links if any */
-.chat-messages .message-item a {
+/* Allow pointer events for interactive controls. UAT F10: buttons were left
+   under the blanket pointer-events:none, so "Retry" on a failed reply and the
+   media "tap to retry" were pure decoration — no mouse click could ever reach
+   them. Selection/copy stays blocked; a button click leaks no content. */
+.chat-messages .message-item a,
+.chat-messages .message-item button {
   pointer-events: auto;
 }
 
