@@ -11,6 +11,13 @@ import { doc, getDoc } from "firebase/firestore";
 import { db, auth } from "../firebase-config";
 import axios from "axios";
 import { QRCodeCanvas } from "qrcode.react";
+import AuthShell, {
+  INPUT,
+  INPUT_CODE,
+  BTN_PRIMARY,
+  BTN_BUSY,
+  MSG_ERROR,
+} from "../components/AuthShell";
 
 // Configure axios to point to backend
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || "";
@@ -197,10 +204,8 @@ function SuperAdminLogin() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="p-8 bg-white shadow-lg rounded-lg w-96">
-        <h1 className="text-2xl font-bold mb-6 text-center">Super Admin Login</h1>
-        {error && <p className="text-red-500 text-center mb-4">{error}</p>}
+    <AuthShell title="Super Admin Login" subtitle="Branches · Staff · Observability">
+        {error && <p className={MSG_ERROR}>{error}</p>}
         <form
           onSubmit={
             mfaResolver
@@ -218,7 +223,7 @@ function SuperAdminLogin() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 placeholder="Email"
-                className="w-full px-4 py-2 border rounded-lg mb-4"
+                className={`${INPUT} mb-4`}
               />
               <input
                 type="password"
@@ -226,33 +231,35 @@ function SuperAdminLogin() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 placeholder="Password"
-                className="w-full px-4 py-2 border rounded-lg mb-4"
+                className={`${INPUT} mb-4`}
               />
             </>
           )}
 
           {showEnrollment && totpSecret && (
             <div className="text-center">
-              <QRCodeCanvas
-                value={totpSecret.generateQrCodeUrl(email, "Magis SuperAdmin")} size={180}
-              />
-              <p className="mt-2">Scan QR with Authenticator and enter OTP.</p>
+              <div className="inline-block rounded-2xl border border-[#ececf3] bg-white p-4 shadow-[0_8px_24px_-12px_rgba(27,26,82,0.25)]">
+                <QRCodeCanvas
+                  value={totpSecret.generateQrCodeUrl(email, "Magis SuperAdmin")} size={172} fgColor="#1b1a52"
+                />
+              </div>
+              <p className="mt-3 text-sm text-slate-600">Scan QR with Authenticator and enter OTP.</p>
               <input
                 type="text"
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value)}
                 placeholder="6-digit code"
-                className="w-full px-4 py-2 border rounded-lg mt-4"
+                className={`${INPUT_CODE} mt-4`}
               />
               <button
                 type="button"
                 onClick={handleEnroll}
-                className="w-full py-2 bg-green-500 text-white rounded-lg mt-4"
+                className={`${BTN_PRIMARY} mt-4`}
               >
                 Enroll TOTP
               </button>
               {enrollSuccess && (
-                <p className="text-green-500 mt-2">Enrollment successful! Reloading...</p>
+                <p className="text-emerald-600 mt-2">Enrollment successful! Reloading...</p>
               )}
             </div>
           )}
@@ -264,11 +271,11 @@ function SuperAdminLogin() {
                 value={totpCode}
                 onChange={(e) => setTotpCode(e.target.value)}
                 placeholder="Enter OTP"
-                className="w-full px-4 py-2 border rounded-lg mb-4"
+                className={`${INPUT_CODE} mb-4`}
               />
               <button
                 type="submit"
-                className="w/full py-2 bg-blue-600 text-white rounded-lg"
+                className={BTN_PRIMARY}
               >
                 Submit OTP
               </button>
@@ -278,15 +285,14 @@ function SuperAdminLogin() {
           {!showEnrollment && !mfaResolver && (
             <button
               type="submit"
-              className="w/full py-2 bg-blue-600 text-white rounded-lg"
+              className={isLoading ? BTN_BUSY : BTN_PRIMARY}
               disabled={isLoading}
             >
               {isLoading ? "Logging in..." : "Log In"}
             </button>
           )}
         </form>
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 

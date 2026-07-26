@@ -6,6 +6,14 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import AuthShell, {
+  INPUT,
+  BTN_PRIMARY,
+  BTN_BUSY,
+  LINK_BTN,
+  MSG_ERROR,
+  MSG_SUCCESS,
+} from "../components/AuthShell";
 
 const API = process.env.REACT_APP_API_URL || "";
 
@@ -105,27 +113,29 @@ export default function PasskeySettingsPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="p-8 bg-white shadow-lg rounded-lg w-[28rem]">
-        <h1 className="text-2xl font-bold mb-1 text-center">Passkeys</h1>
-        <p className="text-xs text-gray-500 text-center mb-6">
+    <AuthShell
+      title="Passkeys"
+      width="w-[28rem]"
+      subtitle={
+        <>
           Sign in with this device's PIN (Windows Hello) — no emailed code needed.
           Passkeys work only on the computer where you add them; phones and QR
           codes are not supported.
-        </p>
-
-        {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
-        {info && <p className="text-green-600 text-sm text-center mb-4">{info}</p>}
+        </>
+      }
+    >
+        {error && <p className={MSG_ERROR}>{error}</p>}
+        {info && <p className={MSG_SUCCESS}>{info}</p>}
 
         <div className="mb-6">
           {keys.length === 0 && (
-            <p className="text-sm text-gray-500 text-center mb-2">No passkeys yet.</p>
+            <p className="text-sm text-slate-500 text-center mb-2">No passkeys yet.</p>
           )}
           {keys.map((k) => (
-            <div key={k.id} className="flex items-center justify-between border rounded-lg px-3 py-2 mb-2">
+            <div key={k.id} className="flex items-center justify-between rounded-xl border border-[#ececf3] bg-white px-3 py-2 mb-2 transition-colors hover:border-[#c9a227]/50">
               <div>
-                <p className="text-sm font-medium">{k.deviceName || "Passkey"}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-sm font-medium text-[#232268]">{k.deviceName || "Passkey"}</p>
+                <p className="text-xs text-slate-500">
                   added {k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "—"}
                   {k.lastUsedAt ? ` · last used ${new Date(k.lastUsedAt).toLocaleDateString()}` : ""}
                 </p>
@@ -134,7 +144,7 @@ export default function PasskeySettingsPage() {
                 type="button"
                 onClick={() => revoke(k.id)}
                 disabled={busy}
-                className="text-sm text-red-600 hover:text-red-800"
+                className="text-sm font-medium text-red-500 transition-colors hover:text-red-700"
               >
                 Remove
               </button>
@@ -147,25 +157,24 @@ export default function PasskeySettingsPage() {
           value={deviceName}
           onChange={(e) => setDeviceName(e.target.value)}
           placeholder="Name this passkey (e.g. Work laptop)"
-          className="w-full px-4 py-2 border rounded-lg mb-3"
+          className={`${INPUT} mb-3`}
           maxLength={64}
         />
         <button
           type="button"
           onClick={addPasskey}
           disabled={busy}
-          className={`w-full py-2 rounded-lg text-white font-semibold ${busy ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
+          className={busy ? BTN_BUSY : BTN_PRIMARY}
         >
           {busy ? "Working…" : "Add a passkey"}
         </button>
         <button
           type="button"
           onClick={() => navigate("/admin/chats")}
-          className="w-full mt-3 text-sm text-blue-600 hover:text-blue-800"
+          className={`${LINK_BTN} mt-3`}
         >
           Back to dashboard
         </button>
-      </div>
-    </div>
+    </AuthShell>
   );
 }

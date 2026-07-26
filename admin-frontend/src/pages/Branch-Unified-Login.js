@@ -44,6 +44,16 @@ import {
 } from "firebase/auth";
 import { fetchCustomClaims } from "../firebase-config";
 import { QRCodeCanvas } from "qrcode.react";
+import AuthShell, {
+  INPUT,
+  INPUT_CODE,
+  BTN_PRIMARY,
+  BTN_BUSY,
+  BTN_OUTLINE,
+  LINK_BTN,
+  MSG_ERROR,
+  MSG_INFO,
+} from "../components/AuthShell";
 
 const API = process.env.REACT_APP_API_URL || "";
 const TRUSTED_KEY = "staffTrustedDeviceToken";
@@ -662,14 +672,10 @@ function BranchUnifiedLogin() {
 
   // ── UI ──────────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="p-8 bg-white shadow-lg rounded-lg w-96">
-        <h1 className="text-2xl font-bold mb-1 text-center">Branch Login</h1>
-        <p className="text-xs text-gray-500 text-center mb-6">Staff &amp; Branch Admin &middot; Chat dashboard</p>
-
-        {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
-        {info && <p className="text-blue-600 text-sm text-center mb-4">{info}</p>}
-        {emailSent && <p className="text-blue-500 text-sm text-center mb-4">A verification email has been sent. Please check your email.</p>}
+    <AuthShell title="Branch Login" subtitle={<>Staff &amp; Branch Admin &middot; Chat dashboard</>}>
+        {error && <p className={MSG_ERROR}>{error}</p>}
+        {info && <p className={MSG_INFO}>{info}</p>}
+        {emailSent && <p className={MSG_INFO}>A verification email has been sent. Please check your email.</p>}
 
         {view === "credentials" && (
           <form onSubmit={handleCredentials} noValidate>
@@ -680,7 +686,7 @@ function BranchUnifiedLogin() {
               required
               placeholder="Email"
               autoComplete="username"
-              className="w-full px-4 py-2 border rounded-lg mb-3"
+              className={`${INPUT} mb-3`}
             />
             <input
               type="password"
@@ -689,21 +695,21 @@ function BranchUnifiedLogin() {
               required
               placeholder="Password"
               autoComplete="current-password"
-              className="w-full px-4 py-2 border rounded-lg mb-3"
+              className={`${INPUT} mb-3`}
             />
-            <label className="flex items-center gap-2 mb-4 text-sm text-gray-600 select-none cursor-pointer">
+            <label className="flex items-center gap-2 mb-4 text-sm text-slate-600 select-none cursor-pointer">
               <input
                 type="checkbox"
                 checked={rememberEmail}
                 onChange={handleRememberToggle}
-                className="h-4 w-4 rounded border-gray-300"
+                className="h-4 w-4 rounded border-slate-300 accent-[#232268]"
               />
               Remember email on this device
             </label>
             <button
               type="submit"
               disabled={busy}
-              className={`w-full py-2 rounded-lg text-white font-semibold ${busy ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
+              className={busy ? BTN_BUSY : BTN_PRIMARY}
             >
               {busy ? "Signing in…" : "Sign in"}
             </button>
@@ -712,7 +718,7 @@ function BranchUnifiedLogin() {
                 type="button"
                 onClick={handlePasskeyLogin}
                 disabled={busy}
-                className="w-full mt-3 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50"
+                className={`${BTN_OUTLINE} mt-3`}
               >
                 Sign in with a passkey
               </button>
@@ -720,7 +726,7 @@ function BranchUnifiedLogin() {
             <button
               type="button"
               onClick={() => { setError(""); setInfo(""); setView("forgot"); }}
-              className="w-full mt-3 text-sm text-blue-600 hover:text-blue-800"
+              className={`${LINK_BTN} mt-3`}
             >
               Forgot password?
             </button>
@@ -729,12 +735,12 @@ function BranchUnifiedLogin() {
 
         {view === "staffOtp" && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1 text-center">Enter the 6-digit code</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1 text-center">Enter the 6-digit code</label>
             {otpDevCode && (
               <button
                 type="button"
                 onClick={() => handleOtpChange(otpDevCode)}
-                className="w-full mb-3 p-2 rounded-lg bg-amber-50 border border-amber-200 text-center"
+                className="w-full mb-3 p-2 rounded-xl bg-amber-50 border border-amber-200 text-center"
               >
                 <span className="block text-xs text-amber-700">Email is down &mdash; testing code (tap to autofill):</span>
                 <span className="block font-mono text-2xl tracking-[0.4em] text-amber-900">{otpDevCode}</span>
@@ -748,13 +754,13 @@ function BranchUnifiedLogin() {
               onChange={(e) => handleOtpChange(e.target.value)}
               placeholder="••••••"
               maxLength={6}
-              className="w-full px-4 py-3 border rounded-lg text-center text-2xl tracking-[0.5em] font-mono mb-3"
+              className={`${INPUT_CODE} text-2xl tracking-[0.5em] mb-3`}
             />
             <button
               type="button"
               onClick={() => submitOtp(code)}
               disabled={busy || code.length !== 6}
-              className={`w-full py-2 rounded-lg text-white font-semibold ${busy || code.length !== 6 ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
+              className={busy || code.length !== 6 ? BTN_BUSY : BTN_PRIMARY}
             >
               {busy ? "Verifying…" : "Verify & sign in"}
             </button>
@@ -762,7 +768,7 @@ function BranchUnifiedLogin() {
               type="button"
               onClick={handleResend}
               disabled={resendIn > 0 || busy}
-              className="w-full mt-3 text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+              className={`${LINK_BTN} mt-3`}
             >
               {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
             </button>
@@ -778,7 +784,7 @@ function BranchUnifiedLogin() {
               required
               placeholder="New password (min 10 characters)"
               autoComplete="new-password"
-              className="w-full px-4 py-2 border rounded-lg mb-3"
+              className={`${INPUT} mb-3`}
             />
             <input
               type="password"
@@ -787,12 +793,12 @@ function BranchUnifiedLogin() {
               required
               placeholder="Confirm new password"
               autoComplete="new-password"
-              className="w-full px-4 py-2 border rounded-lg mb-4"
+              className={`${INPUT} mb-4`}
             />
             <button
               type="submit"
               disabled={busy}
-              className={`w-full py-2 rounded-lg text-white font-semibold ${busy ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"}`}
+              className={busy ? BTN_BUSY : BTN_PRIMARY}
             >
               {busy ? "Saving…" : "Set password & continue"}
             </button>
@@ -800,7 +806,7 @@ function BranchUnifiedLogin() {
               type="button"
               onClick={() => goToDashboard(pendingSession)}
               disabled={busy}
-              className="w-full mt-3 text-sm text-gray-600 hover:text-gray-800"
+              className={`${LINK_BTN} mt-3`}
             >
               Skip for now
             </button>
@@ -809,7 +815,7 @@ function BranchUnifiedLogin() {
 
         {view === "forgot" && (
           <form onSubmit={handleForgotRequest}>
-            <p className="text-sm text-gray-600 mb-3 text-center">Enter your branch email and we'll email you a reset code.</p>
+            <p className="text-sm text-slate-600 mb-3 text-center">Enter your branch email and we'll email you a reset code.</p>
             <input
               type="email"
               value={email}
@@ -817,19 +823,19 @@ function BranchUnifiedLogin() {
               required
               placeholder="Email"
               autoComplete="username"
-              className="w-full px-4 py-2 border rounded-lg mb-4"
+              className={`${INPUT} mb-4`}
             />
             <button
               type="submit"
               disabled={busy}
-              className={`w-full py-2 rounded-lg text-white font-semibold ${busy ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
+              className={busy ? BTN_BUSY : BTN_PRIMARY}
             >
               {busy ? "Sending..." : "Send reset code"}
             </button>
             <button
               type="button"
               onClick={() => { setError(""); setInfo(""); setView("credentials"); }}
-              className="w-full mt-3 text-sm text-blue-600 hover:text-blue-800"
+              className={`${LINK_BTN} mt-3`}
             >
               Back to sign in
             </button>
@@ -846,7 +852,7 @@ function BranchUnifiedLogin() {
               required
               placeholder="6-digit reset code"
               maxLength={6}
-              className="w-full px-4 py-2 border rounded-lg mb-3 text-center tracking-[0.4em] font-mono"
+              className={`${INPUT_CODE} tracking-[0.4em] mb-3`}
             />
             <input
               type="password"
@@ -855,7 +861,7 @@ function BranchUnifiedLogin() {
               required
               placeholder="New password (min 10 characters)"
               autoComplete="new-password"
-              className="w-full px-4 py-2 border rounded-lg mb-3"
+              className={`${INPUT} mb-3`}
             />
             <input
               type="password"
@@ -864,19 +870,19 @@ function BranchUnifiedLogin() {
               required
               placeholder="Confirm new password"
               autoComplete="new-password"
-              className="w-full px-4 py-2 border rounded-lg mb-4"
+              className={`${INPUT} mb-4`}
             />
             <button
               type="submit"
               disabled={busy}
-              className={`w-full py-2 rounded-lg text-white font-semibold ${busy ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"}`}
+              className={busy ? BTN_BUSY : BTN_PRIMARY}
             >
               {busy ? "Updating..." : "Reset password"}
             </button>
             <button
               type="button"
               onClick={() => { setError(""); setInfo(""); setView("credentials"); }}
-              className="w-full mt-3 text-sm text-blue-600 hover:text-blue-800"
+              className={`${LINK_BTN} mt-3`}
             >
               Back to sign in
             </button>
@@ -885,7 +891,7 @@ function BranchUnifiedLogin() {
 
         {view === "fbTotp" && (
           <div className="text-center">
-            <label htmlFor="mfaOtp" className="block text-sm font-medium text-gray-700 mb-1">Authenticator code</label>
+            <label htmlFor="mfaOtp" className="block text-sm font-medium text-slate-700 mb-1">Authenticator code</label>
             <input
               id="mfaOtp"
               type="text"
@@ -896,13 +902,13 @@ function BranchUnifiedLogin() {
               required
               maxLength={6}
               placeholder="Enter 6-digit code"
-              className="w-full px-4 py-2 border rounded-lg mb-4"
+              className={`${INPUT} mb-4`}
             />
             <button
               type="button"
               onClick={handleTotpVerification}
               disabled={busy}
-              className={`w-full py-2 rounded-lg text-white font-semibold ${busy ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"}`}
+              className={busy ? BTN_BUSY : BTN_PRIMARY}
             >
               {busy ? "Verifying…" : "Verify & sign in"}
             </button>
@@ -911,9 +917,11 @@ function BranchUnifiedLogin() {
 
         {view === "fbEnroll" && totpSecret && (
           <div className="text-center">
-            <QRCodeCanvas value={totpSecret.generateQrCodeUrl(email, "Magis Admin")} size={180} />
-            <p className="text-sm mt-2">Scan the QR code with Google Authenticator, then enter the code below.</p>
-            <label htmlFor="enrollOtp" className="block text-sm font-medium text-gray-700 mt-4">One-Time Passcode</label>
+            <div className="inline-block rounded-2xl border border-[#ececf3] bg-white p-4 shadow-[0_8px_24px_-12px_rgba(27,26,82,0.25)]">
+              <QRCodeCanvas value={totpSecret.generateQrCodeUrl(email, "Magis Admin")} size={172} fgColor="#1b1a52" />
+            </div>
+            <p className="text-sm text-slate-600 mt-3">Scan the QR code with Google Authenticator, then enter the code below.</p>
+            <label htmlFor="enrollOtp" className="block text-sm font-medium text-slate-700 mt-4">One-Time Passcode</label>
             <input
               id="enrollOtp"
               type="text"
@@ -923,21 +931,20 @@ function BranchUnifiedLogin() {
               required
               maxLength={6}
               placeholder="Enter 6-digit code"
-              className="w-full px-4 py-2 border rounded-lg mt-1 mb-2"
+              className={`${INPUT_CODE} mt-1 mb-2`}
             />
-            {enrollmentSuccess && <p className="text-green-500 text-sm mt-2">Enrollment successful! Redirecting…</p>}
+            {enrollmentSuccess && <p className="text-emerald-600 text-sm mt-2">Enrollment successful! Redirecting…</p>}
             <button
               type="button"
               onClick={handleEnrollTotp}
               disabled={busy}
-              className={`w-full py-2 mt-2 rounded-lg text-white font-semibold ${busy ? "bg-gray-400" : "bg-green-600 hover:bg-green-700"}`}
+              className={`${busy ? BTN_BUSY : BTN_PRIMARY} mt-2`}
             >
               {busy ? "Enrolling…" : "Enroll & continue"}
             </button>
           </div>
         )}
-      </div>
-    </div>
+    </AuthShell>
   );
 }
 
