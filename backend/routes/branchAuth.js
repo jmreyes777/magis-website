@@ -40,6 +40,7 @@ const {
 const { requestOtp, verifyOtp } = require("../utils/staffOtp");
 const authenticateSuperAdmin = require("../middlewares/authenticateSuperAdmin");
 const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
+const { sendSecurityAlert } = require("../utils/securityAlerts");
 
 const FALLBACK_TTL_MIN = Number(
   process.env.JWT_FALLBACK_TTL_MIN || process.env.JWT_ADMIN_TTL_MIN || "240"
@@ -223,12 +224,29 @@ async function sendCodeEmail(to, code, ttlSec, { reset = false } = {}) {
   const text =
     `Magis Chat Dashboard\n${heading} — enter this code to continue:\n\n${code}\n\n` +
     `Expires in ${minutes} minute(s). Single use. If you did not request this, ignore this email.`;
-  await sendMail({
-    to,
-    subject: reset ? "Reset your Magis dashboard password" : "Your Magis dashboard login code",
-    html,
-    text,
-  });
+  try {
+    await sendMail({
+      to,
+      subject: reset ? "Reset your Magis dashboard password" : "Your Magis dashboard login code",
+      html,
+      text,
+    });
+  } catch (mailErr) {
+    // Ops visibility (fire-and-forget, throttled): /forgot replies BEFORE the
+    // send, so without this a dead SMTP config is one console line while staff
+    // wait for an email that never arrives. The error still propagates —
+    // awaited paths keep returning emailSent:false exactly as before.
+    sendSecurityAlert(
+      `otp-email-failure:${reset ? "reset" : "login"}`,
+      `${reset ? "Password-reset" : "Login-OTP"} email delivery failed`,
+      [
+        `account: ${to}`,
+        `error: ${mailErr.message}`,
+        "action: check SMTP credentials/connectivity (BRANCH_SMTP_* / SMTP_*)",
+      ]
+    );
+    throw mailErr;
+  }
 }
 
 const OTP_ERROR_MAP = {

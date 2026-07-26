@@ -1543,6 +1543,31 @@ if (process.env.NODE_ENV !== "test") server.listen(PORT);
   } catch (e) {
     console.warn("[warmup] Redis prime failed:", e.message);
   }
+  // SMTP probe: OTP login and password reset both depend on outbound mail, and
+  // /branch/forgot now sends in the background (respond-first), so a broken
+  // mail config would otherwise surface only as staff "never got the email"
+  // reports. verify() does a real connect+auth handshake. The alert can still
+  // reach ops via Telegram when the email transport itself is what's broken
+  // (and the console line always lands in the host logs).
+  try {
+    const { isEmailConfigured, getTransporter } = require("./utils/email");
+    if (!isEmailConfigured()) {
+      console.warn("[warmup] ⚠️ email transport NOT configured — OTP/reset emails cannot send");
+    } else {
+      await getTransporter().verify();
+      console.log("[warmup] SMTP transport verified");
+    }
+  } catch (e) {
+    console.warn("[warmup] ⚠️ SMTP verify failed:", e.message);
+    try {
+      const { sendSecurityAlert } = require("./utils/securityAlerts");
+      sendSecurityAlert("smtp-verify-boot", "SMTP transport failed boot verification", [
+        `error: ${e.message}`,
+        "meaning: OTP login and password-reset emails will fail until fixed",
+        "action: check BRANCH_SMTP_* / SMTP_* credentials and connectivity",
+      ]);
+    } catch { /* best-effort */ }
+  }
 })();
 
 // ── Catalog cutouts: instant-refresh poller ──────────────────────────────────
