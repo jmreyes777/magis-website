@@ -47,6 +47,10 @@ import { QRCodeCanvas } from "qrcode.react";
 
 const API = process.env.REACT_APP_API_URL || "";
 const TRUSTED_KEY = "staffTrustedDeviceToken";
+// Remember-email (UX): opt-in, EMAIL ONLY — never the password (a legacy
+// autofill once stored plaintext passwords here — UAT F3). The email is an
+// identifier, not a credential; OTP/password/TOTP still gate every login.
+const REMEMBER_EMAIL_KEY = "rememberedBranchEmail";
 // Phase 5: passkey sign-in is opt-in via build flag; when off, this page is
 // byte-identical to the previous behavior.
 const PASSKEYS_ON = process.env.REACT_APP_ENABLE_PASSKEYS === "true";
@@ -59,8 +63,22 @@ function BranchUnifiedLogin() {
 
   // Shared
   const [view, setView] = useState("credentials"); // credentials | staffOtp | staffChangePassword | fbTotp | fbEnroll
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => {
+    try { return localStorage.getItem(REMEMBER_EMAIL_KEY) || ""; } catch { return ""; }
+  });
+  const [rememberEmail, setRememberEmail] = useState(() => {
+    try { return !!localStorage.getItem(REMEMBER_EMAIL_KEY); } catch { return false; }
+  });
   const [password, setPassword] = useState("");
+
+  const handleRememberToggle = (e) => {
+    const on = e.target.checked;
+    setRememberEmail(on);
+    // Unchecking forgets immediately — no need to complete a login to clear it.
+    if (!on) {
+      try { localStorage.removeItem(REMEMBER_EMAIL_KEY); } catch { /* non-fatal */ }
+    }
+  };
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [busy, setBusy] = useState(false);
@@ -138,6 +156,13 @@ function BranchUnifiedLogin() {
   };
 
   const goToDashboard = useCallback((session) => {
+    // Single success funnel for every login path (staff OTP, trusted device,
+    // passkey, Firebase) — persist the remembered email here, using the
+    // CANONICAL branch email from the session rather than the typed input.
+    try {
+      if (rememberEmail) localStorage.setItem(REMEMBER_EMAIL_KEY, session.branchEmail);
+      else localStorage.removeItem(REMEMBER_EMAIL_KEY);
+    } catch { /* storage blocked — non-fatal */ }
     setTimeout(() => {
       connectSocket(session.branchEmail);
       localStorage.setItem("activeSocketTabId", session.tabId);
@@ -147,7 +172,7 @@ function BranchUnifiedLogin() {
       state: { fromLogin: true, branchId: session.branchId, branchEmail: session.branchEmail, branchName: session.branchName },
     });
     window.dispatchEvent(new Event("branchAdminAuthenticated"));
-  }, [navigate]);
+  }, [navigate, rememberEmail]);
 
   // ── STAFF flow ──────────────────────────────────────────────────────────────
   const establishStaffSession = useCallback((token, branchNameHint) => {
@@ -650,8 +675,17 @@ function BranchUnifiedLogin() {
               required
               placeholder="Password"
               autoComplete="current-password"
-              className="w-full px-4 py-2 border rounded-lg mb-4"
+              className="w-full px-4 py-2 border rounded-lg mb-3"
             />
+            <label className="flex items-center gap-2 mb-4 text-sm text-gray-600 select-none cursor-pointer">
+              <input
+                type="checkbox"
+                checked={rememberEmail}
+                onChange={handleRememberToggle}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              Remember email on this device
+            </label>
             <button
               type="submit"
               disabled={busy}

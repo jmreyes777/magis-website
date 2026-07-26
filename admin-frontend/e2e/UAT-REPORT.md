@@ -1,6 +1,6 @@
 # UAT Report — Admin Dashboard (Branch Login, MFA Step-up, Access Control, Chat Dashboard)
 
-**Date:** 2026-07-23 · chat-dashboard round (megaplan Phase A) 2026-07-26 · superadmin-tooling round (Phase C) 2026-07-26 · a11y round (Phase D) 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright, all network mocked; the chat round adds a fake socket.io server at the engine.io v4 protocol level playing the GUEST side — see `e2e/fixtures.js`) · **Result: 49/49 scenarios passing** after fixes. Unit suite 73/73. Cross-suite index: `../UAT-MEGAPLAN.md`.
+**Date:** 2026-07-23 · chat-dashboard round (megaplan Phase A) 2026-07-26 · superadmin-tooling round (Phase C) 2026-07-26 · a11y round (Phase D) 2026-07-26 · login/logout UX round 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright, all network mocked; the chat round adds a fake socket.io server at the engine.io v4 protocol level playing the GUEST side — see `e2e/fixtures.js`) · **Result: 51/51 scenarios passing** after fixes. Unit suite 73/73. Cross-suite index: `../UAT-MEGAPLAN.md`.
 
 Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 
@@ -24,6 +24,7 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 | W7 | Superadmin tooling: Branch Passwords Firestore-outage error + working Try again (F6 trap) and 401 → sign-in-again; Staff Management list/reset-password (one-time reveal incl. email-failure notice)/2FA toggle/enable·disable/revoke-devices/delete-with-confirm against `/api/admin/staff/*`; Observability snapshot; Audit & Compliance summary + events table | PASS (after F12) |
 | W8 | Analytics (branch-admin view) renders mocked metrics + degrades honestly on 500; landing portal; superadmin-login domain validation + graceful auth-outage error; role matrix extended — superadmin ⇎ branchadmin can never open each other's tools; audit as branch admin = scoped "Activity History" | PASS (after F11) |
 | W9 | Keyboard a11y (Phase D): login operable by keyboard alone (Tab order + Enter submit → readable failure); composer Enter-to-send; no nameless buttons on the dashboard | PASS (after F13) |
+| W10 | Login/logout UX round: opt-in "Remember email on this device" (email prefilled on return, password NEVER stored — F3 trap re-armed); logout shows a pressed button + gray "Logging out…" overlay, never flashes the amber reconnect banner, lands cleanly on the login page | PASS (after F14, F15) |
 
 ## 2. Exploratory probes (failure paths)
 
@@ -59,6 +60,11 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 
 ### Fixed in the a11y round (2026-07-26, Phase D)
 - **F13 (low, a11y, fixed)** — the reply composer had **no Enter-to-send**: staff had to click (or Tab to) the Send button for every reply. Enter now sends under exactly the Send button's guard; Shift+Enter stays reserved. Mirrors the guest-side F-G14.
+
+### Fixed in the login/logout UX round (2026-07-26)
+- **F14 (medium, fixed)** — every `onClick={handleLogout}` passed the **click event** as `isTabClosing` (truthy), so button logouts silently took the tab-closing path: no redirect of their own (the dashboard's fallback effect happened to cover it) and offline status sent via `sendBeacon` instead of awaited fetch. The flag is now normalized to a strict boolean.
+- **F15 (medium, fixed)** — logout raced `ProtectedRoute`: `handleLogout` wipes storage **before** its `navigate()` commits, so any re-render in that window saw "no token" and fired `<Navigate to="/">` — intermittently beating the deliberate redirect and dumping the staffer on the **landing page** instead of the login page. While a logout is in flight `ProtectedRoute` now renders nothing and lets the logout's own navigation win. The teardown's socket disconnect also flashed the amber "Reconnecting to chat…" banner mid-logout — `ConnectionStatus` now suppresses it while `isLoggingOut`.
+- **UX additions (same round)** — opt-in **"Remember email on this device"** on the unified login (localStorage, EMAIL ONLY — the F3 password-in-storage trap stays armed in the regression test; unchecking forgets immediately; all four login paths persist via the single `goToDashboard` funnel). Logout now gives **pressed-state feedback** on the button and a brief centered **"Logging out…" overlay on a gray backdrop** until the login page paints.
 
 ### Remaining notes (deliberate, no action)
 - **F7 (info)** — MFA gate soft-passes on backend 5xx (documented design decision in `Branch-Chat-Dashboard.js`) — a deliberate availability-over-strictness trade-off; flagged so it stays a conscious choice.

@@ -74,6 +74,38 @@ test.describe("W1: unified branch login (email-OTP path)", () => {
     await expect(page.getByText(/too many attempts/i)).toBeVisible();
   });
 
+  test("remember email: opt-in prefills the email on return — and NEVER stores the password", async ({ page }) => {
+    await mockNetwork(page);
+    await page.goto("/branch-admin-login");
+    await page.getByPlaceholder("Email").fill(BRANCH.email);
+    await page.getByPlaceholder("Password").fill(PASSWORD);
+    await page.getByText("Remember email on this device").click();
+    await expect(page.getByRole("checkbox")).toBeChecked();
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await page.getByPlaceholder("••••••").fill(OTP_GOOD);
+    await page.waitForURL("**/admin/chats", { timeout: 15_000 });
+
+    // Back at the login page: email prefilled, checkbox remembered, password EMPTY.
+    await page.goto("/branch-admin-login");
+    await expect(page.getByPlaceholder("Email")).toHaveValue(BRANCH.email);
+    await expect(page.getByRole("checkbox")).toBeChecked();
+    await expect(page.getByPlaceholder("Password")).toHaveValue("");
+
+    // F3 trap: nothing password-like may live in storage — email only.
+    const stored = await page.evaluate(() => ({
+      remembered: localStorage.getItem("rememberedBranchEmail"),
+      valuesWithPassword: Object.keys(localStorage)
+        .map((k) => localStorage.getItem(k) || "")
+        .filter((v) => v.includes("correct-horse-battery")).length,
+    }));
+    expect(stored.remembered).toBe(BRANCH.email);
+    expect(stored.valuesWithPassword).toBe(0);
+
+    // Unchecking forgets immediately.
+    await page.getByRole("checkbox").uncheck();
+    expect(await page.evaluate(() => localStorage.getItem("rememberedBranchEmail"))).toBeNull();
+  });
+
   test("disabled account: 403 surfaces the admin-contact message", async ({ page }) => {
     await mockNetwork(page);
     await fillCredentials(page, "disabled-account");

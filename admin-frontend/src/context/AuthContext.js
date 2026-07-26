@@ -24,6 +24,11 @@ export const AuthProvider = ({ children }) => {
   const [mfaEnrolled, setMfaEnrolled] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [mfaRequired, setMfaRequired] = useState(true);
+  // Logout UX: true while an intentional logout is in flight. Drives the
+  // "Logging out…" overlay below and lets ConnectionStatus suppress the amber
+  // "Reconnecting to chat…" banner (the socket teardown during logout is not a
+  // connection problem the staffer should be warned about).
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const logoutTriggeredRef = useRef(false);
   const fbSessionAttemptRef = useRef(false);
@@ -366,6 +371,14 @@ export const AuthProvider = ({ children }) => {
   };
 
   const handleLogout = async (isTabClosing = false) => {
+    // Buttons wire this as onClick={handleLogout}, which passes the click
+    // EVENT as the first argument — truthy, so every button logout silently
+    // took the tab-closing path (skipping its own redirect and the overlay).
+    // Only an explicit `true` means the tab is actually closing.
+    isTabClosing = isTabClosing === true;
+    // Show the logout overlay immediately (not when the tab is closing — there
+    // is no UI left to cover in that case).
+    if (!isTabClosing) setIsLoggingOut(true);
     const tabId = localStorage.getItem("tabId");
     const email = adminEmail || sessionStorage.getItem("branchEmail");
     const activeTabId = localStorage.getItem("activeSocketTabId");
@@ -487,6 +500,8 @@ export const AuthProvider = ({ children }) => {
           : "/branch-admin-login";
       navigate(target, { replace: true });
     }
+    // Keep the overlay through the navigation paint, then release it.
+    setTimeout(() => setIsLoggingOut(false), 600);
   };  
 
   return (
@@ -503,6 +518,7 @@ export const AuthProvider = ({ children }) => {
         sessionHydrated,
         firebaseAuthReady,
         handleLogout,
+        isLoggingOut,
         // MFA State
         mfaEnrolled,
         mfaVerified,
@@ -518,6 +534,21 @@ export const AuthProvider = ({ children }) => {
       }}
     >
       {children}
+      {isLoggingOut && (
+        <div
+          role="status"
+          aria-live="assertive"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gray-700/70"
+        >
+          <div className="bg-white rounded-xl shadow-2xl px-6 py-4 flex items-center gap-3">
+            <span
+              className="h-5 w-5 rounded-full border-2 border-gray-300 border-t-gray-700 animate-spin"
+              aria-hidden="true"
+            />
+            <span className="text-gray-800 font-semibold">Logging out…</span>
+          </div>
+        </div>
+      )}
     </AuthContext.Provider>
   );
 };

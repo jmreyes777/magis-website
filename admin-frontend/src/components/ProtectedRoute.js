@@ -14,6 +14,7 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectPath = "/" }) =
     isInitialized,
     fallbackHydrationComplete,
     sessionHydrated,
+    isLoggingOut,
   } = useContext(AuthContext);
 
   const tabId = localStorage.getItem("tabId");
@@ -33,6 +34,15 @@ const ProtectedRoute = ({ children, requiredRole = null, redirectPath = "/" }) =
 
   // ⏳ Wait for AuthContext to finish initializing & hydrating
   if (!isInitialized || !fallbackHydrationComplete || !sessionHydrated) {
+    return null;
+  }
+
+  // 🚪 Intentional logout in flight: handleLogout wipes storage BEFORE its
+  // navigate() commits, so a re-render here would see "no token" and fire
+  // <Navigate to="/"> — racing (and sometimes beating) the deliberate redirect
+  // to the login page. Render nothing and let the logout's own navigation win
+  // (the "Logging out…" overlay covers the blank frame).
+  if (isLoggingOut) {
     return null;
   }
 

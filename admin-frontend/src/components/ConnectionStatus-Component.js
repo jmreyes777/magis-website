@@ -1,6 +1,7 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useContext, useEffect, useRef, useState } from "react";
 import { FiWifiOff, FiRefreshCw, FiWifi } from "react-icons/fi";
 import { subscribeConnectionStatus } from "./Admin-Utils-socket";
+import AuthContext from "../context/AuthContext";
 
 /**
  * ConnectionStatus
@@ -53,6 +54,9 @@ const STATUS_CONFIG = {
 };
 
 const ConnectionStatus = () => {
+  // Logout teardown disconnects the socket on purpose — that must never flash
+  // the amber "Reconnecting to chat…" banner while the staffer is signing out.
+  const { isLoggingOut } = useContext(AuthContext) || {};
   const [browserOnline, setBrowserOnline] = useState(
     typeof navigator === "undefined" ? true : navigator.onLine
   );
@@ -133,6 +137,9 @@ const ConnectionStatus = () => {
       setShowRestored(false);
     }
   }, [shownStatus]);
+
+  // Intentional logout in progress — the disconnect is expected; show nothing.
+  if (isLoggingOut) return null;
 
   // Nothing to show when everything is fine and no confirmation is pending.
   if (shownStatus === "online" && !showRestored) return null;

@@ -8,14 +8,14 @@ socket.io faked at the engine.io v4 protocol level (each suite plays the
 regression trap. Detailed narratives live in the two per-app reports:
 
 - `user-frontend/e2e/UAT-REPORT.md` (guest site — findings F-G1…F-G14)
-- `admin-frontend/e2e/UAT-REPORT.md` (admin dashboard — findings F1…F13)
+- `admin-frontend/e2e/UAT-REPORT.md` (admin dashboard — findings F1…F15)
 
 ## Suite totals (2026-07-26)
 
 | Surface | e2e | Unit | Command |
 |---|---|---|---|
 | Guest site (`user-frontend`) | **37** | 86 | `npm run build && npm run e2e` · `npm run test:ci` |
-| Admin dashboard (`admin-frontend`) | **49** | 73 | `npm run build && npx playwright test` · unit via `react-scripts test` |
+| Admin dashboard (`admin-frontend`) | **51** | 73 | `npm run build && npx playwright test` · unit via `react-scripts test` |
 | Backend (`backend`) | — | 81 | `npm test` (node:test) |
 
 ## Coverage matrix
@@ -43,6 +43,7 @@ regression trap. Detailed narratives live in the two per-app reports:
 | Superadmin tooling: Branch Passwords outage/401 (F6/F12), Staff Management CRUD + one-time reveal, Observability, Audit | `uat-07-superadmin-tooling` |
 | Analytics views, landing portal, superadmin-login surfaces, two-way role matrix, scoped audit | `uat-08-analytics-access` |
 | Keyboard login, Enter-to-send (F13), accessible-name sweep | `uat-09-a11y` |
+| Remember-email opt-in (password never stored), logout UX (overlay, no reconnect flash, clean landing) | `uat-01` + `uat-03` (UX round) |
 
 ### Backend (unit, `backend/tests/`)
 Auth gates, message routes, public routes, MFA/step-up, JWT keys/expiry contract, cache, backup round-trip, chat image normalizer.
@@ -59,6 +60,8 @@ Auth gates, message routes, public routes, MFA/step-up, JWT keys/expiry contract
 | F11 | medium | Signed-out `/super-admin-login` loads force-bounced to the branch login |
 | F12 | medium | Branch Passwords showed "No branches found." during Firestore outages |
 | F13 | low/a11y | No Enter-to-send in the admin composer |
+| F14 | medium | `onClick={handleLogout}` passed the click event as `isTabClosing` — button logouts took the tab-closing path |
+| F15 | medium | Logout raced `ProtectedRoute`'s redirect (storage wiped before navigate committed) → intermittent landing-page dump + amber reconnect flash |
 | F-G1…F-G9 | high→low | Guest chat round 1 (sensitive-regex false positives, offline banner, E2EE retry downgrade, duplicate retry bubbles, chat resurrection, dialogs/a11y) |
 | F-G11 | high/SEO | Every page shared the homepage og:url/title (helmet couldn't claim the static tags); prerender now bakes per-route OG |
 | F-G12 | medium | `overflow-x:hidden` on html/body disabled every `position:sticky` (branches map) |

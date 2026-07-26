@@ -49,4 +49,33 @@ test.describe("W3: access control & session-expiry journeys", () => {
     const links = page.locator("a[href*='login'], button");
     await expect(links.first()).toBeVisible();
   });
+
+  test("logout UX: 'Logging out…' overlay, NO amber reconnect flash, clean landing on login", async ({ page }) => {
+    await mockNetwork(page, { mfaVerified: true, socket: "fake" });
+    await seedBranchSession(page);
+    await page.goto("/admin/chats");
+    await expect(page.getByRole("button", { name: /logout/i })).toBeVisible({ timeout: 15_000 });
+
+    // Watch for the amber banner from the moment logout is clicked: the socket
+    // teardown must NEVER surface "Reconnecting to chat…" during sign-out.
+    let sawReconnectBanner = false;
+    const watcher = setInterval(async () => {
+      try {
+        if (await page.getByText(/reconnecting to chat/i).isVisible()) sawReconnectBanner = true;
+      } catch { /* page navigating */ }
+    }, 100);
+
+    await page.getByRole("button", { name: /logout/i }).click();
+
+    // The gray "Logging out…" overlay appears while the teardown runs.
+    await expect(page.getByText("Logging out…")).toBeVisible({ timeout: 5_000 });
+
+    await page.waitForURL(/branch-admin-login/, { timeout: 15_000 });
+    clearInterval(watcher);
+    expect(sawReconnectBanner).toBe(false);
+
+    // Overlay releases after the transition — login form usable.
+    await expect(page.getByText("Logging out…")).toHaveCount(0, { timeout: 5_000 });
+    await expect(page.getByPlaceholder("Email")).toBeVisible();
+  });
 });
