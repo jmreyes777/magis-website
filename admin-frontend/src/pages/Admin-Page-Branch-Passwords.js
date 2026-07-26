@@ -40,6 +40,13 @@ function BranchPasswords() {
     setError("");
     try {
       const snap = await getDocs(collection(db, "branches"));
+      // UAT F12: when Firestore is unreachable, getDocs RESOLVES from the
+      // (empty) local cache instead of rejecting — the page then showed a
+      // misleading "No branches found." with no error and no Try again.
+      // A cache-only empty snapshot is an outage, not an empty collection.
+      if (snap.metadata.fromCache && snap.empty) {
+        throw new Error("cache-only empty snapshot (Firestore unreachable)");
+      }
       const list = snap.docs
         .map((d) => ({
           id: d.id,

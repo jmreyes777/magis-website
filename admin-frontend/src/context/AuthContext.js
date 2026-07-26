@@ -184,8 +184,17 @@ export const AuthProvider = ({ children }) => {
           setSessionHydrated(true);
           setFallbackHydrationComplete(true);
         } else {
-          // public route whitelist
-          if (window.location.pathname !== "/") {
+          // Public route whitelist. UAT F11: this used to be "/" alone, so a
+          // signed-out DIRECT load of /super-admin-login or /staff-login hit
+          // triggerLogout() → forced redirect to /branch-admin-login — the
+          // superadmin literally couldn't reach their own login page by URL.
+          const PUBLIC_PATHS = [
+            "/",
+            "/branch-admin-login",
+            "/super-admin-login",
+            "/staff-login",
+          ];
+          if (!PUBLIC_PATHS.includes(window.location.pathname)) {
             console.warn("[AUTH] ❌ No valid token or fallback — logging out.");
             if (activeTabId === tabId) {
               console.info("[AUTH] 🧼 Clearing stale activeSocketTabId.");

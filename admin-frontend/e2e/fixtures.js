@@ -99,6 +99,34 @@ async function mockNetwork(page, opts = {}) {
     sendMessageAckFails: opts.sendMessageAckFails ?? false, // WS ack → failure
     convKeyB64: crypto.randomBytes(32).toString("base64"),
     replyCount: 0,
+    // ── superadmin tooling (Phase C) ──────────────────────────────────
+    superSessionExpired: opts.superSessionExpired ?? false, // cred list → 401
+    analyticsFails: opts.analyticsFails ?? false, // analytics → 500
+    obsFails: opts.obsFails ?? false, // obs summary → 500
+    staffList: [
+      {
+        id: "staff-1",
+        email: "ana@magis.test",
+        displayName: "Ana Cruz",
+        branchId: BRANCH.id,
+        branchName: BRANCH.name,
+        branchEmail: BRANCH.email,
+        twoFactorEnabled: true,
+        status: "active",
+        createdAt: new Date(Date.now() - 86_400_000).toISOString(),
+      },
+      {
+        id: "staff-2",
+        email: "ben@magis.test",
+        displayName: "Ben Reyes",
+        branchId: BRANCH.id,
+        branchName: BRANCH.name,
+        branchEmail: BRANCH.email,
+        twoFactorEnabled: false,
+        status: "disabled",
+        createdAt: new Date(Date.now() - 172_800_000).toISOString(),
+      },
+    ],
     // populated by the fake socket server when { socket: "fake" }:
     wsConnections: [],
     socketEmits: [], // { event, args } — everything the dashboard emits
@@ -271,6 +299,150 @@ async function mockNetwork(page, opts = {}) {
       return json(200, { url: "/e2e-media.png" });
     }
 
+    // ── Superadmin tooling (Phase C: branchAuth admin + staffAdmin + analytics
+    //    + audit + obs route shapes) ─────────────────────────────────────
+    if (path === "/api/branch/admin/list" && method === "GET") {
+      if (state.superSessionExpired) return json(401, { error: "Authentication required." });
+      return json(200, [
+        { branchId: BRANCH.id, email: BRANCH.email, hasPassword: true, updatedAt: new Date().toISOString() },
+      ]);
+    }
+    if (path === "/api/branch/admin/set-password" && method === "POST") {
+      return json(200, { ok: true });
+    }
+    if (path === "/api/branch/admin/reset-mfa" && method === "POST") {
+      return json(200, { message: `MFA reset for ${body.email}. The branch re-enrolls at next login.` });
+    }
+
+    if (path === "/api/admin/staff" && method === "GET") {
+      return json(200, { staff: state.staffList });
+    }
+    if (path === "/api/admin/staff" && method === "POST") {
+      const created = {
+        id: `staff-${state.staffList.length + 1}`,
+        email: body.email,
+        displayName: body.displayName || null,
+        branchId: body.branchId,
+        branchName: body.branchName,
+        branchEmail: body.branchEmail,
+        twoFactorEnabled: !!body.twoFactorEnabled,
+        status: "active",
+        createdAt: new Date().toISOString(),
+      };
+      state.staffList.push(created);
+      return json(200, { staff: created, tempPassword: "Temp-Pass-1234", emailed: true });
+    }
+    {
+      const m = /^\/api\/admin\/staff\/([^/]+)(?:\/(reset-password|2fa|enable|disable|revoke-devices))?$/.exec(path);
+      if (m) {
+        const target = state.staffList.find((s) => s.id === m[1]);
+        if (!target) return json(404, { error: "Staff not found." });
+        if (method === "DELETE") {
+          state.staffList = state.staffList.filter((s) => s.id !== m[1]);
+          return json(200, { ok: true });
+        }
+        if (m[2] === "reset-password") {
+          // emailError path on purpose — the reveal modal must surface it.
+          return json(200, { tempPassword: "Reset-Pass-5678", emailed: false, emailError: "SMTP unavailable (e2e)" });
+        }
+        if (m[2] === "2fa") {
+          target.twoFactorEnabled = !!body.enabled;
+          return json(200, { ok: true });
+        }
+        if (m[2] === "enable" || m[2] === "disable") {
+          target.status = m[2] === "enable" ? "active" : "disabled";
+          return json(200, { ok: true });
+        }
+        if (m[2] === "revoke-devices") return json(200, { revoked: 2 });
+      }
+    }
+
+    if (path.startsWith("/api/analytics/")) {
+      if (state.analyticsFails) return json(500, { error: "analytics unavailable" });
+      if (path.endsWith("/message-volume")) {
+        return json(200, {
+          totalMessages: 342,
+          averageDaily: 11,
+          volumeByDate: [
+            { date: "2026-07-20", count: 12 },
+            { date: "2026-07-21", count: 9 },
+            { date: "2026-07-22", count: 17 },
+          ],
+        });
+      }
+      if (path.endsWith("/response-time")) {
+        return json(200, { averageResponseTime: 7, responseTimeDistribution: { under5: 40, under15: 12, over30: 1 } });
+      }
+      if (path.endsWith("/conversation-summary")) {
+        return json(200, {
+          totalConversations: 58,
+          conversationsWithMedia: 9,
+          avgConversationDuration: 12,
+          avgMessagesPerConversation: 6,
+        });
+      }
+      if (path.endsWith("/branch-performance")) {
+        return json(200, { branches: [{ branchEmail: BRANCH.email, messageCount: 342, uniqueConversations: 58, avgMessagesPerConversation: 6 }] });
+      }
+      return json(200, {});
+    }
+
+    if (path === "/api/audit/meta") {
+      return json(200, {
+        categories: ["chat", "access", "auth", "admin", "security"],
+        severities: ["info", "notice", "warning", "critical"],
+        outcomes: ["success", "failure", "blocked"],
+        retentionDays: 365,
+        scope: { branchEmail: BRANCH.email },
+      });
+    }
+    if (path === "/api/audit/summary") {
+      return json(200, { total: 3, bySeverity: { info: 2, warning: 1 }, byCategory: { chat: 2, auth: 1 } });
+    }
+    if (path === "/api/audit/events") {
+      return json(200, {
+        total: 2,
+        nextCursor: null,
+        events: [
+          {
+            id: "ev-1",
+            ts: new Date().toISOString(),
+            category: "chat",
+            action: "message.read",
+            severity: "info",
+            outcome: "success",
+            actor: { type: "branch", email: BRANCH.email },
+            branchEmail: BRANCH.email,
+            target: { type: "guest", guestId: GUEST.id },
+            meta: { count: 3 },
+          },
+          {
+            id: "ev-2",
+            ts: new Date(Date.now() - 3_600_000).toISOString(),
+            category: "auth",
+            action: "stepup.verify",
+            severity: "warning",
+            outcome: "failure",
+            actor: { type: "branch", email: BRANCH.email },
+            branchEmail: BRANCH.email,
+            target: null,
+            meta: { reason: "wrong code" },
+          },
+        ],
+      });
+    }
+    if (path === "/api/audit/export.csv") {
+      return route.fulfill({ status: 200, contentType: "text/csv", body: "id,action\nev-1,message.read\n" });
+    }
+
+    if (path === "/api/obs/summary") {
+      if (state.obsFails) return json(500, { error: "snapshot unavailable" });
+      return json(200, {
+        at: new Date().toISOString(),
+        backup: { ok: true, stale: false, date: "2026-07-26", docs: 1234, gzBytes: 1_048_576 },
+      });
+    }
+
     // Everything else the dashboard fires on mount (presence, chats REST,
     // logout, audit pings...) — benign empty success.
     return json(200, {});
@@ -358,6 +530,23 @@ async function fakeAdminSocket(page, state) {
   return state;
 }
 
+/** Seed a logged-in SUPERADMIN session directly into storage. */
+async function seedSuperAdminSession(page, { token } = {}) {
+  const jwt = token || makeJwt({ role: "superadmin", email: "admin@magisgold.com" });
+  await page.addInitScript(
+    ({ jwt }) => {
+      if (localStorage.getItem("__uat_seeded__")) return;
+      localStorage.setItem("__uat_seeded__", "1");
+      sessionStorage.setItem("superAdminToken", jwt);
+      sessionStorage.setItem("superAdminRole", "superadmin");
+      localStorage.setItem("tabId", "tab-e2e-1");
+      sessionStorage.setItem("sessionTabId", "session-e2e-1");
+    },
+    { jwt }
+  );
+  return jwt;
+}
+
 /** Gate: the dashboard has joined its admin room over the fake socket. */
 async function waitForAdminSocket(state, expect) {
   await expect
@@ -389,6 +578,7 @@ module.exports = {
   makeJwt,
   mockNetwork,
   seedBranchSession,
+  seedSuperAdminSession,
   callsTo,
   emitsOf,
   guestMessage,

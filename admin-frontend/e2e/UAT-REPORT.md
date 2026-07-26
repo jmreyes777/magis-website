@@ -1,6 +1,6 @@
 # UAT Report — Admin Dashboard (Branch Login, MFA Step-up, Access Control, Chat Dashboard)
 
-**Date:** 2026-07-23 · chat-dashboard round (Phase A of the UAT megaplan) 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright, all network mocked; the chat round adds a fake socket.io server at the engine.io v4 protocol level playing the GUEST side — see `e2e/fixtures.js`) · **Result: 33/33 scenarios passing** after fixes. Unit suite 73/73.
+**Date:** 2026-07-23 · chat-dashboard round (megaplan Phase A) 2026-07-26 · superadmin-tooling round (Phase C) 2026-07-26 · **Method:** automated exploratory testing + UX friction audit against the production bundle (Playwright, all network mocked; the chat round adds a fake socket.io server at the engine.io v4 protocol level playing the GUEST side — see `e2e/fixtures.js`) · **Result: 46/46 scenarios passing** after fixes. Unit suite 73/73.
 
 Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 
@@ -21,6 +21,8 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 | W4 | Chat messaging core: incoming guest message → sidebar row + auto-open + `markRead`; second guest → unread badge → select clears + notifies; reply → optimistic → REST persist → WS emit to `guest-<id>` → delivered; typing both directions (room-scoped); cross-branch message hard-ignored | PASS (after F8, F9) |
 | W5 | E2EE + media: conversation key on open → "Encrypted (AES-256-GCM)" → replies leave as `{ciphertext,iv}` on BOTH channels (REST + WS, verified by decrypting with the conversation key); encrypted guest messages decrypt live; key outage → honest fallback banner + plaintext `e2ee:false`; image reply → preview → multipart → private path → signed-URL render; resolve outage → bounded retries → tap-to-retry recovers | PASS (after F10) |
 | W6 | Lifecycle: `chatClosed` removes conversation + resets pane; authoritative `guestPresenceUpdate` prunes ghost rows/badges/open thread (incl. empty set); WS ack failure → failed + Retry → recovers without duplicates; reply REST 500 → failed + Retry → single bubble; dead realtime layer → shell stays usable, no crash | PASS (after F8, F10) |
+| W7 | Superadmin tooling: Branch Passwords Firestore-outage error + working Try again (F6 trap) and 401 → sign-in-again; Staff Management list/reset-password (one-time reveal incl. email-failure notice)/2FA toggle/enable·disable/revoke-devices/delete-with-confirm against `/api/admin/staff/*`; Observability snapshot; Audit & Compliance summary + events table | PASS (after F12) |
+| W8 | Analytics (branch-admin view) renders mocked metrics + degrades honestly on 500; landing portal; superadmin-login domain validation + graceful auth-outage error; role matrix extended — superadmin ⇎ branchadmin can never open each other's tools; audit as branch admin = scoped "Activity History" | PASS (after F11) |
 
 ## 2. Exploratory probes (failure paths)
 
@@ -50,6 +52,10 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 - **F9 (medium, fixed)** — the "Guest is typing…" listener bound once on mount — before `connectSocket` creates the socket on a cold load — so it attached to nothing and the indicator stayed dead for the whole session. Now rebinds whenever the socket (re)connects (same pattern as the `chatClosed` binder).
 - **F10 (high, fixed)** — the DLP stylesheet's blanket `pointer-events: none` on message bubbles made every in-bubble control decorative: **"Retry" on a failed reply and the media "tap to retry" could never be clicked**. Buttons (like links before them) now accept pointer events; selection/copy/screenshot protection is unchanged.
 
+### Fixed in the superadmin-tooling round (2026-07-26, Phase C)
+- **F11 (medium, fixed)** — `AuthContext.hydrate()`'s no-session logout path whitelisted only `/`: a signed-out user DIRECTLY loading `/super-admin-login` (or `/staff-login`) was force-redirected to `/branch-admin-login` — **superadmins couldn't reach their own login page by URL or refresh**. All public login routes are whitelisted now; deep-link bouncing for `/admin/*` is unchanged.
+- **F12 (medium, fixed)** — Branch Passwords: with Firestore unreachable, `getDocs` resolves an **empty cache-only snapshot** instead of rejecting, so the page showed a misleading "No branches found." with no error and no Try again (the F8 mechanism, different symptom). A cache-only empty snapshot is now treated as the outage it is → error banner + working Try again.
+
 ### Remaining notes (deliberate, no action)
 - **F7 (info)** — MFA gate soft-passes on backend 5xx (documented design decision in `Branch-Chat-Dashboard.js`) — a deliberate availability-over-strictness trade-off; flagged so it stays a conscious choice.
 
@@ -58,6 +64,7 @@ Run locally: `npm run build && npm run e2e` (from `admin-frontend/`).
 - Firebase-TOTP login/enrollment (QR path) and the superadmin Branch Passwords **table interactions** require live Firebase; covered by backend tests (`backend/tests/`, 81/81) and manual smoke, not by this suite.
 - Real email delivery, Socket.IO reconnection, and Electron-shell behavior are out of scope here (socket healing has its own fixes from 2026-07-22).
 - **Thread history** is Firestore-backed and stays empty hermetically — chat scenarios drive everything through live socket traffic (which is also what proves the F8 degraded mode). Cross-tab BroadcastChannel sync is exercised only incidentally.
+- **Phase C limits:** live-Firestore table data (Branch Passwords rows, Staff Management's branch dropdown → create-staff flow), the real Firebase superadmin login + TOTP ceremony, passkey/WebAuthn ceremonies, and `/admin/branches` CRUD (Firestore-backed forms) stay manual/backend-covered. `interestrate.js` is an unrouted dead file (logged, pending product call).
 
 ## 5. Chat-suite notes (Phase A)
 
