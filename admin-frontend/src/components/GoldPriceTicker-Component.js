@@ -30,6 +30,26 @@ const phpPerOztFmt = new Intl.NumberFormat("en-PH", {
   maximumFractionDigits: 0,
 });
 
+// Spot gold trades Sun 6:00pm → Fri 5:00pm US Eastern (with tiny daily pauses
+// we ignore). During the weekend gap the feed legitimately freezes at Friday's
+// close — label it so branches don't mistake a quiet ticker for a broken one.
+// Intl handles the EST/EDT switch for us.
+export function isGoldMarketClosed(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type) => parts.find((p) => p.type === type)?.value;
+  const weekday = get("weekday");
+  const hour = Number(get("hour"));
+  if (weekday === "Sat") return true;
+  if (weekday === "Fri" && hour >= 17) return true;
+  if (weekday === "Sun" && hour < 18) return true;
+  return false;
+}
+
 export function formatUpdatedAgo(updatedAt, now = Date.now()) {
   if (!updatedAt) return "";
   const secs = Math.max(0, Math.round((now - updatedAt) / 1000));
@@ -127,13 +147,19 @@ export default function GoldPriceTicker() {
   const ready = usdPerOzt != null && phpPerUsd != null;
   const phpPerGram = ready ? (usdPerOzt * phpPerUsd) / GRAMS_PER_TROY_OUNCE : null;
   const phpPerOzt = ready ? usdPerOzt * phpPerUsd : null;
+  // Recomputed on every render — the 10s relative tick keeps this current.
+  const marketClosed = isGoldMarketClosed();
 
   return (
     <div
       className={`gold-ticker${flash ? " gold-ticker--flash" : ""}`}
       title={
         ready
-          ? `Gold spot ≈ ${phpPerOztFmt.format(phpPerOzt)} per troy oz\nSources: gold-api.com (XAU/USD) · open.er-api.com (USD/PHP)`
+          ? `Gold spot ≈ ${phpPerOztFmt.format(phpPerOzt)} per troy oz${
+              marketClosed
+                ? "\nMarket closed (weekend) — showing Friday's close; trading resumes Mon ~6:00 AM Manila"
+                : ""
+            }\nSources: gold-api.com (XAU/USD) · open.er-api.com (USD/PHP)`
           : "Fetching live gold price…"
       }
       aria-live="polite"
@@ -155,7 +181,9 @@ export default function GoldPriceTicker() {
             </span>
           )}
           <span className="gold-ticker-updated">
-            {isStale ? "⚠ stale · " : ""}Updated {formatUpdatedAgo(updatedAt)}
+            {isStale ? "⚠ stale · " : ""}
+            {marketClosed ? "market closed · " : ""}
+            Updated {formatUpdatedAgo(updatedAt)}
           </span>
         </>
       ) : (
