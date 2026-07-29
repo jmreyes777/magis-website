@@ -8,7 +8,6 @@ import GoldPriceTicker, {
   isGoldMarketClosed,
   fmtSignedPct,
   sparklinePoints,
-  isStaffSession,
 } from "./GoldPriceTicker-Component";
 
 const goldResponse = { name: "Gold", price: 3000, symbol: "XAU" };
@@ -28,16 +27,8 @@ const summaryResponse = {
     { t: NOW - 86400000, g: 5525 },
     { t: NOW, g: 5594.23 },
   ],
-  baseline: null,
-  drift: null,
+  alert: { pct: 1.25, thresholdPct: 2, significant: false, direction: "up" },
 };
-
-// header.payload.sig with a base64url JSON payload — enough for jwt-decode.
-const fakeJwt = (payload) =>
-  `eyJhbGciOiJIUzI1NiJ9.${btoa(JSON.stringify(payload))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "")}.sig`;
 
 function mockFetchOk(summary = summaryResponse) {
   global.fetch = jest.fn((url) => {
@@ -147,25 +138,19 @@ test("sparklinePoints maps min→bottom, max→top, spans the width", () => {
   expect(sparklinePoints([{ t: 0, g: 1 }])).toBe(""); // too short → empty
 });
 
-test("isStaffSession reads the staff claim, defaults false on garbage", () => {
-  expect(isStaffSession(fakeJwt({ role: "branchadmin", staff: true }))).toBe(true);
-  expect(isStaffSession(fakeJwt({ role: "branchadmin" }))).toBe(false);
-  expect(isStaffSession("not-a-jwt")).toBe(false);
-  expect(isStaffSession(null)).toBe(false);
-});
-
-test("renders the Δ1d chip and opens the trend panel with deltas + baseline CTA", async () => {
-  sessionStorage.setItem("branchAdminToken", fakeJwt({ role: "branchadmin" }));
+test("renders the Δ1d chip and opens the info-only trend panel (no controls)", async () => {
+  sessionStorage.setItem("branchAdminToken", "fake-session-token");
   mockFetchOk();
   await act(async () => {
     render(<GoldPriceTicker />);
   });
 
-  // Δtoday chip inline in the ticker.
+  // Δtoday chip inline in the ticker; calm day → no alert tag.
   expect(await screen.findByText("+1.25%")).toBeInTheDocument();
-  expect(screen.queryByText("REPRICE")).not.toBeInTheDocument();
+  expect(screen.queryByText(/24H MOVE/)).not.toBeInTheDocument();
 
-  // Click → panel with 1/7/30d deltas, week range, and (management) the CTA.
+  // Click → panel with 1/7/30d deltas + the within-band note. Read-only:
+  // the ticker chip itself is the ONLY button — no baseline CTA for anyone.
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { expanded: false }));
   });
@@ -173,52 +158,52 @@ test("renders the Δ1d chip and opens the trend panel with deltas + baseline CTA
   expect(screen.getByText("7D")).toBeInTheDocument();
   expect(screen.getByText("+3.40%")).toBeInTheDocument();
   expect(screen.getByText("−0.80%")).toBeInTheDocument();
-  expect(screen.getByText(/no pricing baseline yet/i)).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: /mark repriced/i })).toBeInTheDocument();
+  expect(screen.getByText(/within the ±2% band/i)).toBeInTheDocument();
+  expect(screen.getAllByRole("button")).toHaveLength(1);
 });
 
-test("staff sessions see the panel but not the baseline controls", async () => {
-  sessionStorage.setItem(
-    "branchAdminToken",
-    fakeJwt({ role: "branchadmin", staff: true })
-  );
-  mockFetchOk();
-  await act(async () => {
-    render(<GoldPriceTicker />);
-  });
-  await screen.findByText("+1.25%");
-
-  await act(async () => {
-    fireEvent.click(screen.getByRole("button", { expanded: false }));
-  });
-  expect(screen.getByRole("dialog")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /mark repriced/i })).not.toBeInTheDocument();
-});
-
-test("drift beyond threshold raises the REPRICE alert with direction guidance", async () => {
-  sessionStorage.setItem("branchAdminToken", fakeJwt({ role: "branchadmin" }));
+test("a significant 24h move raises the info alert on chip and panel", async () => {
+  sessionStorage.setItem("branchAdminToken", "fake-session-token");
   mockFetchOk({
     ...summaryResponse,
-    baseline: { phpPerGram: 5400, thresholdPct: 2, setAt: NOW - 5 * 86400000 },
-    drift: { pct: 3.6, thresholdPct: 2, reprice: true },
+    deltas: { ...summaryResponse.deltas, d1: { pct: 3.6, from: 5400, fromT: NOW - 86400000 } },
+    alert: { pct: 3.6, thresholdPct: 2, significant: true, direction: "up" },
   });
   await act(async () => {
     render(<GoldPriceTicker />);
   });
 
   // Inline alert tag on the chip…
-  expect(await screen.findByText("REPRICE")).toBeInTheDocument();
+  expect(await screen.findByText(/24H MOVE/)).toBeInTheDocument();
 
-  // …and the panel explains the drift + suggested direction.
+  // …and the panel explains: managers emailed, info only, still no controls.
   await act(async () => {
     fireEvent.click(screen.getByText("GOLD"));
   });
-  expect(screen.getByText(/reprice suggested/i)).toBeInTheDocument();
-  expect(screen.getByText(/raising loan values/i)).toBeInTheDocument();
+  expect(screen.getByText(/managers are notified by email/i)).toBeInTheDocument();
+  expect(screen.getByText(/information only/i)).toBeInTheDocument();
+  expect(screen.getAllByRole("button")).toHaveLength(1);
+});
+
+test("missing 24h reference → panel explains the check is paused, no alert", async () => {
+  sessionStorage.setItem("branchAdminToken", "fake-session-token");
+  mockFetchOk({
+    ...summaryResponse,
+    deltas: { ...summaryResponse.deltas, d1: null },
+    alert: null,
+  });
+  await act(async () => {
+    render(<GoldPriceTicker />);
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByText("GOLD"));
+  });
+  expect(screen.getByText(/no ~24h-ago reference yet/i)).toBeInTheDocument();
+  expect(screen.queryByText(/24H MOVE/)).not.toBeInTheDocument();
 });
 
 test("no summary → ticker still works, no trend chip, panel explains", async () => {
-  sessionStorage.setItem("branchAdminToken", fakeJwt({ role: "branchadmin" }));
+  sessionStorage.setItem("branchAdminToken", "fake-session-token");
   global.fetch = jest.fn((url) => {
     const u = String(url);
     if (u.includes("/api/gold/summary")) {

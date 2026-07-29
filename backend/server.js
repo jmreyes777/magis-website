@@ -1640,6 +1640,39 @@ if (process.env.NODE_ENV !== "test") server.listen(PORT);
   );
 })();
 
+// ── Gold daily movement alert ────────────────────────────────────────────────
+// Once per day at GOLD_ALERT_TIME (default 08:15 Asia/Manila — before branches
+// open) email GOLD_ALERT_EMAILS (the managers) IF gold moved more than
+// ±GOLD_ALERT_THRESHOLD_PCT in 24h, so prices can be adjusted for the day.
+// A 45s wall-clock poll (cheap: no I/O outside the target minute) instead of
+// a cron dependency; Firestore's alertLastSentDate makes sends idempotent
+// across restarts and multiple instances.
+(function startGoldAlertScheduler() {
+  if (process.env.NODE_ENV === "test") return;
+  const { sendDailyAlertIfDue, parseRecipients, DEFAULT_ALERT_TIME } = require("./utils/goldPrice");
+  const recipients = parseRecipients(process.env.GOLD_ALERT_EMAILS);
+  if (recipients.length === 0) {
+    console.log("[gold-alert] disabled — set GOLD_ALERT_EMAILS to enable the daily manager email");
+    return;
+  }
+  const timer = setInterval(async () => {
+    try {
+      const r = await sendDailyAlertIfDue();
+      if (r.sent) {
+        console.log(`[gold-alert] sent — 24h move ${r.pct}% → ${r.recipients} recipient(s)`);
+      } else if (r.reason === "below-threshold" || r.reason === "no-history") {
+        console.log(`[gold-alert] checked — ${r.reason}, no email today`);
+      }
+    } catch (err) {
+      console.warn("[gold-alert] check failed:", err?.message || err);
+    }
+  }, 45_000);
+  if (timer.unref) timer.unref();
+  console.log(
+    `[gold-alert] enabled — daily 24h-move check at ${process.env.GOLD_ALERT_TIME || DEFAULT_ALERT_TIME} Asia/Manila → ${recipients.length} recipient(s)`
+  );
+})();
+
 // ── Graceful shutdown ────────────────────────────────────────────────────────
 const gracefulShutdown = (signal) => {
   console.log(`[SERVER] ${signal} received — shutting down gracefully`);

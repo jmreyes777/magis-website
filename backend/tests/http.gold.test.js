@@ -20,13 +20,6 @@ describe("gold API rejects credential-less and garbage requests", () => {
     expectRejected(await request("/api/gold/summary"), "gold/summary");
   });
 
-  test("POST /api/gold/baseline without a token", async () => {
-    expectRejected(
-      await request("/api/gold/baseline", { method: "POST" }),
-      "gold/baseline"
-    );
-  });
-
   test("GET /api/gold/summary with a forged token", async () => {
     expectRejected(
       await request("/api/gold/summary", {
@@ -37,33 +30,8 @@ describe("gold API rejects credential-less and garbage requests", () => {
   });
 });
 
-describe("baseline writes are management-only", () => {
-  test("staff session (role branchadmin + staff:true) → 403 before any storage touch", async () => {
-    const { signJWT } = require("../utils/secretPool");
-    const token = await signJWT(
-      {
-        role: "branchadmin",
-        email: "branch1@magis.test",
-        branchId: "b1",
-        branchName: "Branch One",
-        staff: true,
-        fallback: true,
-      },
-      { expiresIn: "5m" }
-    );
-    const res = await request("/api/gold/baseline", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ thresholdPct: 2 }),
-    });
-    assert.equal(res.status, 403, `expected 403 for staff, got ${res.status}`);
-    assert.match(res.json.error, /management/i);
-  });
-
-  test("management session with an invalid threshold → 400 (validation precedes storage)", async () => {
+describe("gold API is read-only — repricing is an internal process, not a dashboard workflow", () => {
+  test("POST /api/gold/baseline no longer exists (404)", async () => {
     const { signJWT } = require("../utils/secretPool");
     const token = await signJWT(
       {
@@ -81,9 +49,31 @@ describe("baseline writes are management-only", () => {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ thresholdPct: 99 }),
+      body: JSON.stringify({ thresholdPct: 2 }),
     });
-    assert.equal(res.status, 400, `expected 400 for bad threshold, got ${res.status}`);
-    assert.match(res.json.error, /threshold/i);
+    assert.equal(res.status, 404, `expected 404 (route removed), got ${res.status}`);
+  });
+
+  test("staff sessions (staff:true) can READ the summary — auth passes, only storage stands between them and data", async () => {
+    const { signJWT } = require("../utils/secretPool");
+    const token = await signJWT(
+      {
+        role: "branchadmin",
+        email: "branch1@magis.test",
+        branchId: "b1",
+        branchName: "Branch One",
+        staff: true,
+        fallback: true,
+      },
+      { expiresIn: "5m" }
+    );
+    const res = await request("/api/gold/summary", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    // Harness has no Firestore — auth must NOT be the failure (503/500, not 401/403).
+    assert.ok(
+      [500, 503].includes(res.status),
+      `expected 500/503 (auth passed, storage unreachable), got ${res.status}`
+    );
   });
 });

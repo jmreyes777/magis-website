@@ -4,21 +4,21 @@
 //   • XAU spot (USD/troy oz): https://api.gold-api.com/price/XAU  (polled 60s)
 //   • USD→PHP rate:           https://open.er-api.com/v6/latest/USD (refreshed
 //     every 6h — the source itself updates ~daily)
-//   • Trend + baseline:       our backend /api/gold/summary (15-min sampler
+//   • Trend + 24h alert:      our backend /api/gold/summary (15-min sampler
 //     history, see backend/utils/goldPrice.js) — polled every 5 min.
 //
 // Display: PHP per GRAM (what branches actually quote) with ▲/▼ vs the
 // previous poll, a Δtoday chip, and a live "Updated Xs ago" indicator.
 // Clicking the chip opens a trend panel: 7-day sparkline, 1/7/30-day deltas,
-// PHP/ozt + FX, week high/low, and the pricing baseline. When spot drifts
-// beyond the baseline threshold the whole chip turns amber ("REPRICE") so
-// management knows loan LTVs / retail tags assume a stale price. Management
-// (non-staff sessions) can record a new baseline from the panel; staff get
-// the alert read-only. Keeps the last good price on transient failures
-// (marked stale), pauses polling while the tab is hidden, and cleans up all
-// timers/requests on unmount.
+// PHP/ozt + FX, and week high/low. When the backend flags a significant 24h
+// move (summary.alert — same threshold that drives the daily 08:15 manager
+// email, see backend/utils/goldPrice.js) the chip turns amber/red with an
+// ALERT tag. Strictly INFORMATION-ONLY on every dashboard: managers get the
+// actionable email; staff just see that prices may change today. No controls.
+// Keeps the last good price on transient failures (marked stale), pauses
+// polling while the tab is hidden, and cleans up all timers/requests on
+// unmount.
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { jwtDecode } from "jwt-decode";
 
 const GOLD_API_URL = "https://api.gold-api.com/price/XAU";
 const FX_API_URL = "https://open.er-api.com/v6/latest/USD";
@@ -112,17 +112,6 @@ export function getAdminToken() {
   );
 }
 
-// Staff chat logins share role "branchadmin" but carry staff:true — they see
-// the reprice alert but must not move the baseline (management call).
-export function isStaffSession(token = getAdminToken()) {
-  if (!token) return false;
-  try {
-    return jwtDecode(token)?.staff === true;
-  } catch {
-    return false;
-  }
-}
-
 export default function GoldPriceTicker() {
   const [usdPerOzt, setUsdPerOzt] = useState(null);
   const [phpPerUsd, setPhpPerUsd] = useState(null);
@@ -130,12 +119,9 @@ export default function GoldPriceTicker() {
   const [direction, setDirection] = useState(null); // "up" | "down" | null
   const [isStale, setIsStale] = useState(false);
   const [flash, setFlash] = useState(false);
-  // Trend intel from our backend (history + baseline). null until first load.
+  // Trend intel from our backend (history + 24h alert). null until first load.
   const [summary, setSummary] = useState(null);
   const [panelOpen, setPanelOpen] = useState(false);
-  const [baselineBusy, setBaselineBusy] = useState(false);
-  const [baselineNote, setBaselineNote] = useState(null); // { ok, text }
-  const [thresholdInput, setThresholdInput] = useState("");
   // Re-render ticker so "Xs ago" stays honest between polls.
   const [, setRelativeTick] = useState(0);
 
@@ -255,39 +241,6 @@ export default function GoldPriceTicker() {
     };
   }, [panelOpen]);
 
-  const saveBaseline = useCallback(
-    async (livePhpPerGram) => {
-      const token = getAdminToken();
-      if (!token) return;
-      setBaselineBusy(true);
-      setBaselineNote(null);
-      try {
-        const body = {};
-        if (Number.isFinite(livePhpPerGram)) body.phpPerGram = livePhpPerGram;
-        const t = Number(thresholdInput);
-        if (thresholdInput !== "" && Number.isFinite(t)) body.thresholdPct = t;
-        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/gold/baseline`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          credentials: "include",
-          body: JSON.stringify(body),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
-        setSummary(data);
-        setBaselineNote({ ok: true, text: "Baseline recorded — drift now measures from here." });
-      } catch (err) {
-        setBaselineNote({ ok: false, text: err?.message || "Failed to save baseline." });
-      } finally {
-        setBaselineBusy(false);
-      }
-    },
-    [thresholdInput]
-  );
-
   const ready = usdPerOzt != null && phpPerUsd != null;
   const phpPerGram = ready ? (usdPerOzt * phpPerUsd) / GRAMS_PER_TROY_OUNCE : null;
   const phpPerOzt = ready ? usdPerOzt * phpPerUsd : null;
@@ -295,11 +248,10 @@ export default function GoldPriceTicker() {
   const marketClosed = isGoldMarketClosed();
 
   const d1 = summary?.deltas?.d1 ?? null;
-  const drift = summary?.drift ?? null;
-  const reprice = drift?.reprice === true;
-  // Amber at threshold, red once the move doubles it (clearly overdue).
-  const repriceHot = reprice && Math.abs(drift.pct) >= drift.thresholdPct * 2;
-  const staff = isStaffSession();
+  const alert = summary?.alert ?? null;
+  const bigMove = alert?.significant === true;
+  // Amber at threshold, red once the move doubles it (a violent day).
+  const bigMoveHot = bigMove && Math.abs(alert.pct) >= alert.thresholdPct * 2;
 
   const deltaClass = (pct) =>
     pct > 0 ? "up" : pct < 0 ? "down" : "flat";
@@ -310,7 +262,7 @@ export default function GoldPriceTicker() {
         className={[
           "gold-ticker",
           flash ? "gold-ticker--flash" : "",
-          reprice ? (repriceHot ? "gold-ticker--reprice-hot" : "gold-ticker--reprice") : "",
+          bigMove ? (bigMoveHot ? "gold-ticker--alert-hot" : "gold-ticker--alert") : "",
         ]
           .filter(Boolean)
           .join(" ")}
@@ -321,10 +273,10 @@ export default function GoldPriceTicker() {
                   ? "\nMarket closed (weekend) — showing Friday's close; trading resumes Mon ~6:00 AM Manila"
                   : ""
               }${
-                reprice
-                  ? `\nSpot is ${fmtSignedPct(drift.pct)} vs your pricing baseline — reprice suggested`
+                bigMove
+                  ? `\nGold moved ${fmtSignedPct(alert.pct)} in 24h — prices may be adjusted today (info only)`
                   : ""
-              }\nClick for 30-day trend & pricing baseline\nSources: gold-api.com (XAU/USD) · open.er-api.com (USD/PHP)`
+              }\nClick for the 30-day trend\nSources: gold-api.com (XAU/USD) · open.er-api.com (USD/PHP)`
             : "Fetching live gold price…"
         }
         aria-live="polite"
@@ -368,9 +320,9 @@ export default function GoldPriceTicker() {
                 {fmtSignedPct(d1.pct)}
               </span>
             )}
-            {reprice && (
-              <span className="gold-ticker-reprice-tag" role="alert">
-                REPRICE
+            {bigMove && (
+              <span className="gold-ticker-alert-tag" role="status">
+                {alert.pct >= 0 ? "▲" : "▼"} 24H MOVE
               </span>
             )}
             <span className="gold-ticker-updated">
@@ -442,70 +394,31 @@ export default function GoldPriceTicker() {
               )}
 
               <div
-                className={`gold-panel-baseline${
-                  reprice ? (repriceHot ? " gold-panel-baseline--hot" : " gold-panel-baseline--warn") : ""
+                className={`gold-panel-move${
+                  bigMove ? (bigMoveHot ? " gold-panel-move--hot" : " gold-panel-move--warn") : ""
                 }`}
               >
-                {summary.baseline ? (
-                  <>
-                    <div className="gold-panel-baseline-line">
-                      Baseline {phpPerGramFmt.format(summary.baseline.phpPerGram)}/g · alert at ±
-                      {drift?.thresholdPct ?? summary.baseline.thresholdPct}%
-                    </div>
-                    {drift && (
-                      <div className="gold-panel-drift">
-                        {reprice ? (
-                          <>
-                            Spot is <strong>{fmtSignedPct(drift.pct)}</strong> vs baseline —{" "}
-                            <strong>reprice suggested</strong>{" "}
-                            ({drift.pct > 0
-                              ? "consider raising loan values / retail tags"
-                              : "consider lowering loan values / retail tags"})
-                          </>
-                        ) : (
-                          <>Spot is {fmtSignedPct(drift.pct)} vs baseline — within band.</>
-                        )}
-                      </div>
-                    )}
-                  </>
+                {alert ? (
+                  bigMove ? (
+                    <>
+                      Gold moved <strong>{fmtSignedPct(alert.pct)}</strong> in the last 24h
+                      (beyond the ±{alert.thresholdPct}% band). Managers are notified by
+                      email each morning — prices may be adjusted today.
+                      <span className="gold-panel-move-foot">
+                        Information only — no action needed here.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      24h movement {fmtSignedPct(alert.pct)} — within the ±
+                      {alert.thresholdPct}% band, no pricing alert.
+                    </>
+                  )
                 ) : (
-                  <div className="gold-panel-baseline-line">
-                    No pricing baseline yet — record one after your next reprice.
-                  </div>
-                )}
-
-                {!staff && (
-                  <div className="gold-panel-actions">
-                    <button
-                      type="button"
-                      className="gold-panel-btn"
-                      disabled={baselineBusy || (!ready && !summary.current)}
-                      onClick={() => saveBaseline(ready ? phpPerGram : undefined)}
-                    >
-                      {baselineBusy ? "Saving…" : "Mark repriced at current"}
-                    </button>
-                    <label className="gold-panel-threshold">
-                      ±
-                      <input
-                        type="number"
-                        min="0.5"
-                        max="15"
-                        step="0.5"
-                        placeholder={String(drift?.thresholdPct ?? 2)}
-                        value={thresholdInput}
-                        onChange={(e) => setThresholdInput(e.target.value)}
-                        aria-label="Reprice alert threshold percent"
-                      />
-                      %
-                    </label>
-                  </div>
-                )}
-                {baselineNote && (
-                  <div
-                    className={`gold-panel-note gold-panel-note--${baselineNote.ok ? "ok" : "err"}`}
-                  >
-                    {baselineNote.text}
-                  </div>
+                  <>
+                    No ~24h-ago reference yet (weekend gap or fresh history) — the
+                    daily movement check resumes with trading data.
+                  </>
                 )}
               </div>
             </>

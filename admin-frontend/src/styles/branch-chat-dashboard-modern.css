@@ -99,14 +99,15 @@
   border-color: rgba(242, 193, 20, 0.45);
 }
 
-/* Baseline drift beyond threshold — amber; ≥2× threshold — red + blink.
-   The strongest signal in the header on purpose: stale pricing costs money. */
-.gold-ticker--reprice {
+/* Significant 24h move (info only — managers get the morning email) — amber;
+   ≥2× threshold — red + blink. The strongest signal in the header on
+   purpose: everyone should know prices may change today. */
+.gold-ticker--alert {
   background: rgba(245, 158, 11, 0.18);
   border-color: rgba(245, 158, 11, 0.65);
 }
 
-.gold-ticker--reprice-hot {
+.gold-ticker--alert-hot {
   background: rgba(239, 68, 68, 0.2);
   border-color: rgba(239, 68, 68, 0.65);
   animation: waiting-chip-blink 1.6s ease-in-out infinite;
@@ -135,7 +136,7 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
-.gold-ticker-reprice-tag {
+.gold-ticker-alert-tag {
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -299,84 +300,35 @@
   font-variant-numeric: tabular-nums;
 }
 
-.gold-panel-baseline {
+/* 24h-movement info box — read-only for everyone (managers act via the
+   morning email, staff just need to know prices may change today). */
+.gold-panel-move {
   padding: 10px 12px;
   border-radius: 10px;
   background: rgba(31, 34, 51, 0.045);
   font-size: 0.74rem;
   line-height: 1.45;
-}
-
-.gold-panel-baseline--warn {
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-}
-
-.gold-panel-baseline--hot {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.4);
-}
-
-.gold-panel-baseline-line {
   color: rgba(31, 34, 51, 0.75);
 }
 
-.gold-panel-drift {
-  margin-top: 4px;
+.gold-panel-move--warn {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.4);
   color: #1f2233;
 }
 
-.gold-panel-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 9px;
-}
-
-.gold-panel-btn {
-  padding: 6px 12px;
-  font-size: 0.72rem;
-  font-weight: 700;
+.gold-panel-move--hot {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.4);
   color: #1f2233;
-  background: var(--brand-gold, #f2c114);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
 }
 
-.gold-panel-btn:hover:not(:disabled) {
-  filter: brightness(1.06);
+.gold-panel-move-foot {
+  display: block;
+  margin-top: 5px;
+  font-size: 0.66rem;
+  color: rgba(31, 34, 51, 0.55);
 }
-
-.gold-panel-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.gold-panel-threshold {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 0.72rem;
-  color: rgba(31, 34, 51, 0.7);
-}
-
-.gold-panel-threshold input {
-  width: 46px;
-  padding: 4px 6px;
-  font-size: 0.72rem;
-  border: 1px solid rgba(31, 34, 51, 0.25);
-  border-radius: 6px;
-  font-variant-numeric: tabular-nums;
-}
-
-.gold-panel-note {
-  margin-top: 7px;
-  font-size: 0.68rem;
-}
-
-.gold-panel-note--ok { color: #15803d; }
-.gold-panel-note--err { color: #b91c1c; }
 
 .gold-panel-empty {
   font-size: 0.74rem;

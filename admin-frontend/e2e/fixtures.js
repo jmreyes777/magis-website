@@ -140,8 +140,7 @@ async function mockNetwork(page, opts = {}) {
         t: Date.now() - (11 - i) * 14_400_000,
         g: 5490 + i * 9.5,
       })),
-      baseline: null,
-      drift: null,
+      alert: { pct: 0.42, thresholdPct: 2, significant: false, direction: "up" },
     },
     // populated by the fake socket server when { socket: "fake" }:
     wsConnections: [],
@@ -459,20 +458,10 @@ async function mockNetwork(page, opts = {}) {
       });
     }
 
-    // ── Gold pricing intel (routes/gold.js shapes) — the header ticker polls
-    //    /summary on mount; POST /baseline returns the refreshed summary. ────
+    // ── Gold pricing intel (routes/gold.js shape) — the header ticker polls
+    //    /summary on mount. Read-only: the 24h alert is informational and the
+    //    manager email is a backend scheduler concern (no dashboard writes). ─
     if (path === "/api/gold/summary" && method === "GET") {
-      return json(200, state.goldSummary);
-    }
-    if (path === "/api/gold/baseline" && method === "POST") {
-      const g = Number.isFinite(body.phpPerGram)
-        ? body.phpPerGram
-        : state.goldSummary.current.phpPerGram;
-      state.goldSummary = {
-        ...state.goldSummary,
-        baseline: { phpPerGram: g, thresholdPct: body.thresholdPct ?? 2, setAt: Date.now() },
-        drift: { pct: 0, thresholdPct: body.thresholdPct ?? 2, reprice: false },
-      };
       return json(200, state.goldSummary);
     }
 

@@ -1,9 +1,9 @@
 // backend/utils/goldPrice.js
 //
-// Gold price history + pricing-baseline service (pawnshop pricing intel).
+// Gold price history + daily movement alerts (pawnshop pricing intel).
 //
-// The admin header ticker shows live spot, but "should we reprice loans and
-// retail tags?" needs HISTORY and a BASELINE:
+// The admin header ticker shows live spot, but "did gold move enough that we
+// should adjust prices today?" needs HISTORY and a DAILY CHECK:
 //   • A 15-min sampler (poller in server.js) appends PHP/gram points to ONE
 //     Firestore doc (goldPrice/latest) — pruned to stay a few KB forever:
 //     full 15-min resolution for 48h, hourly to 7d, daily closes to 90d.
@@ -12,14 +12,20 @@
 //     (stooq.com's CSV endpoint — the original source — now sits behind a
 //     JavaScript proof-of-work wall and serves HTML to servers. GC=F tracks
 //     spot within ~0.5%, fine for trend deltas; LIVE quotes stay gold-api.)
-//   • Management records a pricing baseline ("current loan/retail prices
-//     assume ₱X/g"); when spot drifts ≥ thresholdPct from it, the summary
-//     flags `reprice` and the ticker turns amber (see GoldPriceTicker).
+//   • The business reprices daily off the 24h movement, so the alert is the
+//     1-day delta vs GOLD_ALERT_THRESHOLD_PCT (default ±2%). Every day at
+//     GOLD_ALERT_TIME (default 08:15 Asia/Manila — before branches open) a
+//     scheduler emails GOLD_ALERT_EMAILS (the managers) IF the move is
+//     significant, giving them time to adjust loan values / retail tags.
+//     Dashboards surface the same `alert` read-only — staff see that a big
+//     move happened (information only); nobody has anything to click.
 //
-// All math/parsing helpers are pure and exported for unit tests; Firestore
-// access is confined to the thin load/save wrappers.
+// All math/schedule/formatting helpers are pure and exported for unit tests;
+// Firestore access is confined to the thin load/save wrappers, mail goes
+// through utils/email.
 
 const { db } = require("./firebase");
+const { sendMail, escapeHtml } = require("./email");
 
 const GOLD_API_URL = "https://api.gold-api.com/price/XAU";
 const FX_API_URL = "https://open.er-api.com/v6/latest/USD";
@@ -41,8 +47,24 @@ const KEEP_HOURLY_MS = 7 * DAY;   // ≥1h apart
 const KEEP_DAILY_MS = 90 * DAY;   // ≥20h apart (daily closes)
 const BACKFILL_DAYS = 45;
 const DEFAULT_THRESHOLD_PCT = 2;
+const DEFAULT_ALERT_TIME = "08:15"; // HH:mm, Asia/Manila
+const ALERT_TZ = "Asia/Manila";
 
 const DOC_PATH = { collection: "goldPrice", doc: "latest" };
+
+/** ±% that counts as "significant" — env-tunable, clamped to sanity. */
+function alertThresholdPct() {
+  const v = Number(process.env.GOLD_ALERT_THRESHOLD_PCT);
+  return Number.isFinite(v) && v >= 0.25 && v <= 25 ? v : DEFAULT_THRESHOLD_PCT;
+}
+
+/** "a@x.com, b@y.com" → ["a@x.com","b@y.com"] (also splits on ; and whitespace). */
+function parseRecipients(raw) {
+  return String(raw || "")
+    .split(/[,;\s]+/)
+    .map((s) => s.trim())
+    .filter((s) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s));
+}
 
 // ── Pure helpers (unit-tested) ───────────────────────────────────────────────
 
@@ -97,13 +119,25 @@ function downsample(points, max) {
   return out;
 }
 
+/** The 24h movement judged against the threshold — the one business signal.
+ *  null when there is no usable ~24h-ago reference (never a fabricated 0%). */
+function evaluateAlert(d1, thresholdPct = DEFAULT_THRESHOLD_PCT) {
+  if (!d1 || !Number.isFinite(d1.pct)) return null;
+  return {
+    pct: d1.pct,
+    thresholdPct,
+    significant: Math.abs(d1.pct) >= thresholdPct,
+    direction: d1.pct >= 0 ? "up" : "down",
+  };
+}
+
 /**
- * Business summary from the stored points + baseline.
+ * Business summary from the stored points.
  * Deltas use the nearest stored point to now-1d/7d/30d (±35% tolerance) so
  * weekend gaps and backfill granularity never produce lies — absent history
  * yields null, not a fabricated 0%.
  */
-function computeSummary(points, baseline, now = Date.now()) {
+function computeSummary(points, now = Date.now(), thresholdPct = DEFAULT_THRESHOLD_PCT) {
   const usable = [...points].sort((a, b) => a.t - b.t);
   if (usable.length === 0) return null;
   const current = usable[usable.length - 1];
@@ -114,6 +148,7 @@ function computeSummary(points, baseline, now = Date.now()) {
     if (!ref || ref.t >= current.t) return null;
     return { pct: r2(pctChange(ref.g, current.g)), from: ref.g, fromT: ref.t };
   };
+  const deltas = { d1: delta(1), d7: delta(7), d30: delta(30) };
 
   const weekPoints = usable.filter((p) => now - p.t <= 7 * DAY);
   const week =
@@ -124,23 +159,99 @@ function computeSummary(points, baseline, now = Date.now()) {
         }
       : null;
 
-  let drift = null;
-  if (baseline && Number.isFinite(baseline.phpPerGram) && baseline.phpPerGram > 0) {
-    const pct = r2(pctChange(baseline.phpPerGram, current.g));
-    const threshold = Number.isFinite(baseline.thresholdPct)
-      ? baseline.thresholdPct
-      : DEFAULT_THRESHOLD_PCT;
-    drift = { pct, thresholdPct: threshold, reprice: Math.abs(pct) >= threshold };
-  }
-
   return {
     current: { t: current.t, phpPerGram: r2(current.g) },
-    deltas: { d1: delta(1), d7: delta(7), d30: delta(30) },
+    deltas,
     week,
     sparkline: downsample(weekPoints, 40).map((p) => ({ t: p.t, g: r2(p.g) })),
-    baseline: baseline || null,
-    drift,
+    alert: evaluateAlert(deltas.d1, thresholdPct),
   };
+}
+
+// ── Daily alert schedule + email (pure) ───────────────────────────────────
+
+/** Wall-clock date + HH:mm in Manila for a given instant. */
+function manilaParts(now = Date.now()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ALERT_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(now));
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? "";
+  return {
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+    hhmm: `${get("hour")}:${get("minute")}`,
+  };
+}
+
+/** Due exactly once per Manila day, within the configured minute. */
+function isAlertDue({ now = Date.now(), lastSentDate = null, alertTime = DEFAULT_ALERT_TIME } = {}) {
+  const { date, hhmm } = manilaParts(now);
+  return { due: hhmm === alertTime && date !== lastSentDate, date, hhmm };
+}
+
+const pesoFmt = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const signedPct = (p) => `${p > 0 ? "+" : ""}${p.toFixed(2)}%`;
+
+/** Manager-facing morning email — subject + text + html. Pure. */
+function buildAlertEmail(summary, date) {
+  const { current, deltas, week, alert } = summary;
+  const nowStr = pesoFmt.format(current.phpPerGram);
+  const dir = alert.direction === "up" ? "UP" : "DOWN";
+  const guidance =
+    alert.direction === "up"
+      ? "Consider raising loan values / retail tags today."
+      : "Consider lowering loan values / retail tags today.";
+  const line = (label, d) => `${label}: ${d ? signedPct(d.pct) : "—"}`;
+
+  const subject = `Gold alert (${date}): ${dir} ${signedPct(alert.pct)} in 24h — now ${nowStr}/g`;
+
+  const text = [
+    `Gold moved ${signedPct(alert.pct)} in the last 24 hours (threshold ±${alert.thresholdPct}%).`,
+    ``,
+    `Now:      ${nowStr}/g`,
+    `24h ago:  ${deltas.d1 ? `${pesoFmt.format(deltas.d1.from)}/g` : "—"}`,
+    line(`7 days`, deltas.d7),
+    line(`30 days`, deltas.d30),
+    week ? `Week range: ${pesoFmt.format(week.low)} – ${pesoFmt.format(week.high)}` : null,
+    ``,
+    guidance,
+    ``,
+    `This automated check runs daily at ${process.env.GOLD_ALERT_TIME || DEFAULT_ALERT_TIME} (Asia/Manila)`,
+    `and only emails when the 24h move exceeds ±${alert.thresholdPct}%. Dashboards show the same`,
+    `movement to branch staff for information only.`,
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+
+  const color = alert.direction === "up" ? "#15803d" : "#b91c1c";
+  const row = (label, value) =>
+    `<tr><td style="padding:6px 16px 6px 0;color:#6b7280;">${label}</td><td style="padding:6px 0;color:#1a1a2e;font-weight:600;">${value}</td></tr>`;
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#1a1a2e;margin:0 0 8px;font-size:20px;">Magis Gold — Daily Price Alert</h2>
+      <p style="color:#4b5563;margin:0 0 20px;">Gold moved <strong style="color:${color};">${escapeHtml(signedPct(alert.pct))}</strong> in the last 24 hours (threshold ±${escapeHtml(String(alert.thresholdPct))}%).</p>
+      <div style="font-size:28px;font-weight:800;color:#1a1a2e;background:#faf8f5;border:1px solid #e5dcc8;border-radius:12px;padding:16px;text-align:center;">${escapeHtml(nowStr)}/g</div>
+      <table style="margin:20px 0 0;border-collapse:collapse;font-size:14px;">
+        ${row("24h ago", deltas.d1 ? `${escapeHtml(pesoFmt.format(deltas.d1.from))}/g` : "—")}
+        ${row("7-day move", deltas.d7 ? escapeHtml(signedPct(deltas.d7.pct)) : "—")}
+        ${row("30-day move", deltas.d30 ? escapeHtml(signedPct(deltas.d30.pct)) : "—")}
+        ${week ? row("Week range", `${escapeHtml(pesoFmt.format(week.low))} – ${escapeHtml(pesoFmt.format(week.high))}`) : ""}
+      </table>
+      <p style="color:#1a1a2e;font-weight:600;margin:20px 0 0;">${escapeHtml(guidance)}</p>
+      <p style="color:#6b7280;font-size:12px;margin:16px 0 0;line-height:1.6;">Automated daily check at ${escapeHtml(process.env.GOLD_ALERT_TIME || DEFAULT_ALERT_TIME)} (Asia/Manila); emails only when the 24h move exceeds the threshold. Branch dashboards show the same movement for information only.</p>
+    </div>`;
+
+  return { subject, text, html };
 }
 
 /**
@@ -191,7 +302,7 @@ async function loadDoc() {
   const data = snap.exists ? snap.data() : {};
   return {
     points: Array.isArray(data.points) ? data.points : [],
-    baseline: data.baseline || null,
+    alertLastSentDate: data.alertLastSentDate || null,
   };
 }
 
@@ -266,39 +377,57 @@ async function backfillIfSparse(now = Date.now()) {
 }
 
 async function getSummary(now = Date.now()) {
-  const { points, baseline } = await loadDoc();
-  return computeSummary(points, baseline, now);
+  const { points } = await loadDoc();
+  return computeSummary(points, now, alertThresholdPct());
 }
 
-/** Record the pricing baseline (management "we repriced at ₱X/g"). */
-async function setBaseline({ phpPerGram: value, thresholdPct, setBy }, now = Date.now()) {
-  const { points, baseline: prev } = await loadDoc();
-  const current = points.length ? points[points.length - 1].g : null;
-  const g = Number.isFinite(value) && value > 0 ? r2(value) : current;
-  if (!Number.isFinite(g) || g <= 0) throw new Error("no price available for baseline");
-  const threshold =
-    Number.isFinite(thresholdPct) && thresholdPct >= 0.5 && thresholdPct <= 15
-      ? thresholdPct
-      : prev?.thresholdPct ?? DEFAULT_THRESHOLD_PCT;
-  const baseline = { phpPerGram: g, thresholdPct: threshold, setBy: setBy || null, setAt: now };
-  await saveDoc({ baseline });
-  return computeSummary(points, baseline, now);
+/**
+ * The 08:15 check: once per Manila day, when GOLD_ALERT_EMAILS is configured
+ * and the 24h move is significant, email the managers. Returns a small result
+ * object so the scheduler log line explains every outcome.
+ */
+async function sendDailyAlertIfDue(now = Date.now()) {
+  const recipients = parseRecipients(process.env.GOLD_ALERT_EMAILS);
+  if (recipients.length === 0) return { sent: false, reason: "no-recipients" };
+  const alertTime = process.env.GOLD_ALERT_TIME || DEFAULT_ALERT_TIME;
+
+  // Cheap wall-clock precheck before any I/O — this runs every ~45s.
+  if (manilaParts(now).hhmm !== alertTime) return { sent: false, reason: "not-due" };
+
+  const { points, alertLastSentDate } = await loadDoc();
+  const { due, date } = isAlertDue({ now, lastSentDate: alertLastSentDate, alertTime });
+  if (!due) return { sent: false, reason: "already-sent" };
+
+  const summary = computeSummary(points, now, alertThresholdPct());
+  if (!summary?.alert) return { sent: false, reason: "no-history" };
+  if (!summary.alert.significant) return { sent: false, reason: "below-threshold" };
+
+  const { subject, text, html } = buildAlertEmail(summary, date);
+  await sendMail({ to: recipients.join(", "), subject, text, html });
+  await saveDoc({ alertLastSentDate: date });
+  return { sent: true, pct: summary.alert.pct, recipients: recipients.length };
 }
 
 module.exports = {
   GRAMS_PER_TROY_OUNCE,
   DEFAULT_THRESHOLD_PCT,
+  DEFAULT_ALERT_TIME,
   phpPerGram,
   prunePoints,
   nearestPoint,
   pctChange,
   downsample,
+  evaluateAlert,
   computeSummary,
   parseYahooChart,
   mergeBackfill,
+  parseRecipients,
+  manilaParts,
+  isAlertDue,
+  buildAlertEmail,
   fetchSpotPhpPerGram,
   sampleOnce,
   backfillIfSparse,
   getSummary,
-  setBaseline,
+  sendDailyAlertIfDue,
 };
