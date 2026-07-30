@@ -7,6 +7,12 @@ const path = require("path");
 // contextBridge/ipcRenderer, which remain available in sandboxed preloads).
 app.enableSandbox();
 
+// Windows toast notifications + taskbar grouping need an explicit app
+// identity that matches electron-builder's appId (package.json → build.appId);
+// without it, packaged builds show notifications as "electron.app.Electron"
+// or not at all.
+app.setAppUserModelId("com.magisgold.admin");
+
 // Single-instance lock: a second launch focuses the existing window instead of
 // spawning a parallel session (duplicate sockets/notifications).
 if (!app.requestSingleInstanceLock()) {
@@ -32,8 +38,11 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      // ── use a non-persisted, in-memory partition ──────────────
-      partition: "in-memory-test",
+      // Packaged (installed) builds keep a PERSISTENT profile so staff
+      // sessions and the 30-day "remember this device" OTP trust survive
+      // app restarts — otherwise every launch demands a fresh email code.
+      // Dev keeps the throwaway in-memory partition (clean state per run).
+      partition: app.isPackaged ? "persist:magis-admin" : "in-memory-test",
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
       nodeIntegration: false,
@@ -52,10 +61,40 @@ function createWindow() {
   // ─── Load from the same HTTP(S) origin as your browser ─────────
   const startURL = process.env.ELECTRON_START_URL ||
     (app.isPackaged
-      ? "https://magis-admin-staging.onrender.com"  // ← admin dashboard (staging; swap when prod URL exists)
+      ? "https://magis-admin-staging.onrender.com"  // ← hosted admin dashboard (update here when the URL moves)
       : "http://localhost:3001");       // ← CRA dev server (npm start passes ELECTRON_START_URL anyway)
 
   mainWindow.loadURL(startURL);
+
+  // Cold start / offline resilience: Render can 502 or stall for ~30s while
+  // the dyno wakes, and branch connections drop. Instead of a dead white
+  // window, show a branded "connecting" splash and retry until it loads.
+  // errorCode -3 (ERR_ABORTED) is a cancelled navigation, not a failure.
+  const SPLASH = `data:text/html;charset=utf-8,${encodeURIComponent(`<!doctype html>
+    <html><head><meta charset="utf-8"><title>Magis Admin</title></head>
+    <body style="margin:0;height:100vh;display:flex;align-items:center;justify-content:center;
+                 background:#1f2233;font-family:Segoe UI,system-ui,sans-serif;color:#fff">
+      <div style="text-align:center">
+        <div style="width:64px;height:64px;margin:0 auto 18px;border-radius:50%;
+                    border:3px solid rgba(242,193,20,.25);border-top-color:#f2c114;
+                    animation:spin 1s linear infinite"></div>
+        <div style="font-size:1.05rem;font-weight:600;letter-spacing:.02em">Connecting to Magis Admin…</div>
+        <div style="margin-top:8px;font-size:.8rem;color:rgba(255,255,255,.55)">
+          Retrying automatically — check the branch internet if this persists.</div>
+      </div>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    </body></html>`)}`;
+  let retryTimer = null;
+  mainWindow.webContents.on("did-fail-load", (_e, errorCode, errorDesc, validatedURL, isMainFrame) => {
+    if (!isMainFrame || errorCode === -3) return;
+    console.warn(`⚠ load failed (${errorCode} ${errorDesc}) — retrying in 6s`);
+    mainWindow.loadURL(SPLASH);
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      if (!mainWindow.isDestroyed()) mainWindow.loadURL(startURL);
+    }, 6000);
+  });
+  mainWindow.on("closed", () => clearTimeout(retryTimer));
 
   // A08-1: lock navigation to the app origin and hand external links to the OS
   // browser instead of opening them inside Electron (defense-in-depth alongside

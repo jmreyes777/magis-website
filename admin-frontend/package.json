@@ -1,7 +1,9 @@
 {
   "name": "admin-frontend",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "Magis Gold & Gems — admin console desktop app",
+  "author": "Magis Gold & Gems",
   "main": "electron-main.js",
   "proxy": "http://127.0.0.1:8787",
   "dependencies": {
@@ -38,6 +40,7 @@
     "start": "concurrently \"cross-env BROWSER=none PORT=3001 react-scripts start\" \"wait-on http://localhost:3001 && cross-env ELECTRON_START_URL=http://localhost:3001 electron .\"",
     "electron:dev": "npm start",
     "electron:staging": "cross-env ELECTRON_START_URL=https://magis-admin-staging.onrender.com electron .",
+    "desktop:installer": "electron-builder --win --x64",
     "build": "react-scripts build",
     "e2e": "playwright test",
     "analyze": "react-scripts build && npx source-map-explorer \"build/static/js/*.js\"",
@@ -79,7 +82,44 @@
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
     "electron": "^42.2.0",
+    "electron-builder": "^26.15.3",
     "serve": "^14.2.6",
     "wait-on": "^8.0.3"
+  },
+  "build": {
+    "appId": "com.magisgold.admin",
+    "productName": "Magis Admin",
+    "extraMetadata": {
+      "main": "electron-main.js"
+    },
+    "directories": {
+      "buildResources": "desktop-assets",
+      "output": "dist-desktop"
+    },
+    "files": [
+      "electron-main.js",
+      "preload.js",
+      "!node_modules/**/*",
+      "!build/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "desktop-assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Magis-Admin-Setup-${version}.${ext}",
+      "shortcutName": "Magis Admin",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

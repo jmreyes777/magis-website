@@ -11,6 +11,9 @@
 # production
 /build
 
+# electron-builder installer output
+/dist-desktop
+
 # playwright UAT artifacts
 /test-results
 /playwright-report
