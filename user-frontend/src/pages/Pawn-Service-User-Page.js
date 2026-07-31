@@ -159,11 +159,11 @@ function Pawning() {
           </p>
           <div className="pawn-cta-row">
             <Link to="/branches" className="pawn-cta">
-              <FaComments aria-hidden="true" /> Mag-chat sa Branch{" "}
+              <FaComments aria-hidden="true" /> Chat with a Branch{" "}
               <FaArrowRight aria-hidden="true" />
             </Link>
             <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
-              Basahin ang FAQs <FaArrowRight aria-hidden="true" />
+              Read the FAQs <FaArrowRight aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -356,18 +356,18 @@ function Pawning() {
 
               <div className="pawn-calc__inputs">
                 <div className="pawn-field">
-                  <label htmlFor="principal">Halaga ng principal (₱)</label>
+                  <label htmlFor="principal">Principal amount (₱)</label>
                   <input
                     type="number"
                     id="principal"
                     min="0"
-                    placeholder="Ilagay ang halaga"
+                    placeholder="Enter amount"
                     value={principal}
                     onChange={(e) => setPrincipal(e.target.value)}
                   />
                 </div>
                 <div className="pawn-field">
-                  <label htmlFor="pawnDate">Petsa ng sangla</label>
+                  <label htmlFor="pawnDate">Pawn date</label>
                   <input
                     type="date"
                     id="pawnDate"
@@ -376,7 +376,7 @@ function Pawning() {
                   />
                 </div>
                 <div className="pawn-field">
-                  <label htmlFor="paymentDate">Planong petsa ng bayad</label>
+                  <label htmlFor="paymentDate">Payment date</label>
                   <input
                     type="date"
                     id="paymentDate"
@@ -411,7 +411,7 @@ function Pawning() {
 
                     <div className="pawn-stats">
                       <div className="pawn-stat">
-                        <span className="pawn-stat__label">Araw na lumipas</span>
+                        <span className="pawn-stat__label">Days elapsed</span>
                         <span className="pawn-stat__value">
                           {daysElapsed} day{daysElapsed === 1 ? "" : "s"}
                         </span>
@@ -515,11 +515,11 @@ function Pawning() {
             </div>
             <div className="pawn-cta-row">
               <Link to="/branches" className="pawn-cta">
-                <FaComments aria-hidden="true" /> Mag-chat sa Branch{" "}
+                <FaComments aria-hidden="true" /> Chat with a Branch{" "}
                 <FaArrowRight aria-hidden="true" />
               </Link>
               <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
-                Basahin ang FAQs <FaArrowRight aria-hidden="true" />
+                Read the FAQs <FaArrowRight aria-hidden="true" />
               </Link>
             </div>
           </div>

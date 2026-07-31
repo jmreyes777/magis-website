@@ -9,9 +9,9 @@ import Seo from "../components/Seo";
 
 const HELPFUL_LINKS = [
   { to: "/", label: "Home" },
-  { to: "/pawning", label: "Sangla" },
+  { to: "/pawning", label: "Pawning" },
   { to: "/jewelry-sales", label: "Jewelry Sales" },
-  { to: "/branches", label: "Hanapin ang Branch" },
+  { to: "/branches", label: "Find a Branch" },
   { to: "/faqs", label: "FAQs" },
   { to: "/contact-us", label: "Contact Us" },
 ];

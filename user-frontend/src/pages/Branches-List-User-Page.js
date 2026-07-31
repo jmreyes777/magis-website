@@ -514,15 +514,15 @@ function BranchesMapView() {
       {/* UAT F-G4: in-app switch-conversation confirmation (was window.confirm) */}
       <GuestConfirmDialog
         open={!!pendingSwitch}
-        title="Lumipat ng chat?"
+        title="Switch chat?"
         body={
           pendingSwitch
             ? `May active ka pang chat sa ${pendingSwitch.activeEmail}. ` +
               `Isara ito at mag-chat na lang sa ${pendingSwitch.branch.name || pendingSwitch.branch.email}?`
             : ""
         }
-        confirmLabel="Lumipat ng chat"
-        cancelLabel="Ituloy ang current chat"
+        confirmLabel="Switch chat"
+        cancelLabel="Keep current chat"
         onConfirm={() => {
           const target = pendingSwitch.branch;
           setPendingSwitch(null);
@@ -555,7 +555,7 @@ function BranchesMapView() {
             <FaSearch className="search-icon" aria-hidden="true" />
             <input
               type="text"
-              placeholder="Hanapin ang branch..."
+              placeholder="Search for a branch..."
               className="search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -576,8 +576,8 @@ function BranchesMapView() {
             onChange={handleFilterChange}
             className="filter-select"
           >
-            <option value="all">Lahat ng Branch</option>
-            <option value="jewelry">May Jewelry Display</option>
+            <option value="all">All Branches</option>
+            <option value="jewelry">With Jewelry Display</option>
           </select>
         </div>
 
@@ -642,7 +642,7 @@ function BranchesMapView() {
                         {openingStage === "verifying" ? "Verifying…" : "Connecting…"}
                       </span>
                     ) : (
-                      `Mag-chat sa ${branch.name}`
+                      `Chat with ${branch.name}`
                     )}
                   </button>
                 </div>

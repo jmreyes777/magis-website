@@ -222,7 +222,7 @@ function Home() {
             serbisyo kapag kailangan mo talaga.
           </p>
           <Link to="/branches" className="home-cta">
-            <FaMapMarkerAlt aria-hidden="true" /> Hanapin ang Branch na Malapit Sa'yo{' '}
+            <FaMapMarkerAlt aria-hidden="true" /> Find a Branch Near You{' '}
             <FaArrowRight aria-hidden="true" />
           </Link>
           <div className="home-trustline">

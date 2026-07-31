@@ -182,7 +182,7 @@ function ContactUs() {
               type="text"
               name="name"
               id="name"
-              placeholder="Ang pangalan mo"
+              placeholder="Your name"
               value={formData.name}
               onChange={handleChange}
               required
@@ -195,7 +195,7 @@ function ContactUs() {
               type="email"
               name="email"
               id="email"
-              placeholder="Ang email mo"
+              placeholder="Your email"
               value={formData.email}
               onChange={handleChange}
               required
@@ -207,7 +207,7 @@ function ContactUs() {
             <textarea
               name="message"
               id="message"
-              placeholder="Ang mensahe o tanong mo"
+              placeholder="Your message or question"
               value={formData.message}
               onChange={handleChange}
               required

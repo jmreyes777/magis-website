@@ -40,17 +40,17 @@ function Header() {
 
   // --- constants ---
   const PAWNING_SECTIONS = [
-    { id: 'how-to-pawn', label: 'Paano Mag-sangla' },
-    { id: 'accepted-items', label: 'Mga Tinatanggap na Alahas' },
-    { id: 'how-to-renew', label: 'Paano Mag-renew' },
-    { id: 'how-to-redeem', label: 'Paano Tumubos' },
+    { id: 'how-to-pawn', label: 'How to Pawn' },
+    { id: 'accepted-items', label: 'Accepted Items' },
+    { id: 'how-to-renew', label: 'How to Renew' },
+    { id: 'how-to-redeem', label: 'How to Redeem' },
     { id: 'terms-and-conditions', label: 'Terms & Conditions' },
   ];
 
   // New: Jewelry Sales sections to match the page you created
   const JEWELRY_SECTIONS = [
-    { id: 'item-types', label: 'Mga Klase ng Alahas' },
-    { id: 'layaway', label: 'Layaway (Hulugan)' },
+    { id: 'item-types', label: 'Jewelry Types' },
+    { id: 'layaway', label: 'Layaway' },
     { id: 'faqs', label: 'FAQs' },
     { id: 'terms-and-conditions', label: 'Terms & Conditions' },
   ];
@@ -58,10 +58,10 @@ function Header() {
   const LABELS = {
     '/': 'Home',
     '/branches': 'Branches',
-    '/pawning': 'Sangla',
+    '/pawning': 'Pawning',
     '/jewelry-sales': 'Jewelry Sales',
     '/services': 'Services',
-    '/services/pawning': 'Sangla',
+    '/services/pawning': 'Pawning',
     '/services/jewelry-sales': 'Jewelry Sales',
     '/about-us': 'About Us',
     '/faqs': 'FAQs',
@@ -335,7 +335,7 @@ function Header() {
                   `links hover:text-yellow-400 ${isActive ? 'active-link' : ''} has-sub`
                 }
               >
-                Sangla
+                Pawning
               </NavLink>
 
               <ul
@@ -405,7 +405,7 @@ function Header() {
                     borderBottomRightRadius: 0,
                   }}
                 >
-                  Sangla
+                  Pawning
                 </NavLink>
 
                 {/* Only one + button (no has-sub on the link) */}

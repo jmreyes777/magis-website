@@ -77,7 +77,7 @@ function LayawayCalculator() {
       <div className="jewelry-calculator-header">
         <div className="jewelry-calculator-input-group">
           <label className="jewelry-calculator-label">
-            Presyo sa Tag (₱)
+            Tag Price (₱)
           </label>
           <input
             type="number"
@@ -103,7 +103,7 @@ function LayawayCalculator() {
 
       <div className="jewelry-calculator-results">
         <div className="jewelry-calc-hero">
-          <span className="jewelry-calc-hero-label">Bayad ngayon (down)</span>
+          <span className="jewelry-calc-hero-label">Pay today (down)</span>
           <span className="jewelry-calc-hero-amount">{peso(res.down)}</span>
           <span className="jewelry-calc-hero-plan">{res.label}</span>
         </div>
@@ -116,13 +116,13 @@ function LayawayCalculator() {
                 <span className="jewelry-calc-chip-value">{peso(res.withFee)}</span>
               </div>
               <div className="jewelry-calc-chip">
-                <span className="jewelry-calc-chip-label">Rounded na base</span>
+                <span className="jewelry-calc-chip-label">Rounded base</span>
                 <span className="jewelry-calc-chip-value">{peso(res.base)}</span>
               </div>
             </>
           ) : (
             <div className="jewelry-calc-chip">
-              <span className="jewelry-calc-chip-label">Presyo sa tag</span>
+              <span className="jewelry-calc-chip-label">Tag price</span>
               <span className="jewelry-calc-chip-value">{peso(res.base)}</span>
             </div>
           )}
@@ -291,13 +291,13 @@ export default function JewelrySales() {
                 to={{ pathname: "/branches", search: "?filter=jewelry" }}
                 className="btn-primary-cta"
               >
-                Hanapin ang Jewelry Branch <FaMapMarkedAlt className="ml-2" />
+                Find a Jewelry Branch <FaMapMarkedAlt className="ml-2" />
               </Link>
               <button
                 onClick={() => window.location.href = '/branches'}
                 className="btn-secondary-cta"
               >
-                Mag-chat sa Team Namin <FaComments className="ml-2" />
+                Chat With Our Team <FaComments className="ml-2" />
               </button>
             </div>
             <div className="jewelry-hero-trust">
@@ -475,13 +475,13 @@ export default function JewelrySales() {
                 to={{ pathname: "/branches", search: "?filter=jewelry" }}
                 className="jewelry-cta-primary"
               >
-                Hanapin ang Jewelry Branch <FaMapMarkedAlt className="ml-2" />
+                Find a Jewelry Branch <FaMapMarkedAlt className="ml-2" />
               </Link>
               <button
                 onClick={() => window.location.href = '/branches'}
                 className="jewelry-cta-secondary"
               >
-                Mag-chat sa Team Namin <FaComments className="ml-2" />
+                Chat With Our Team <FaComments className="ml-2" />
               </button>
             </div>
         </section>

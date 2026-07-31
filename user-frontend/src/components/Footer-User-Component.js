@@ -251,12 +251,12 @@ function Footer() {
             <ul>
               {/* SEO W2: dead "/about" link (it 404'd) replaced with the guide
                   hub — sitewide internal links to the keyword-targeted guides. */}
-              <li><Link to="/branches">Hanapin ang Branch</Link></li>
+              <li><Link to="/branches">Branch Finder</Link></li>
               <li><Link to="/faqs">FAQs</Link></li>
-              <li><Link to="/guides/how-to-pawn">Paano Mag-sangla</Link></li>
-              <li><Link to="/guides/gold-prices-appraisal">Presyo ng Ginto at Appraisal</Link></li>
-              <li><Link to="/guides/gold-karat-guide">Gabay sa Karat ng Ginto</Link></li>
-              <li><Link to="/guides/pawnshop-interest-rates">Interest Rates at Tubos</Link></li>
+              <li><Link to="/guides/how-to-pawn">How to Pawn (Sangla)</Link></li>
+              <li><Link to="/guides/gold-prices-appraisal">Gold Prices &amp; Appraisal</Link></li>
+              <li><Link to="/guides/gold-karat-guide">Gold Karat Guide</Link></li>
+              <li><Link to="/guides/pawnshop-interest-rates">Interest Rates &amp; Tubos</Link></li>
               <li className="pt-2"><Link to="/terms">Terms &amp; Conditions</Link></li>
               <li><Link to="/privacy-policy">Privacy Policy</Link></li>
             </ul>
@@ -317,7 +317,7 @@ function Footer() {
                     d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.79 7.01 12.29.26.26.68.26.94 0C13.5 21.79 20 15.25 20 10c0-4.42-3.58-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"
                   />
                 </svg>
-                Tingnan sa Google Maps
+                View on Google Maps
               </a>
             </div>
           </div>
