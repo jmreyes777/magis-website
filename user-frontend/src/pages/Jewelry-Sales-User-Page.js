@@ -128,7 +128,7 @@ function LayawayCalculator() {
           )}
 
           <div className="jewelry-calc-chip">
-            <span className="jewelry-calc-chip-label">Balanse</span>
+            <span className="jewelry-calc-chip-label">Balance</span>
             <span className="jewelry-calc-chip-value">{peso(res.balance)}</span>
           </div>
 
@@ -158,7 +158,7 @@ export default function JewelrySales() {
     { key: "chains",    label: "Kadena",   src: `${BASE}/images/chain.png`,     alt: "Gold chains" },
     { key: "necklace",  label: "Kwintas",  src: `${BASE}/images/necklace.png`,  alt: "Gold necklaces" },
     { key: "bangles",   label: "Bangle",   src: `${BASE}/images/bangle.png`,    alt: "Gold bangles" },
-    { key: "pendants",  label: "Palawit",  src: `${BASE}/images/pendant.png`,   alt: "Gold pendants" },
+    { key: "pendants",  label: "Pendant",  src: `${BASE}/images/pendant.png`,   alt: "Gold pendants" },
   ];
 
   // Answers may be a string or an array of paragraphs (rendered as separate
@@ -279,12 +279,12 @@ export default function JewelrySales() {
         >
           <div className="jewelry-hero-content">
             <h1 className="jewelry-hero-title">
-              De-kalidad na Gold Jewelry — Patas at Abot-kaya
+              Quality Gold Jewelry sa Presyong Abot-kaya
             </h1>
             <p className="jewelry-hero-subtitle">
-              May mga pinong gintong alahas para sa araw-araw at sa mga espesyal na
-              okasyon — makikita sa mga branch namin. Dumaan para makita ang aktwal
-              na items at presyo.
+              May gold jewelry kami para sa everyday wear at special occasions —
+              available sa mga branch namin. Visit us para makita ang actual na
+              items at presyo.
             </p>
             <div className="jewelry-hero-cta-container">
               <Link
@@ -316,7 +316,7 @@ export default function JewelrySales() {
               <h2 className="jewelry-section-title">Mga Klase ng Gold Jewelry</h2>
             </div>
             <p className="jewelry-section-subtitle">
-              Iba-iba ang istilo at availability kada branch. Dumaan para makita ang aktwal na items at presyo.
+              Iba-iba ang styles at availability kada branch. Visit us para makita ang actual na items at presyo.
             </p>
           </div>
 
@@ -345,7 +345,7 @@ export default function JewelrySales() {
               <h2 className="jewelry-section-title">Layaway (Hulugan) Options</h2>
             </div>
             <p className="jewelry-section-subtitle">
-              Flexible na hulugan para makuha mo ang pangarap mong alahas
+              Flexible na payment plans para makuha mo ang gusto mong alahas
             </p>
           </div>
 
@@ -357,10 +357,10 @@ export default function JewelrySales() {
               <ul className="jewelry-layaway-list">
                 <li>10% down payment</li>
                 <li>Hanggang 2 linggo para mabayaran nang buo</li>
-                <li>90% one-time na bayad sa natitirang balanse</li>
+                <li>90% one-time na bayad sa natitirang balance</li>
               </ul>
               <p className="jewelry-layaway-example">
-                <strong>Halimbawa:</strong> ₱5,000 × 10% = ₱500 down → ₱4,500 ang matitira.
+                <strong>Halimbawa:</strong> ₱5,000 × 10% = ₱500 down → ₱4,500 na lang ang babayaran.
               </p>
             </div>
 
@@ -372,11 +372,11 @@ export default function JewelrySales() {
                 <li>20% down sa (Principal + 4%)</li>
                 <li>Plan 1: ₱3,000–₱5,000 → 2 buwan</li>
                 <li>Plan 2: ₱5,001+ → 3 buwan</li>
-                <li>Iro-round ang base sa pinakamalapit na 50 o 100</li>
-                <li>Down payment, iro-round up sa pinakamalapit na ₱50</li>
+                <li>I-round ang base sa pinakamalapit na 50 o 100</li>
+                <li>I-round up ang down payment sa pinakamalapit na ₱50</li>
               </ul>
               <p className="jewelry-layaway-example">
-                <strong>Halimbawa:</strong> ₱4,000 + 4% = ₱4,160 → Rounded ₱4,200 → 20% = ₱832 → ₱850 down → ₱3,350 balanse.
+                <strong>Halimbawa:</strong> ₱4,000 + 4% = ₱4,160 → Rounded ₱4,200 → 20% = ₱832 → ₱850 down → ₱3,350 balance.
               </p>
             </div>
           </div>
@@ -465,7 +465,7 @@ export default function JewelrySales() {
         {/* CTA */}
         <section className="jewelry-cta-banner">
             <h2 className="jewelry-cta-title">
-              May Gusto Kang Itanong sa Available na Alahas?
+              May tanong ka ba sa mga available na alahas?
             </h2>
             <p className="mb-6 text-sm md:text-base max-w-2xl mx-auto">
               Matutulungan ka ng staff namin sa sizing, presyo, at availability. Happy kaming tumulong!
@@ -490,7 +490,7 @@ export default function JewelrySales() {
           <div className="jewelry-live-header">
             <h2 className="jewelry-live-title">Live Selling Sessions</h2>
             <p className="jewelry-live-subtitle">
-              Panoorin ang live selling namin para makita ang mga featured na disenyo. Para sa kasalukuyang availability, mag-message o dumaan sa pinakamalapit na branch.
+              Panoorin ang live selling namin para makita ang mga featured na designs. Para sa current availability, mag-message o bumisita sa pinakamalapit na branch.
             </p>
           </div>
           <div className="jewelry-live-container">

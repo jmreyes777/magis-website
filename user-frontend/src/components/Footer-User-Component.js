@@ -189,8 +189,8 @@ function Footer() {
               />
             </picture>
             <p className="footer-copy">
-              Ang Magis Gold & Gems ay pawnshop na regulated ng BSP. Layunin naming
-              pagsilbihan ka nang may malinaw na rates at magiliw na serbisyo.
+              BSP-regulated pawnshop ang Magis Gold & Gems. Transparent na rates at
+              friendly na serbisyo — ’yan ang commitment namin sa’yo.
             </p>
 
             <div className="social-icons">

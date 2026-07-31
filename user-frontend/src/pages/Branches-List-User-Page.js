@@ -456,7 +456,7 @@ function BranchesMapView() {
     } catch (err) {
       console.error("[SOCKET] ❌ Failed to open guest chat:", err);
       // UAT F-G4: inline dismissible banner instead of a blocking alert().
-      setOpenError("Hindi mabuksan ang chat. Paki-subukan ulit mamaya.");
+      setOpenError("Hindi ma-open ang chat ngayon. Subukan ulit mamaya.");
     } finally {
       setOpeningBranchId(null);
       setOpeningStage("");
@@ -517,12 +517,12 @@ function BranchesMapView() {
         title="Lumipat ng chat?"
         body={
           pendingSwitch
-            ? `May bukas ka pang chat sa ${pendingSwitch.activeEmail}. ` +
-              `Isara ito at magsimula ng bagong chat sa ${pendingSwitch.branch.name || pendingSwitch.branch.email}?`
+            ? `May active ka pang chat sa ${pendingSwitch.activeEmail}. ` +
+              `Isara ito at mag-chat na lang sa ${pendingSwitch.branch.name || pendingSwitch.branch.email}?`
             : ""
         }
         confirmLabel="Lumipat ng chat"
-        cancelLabel="Ituloy ang kasalukuyan"
+        cancelLabel="Ituloy ang current chat"
         onConfirm={() => {
           const target = pendingSwitch.branch;
           setPendingSwitch(null);
@@ -584,12 +584,12 @@ function BranchesMapView() {
         {/* 📌 Branch List */}
         <div className="branch-list w-full" ref={branchListRef}>
           {isLoading ? (
-            <p className="no-results">Nilo-load ang mga branch...</p>
+            <p className="no-results">Loading branches...</p>
           ) : filteredBranches.length === 0 ? (
             <p className="no-results">
               {filter === "jewelry"
                 ? "Walang nahanap na branch na may jewelry display."
-                : "Nilo-load ang mga branch..."}
+                : "Loading branches..."}
             </p>
           ) : (
             filteredBranches.map((branch) => {
@@ -639,7 +639,7 @@ function BranchesMapView() {
                     {openingBranchId === branch.id ? (
                       <span className="chat-btn-loading">
                         <span className="chat-btn-spinner" aria-hidden="true" />
-                        {openingStage === "verifying" ? "Vine-verify…" : "Kumokonekta…"}
+                        {openingStage === "verifying" ? "Verifying…" : "Connecting…"}
                       </span>
                     ) : (
                       `Mag-chat sa ${branch.name}`

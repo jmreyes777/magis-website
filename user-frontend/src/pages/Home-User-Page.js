@@ -217,8 +217,8 @@ function Home() {
         <div className="home-shell home-hero__inner">
           <h1 className="home-hero__title">Kailangan ng quick cash? Isangla ang gold jewelry mo.</h1>
           <p className="home-hero__sub">
-            Ligtas, pribado, at patas na paraan para magka-pera sa oras ng
-            pangangailangan. Walang kaba, walang mahabang proseso — diretsong
+            Safe, private, at patas na paraan para magka-cash kapag kailangan.
+            Walang mahabang proseso, walang hassle — diretso at mabilis na
             serbisyo kapag kailangan mo talaga.
           </p>
           <Link to="/branches" className="home-cta">
@@ -241,8 +241,8 @@ function Home() {
               <p className="home-eyebrow">Para saan?</p>
               <h2 className="home-h2">Praktikal na tulong para sa biglaang gastos.</h2>
               <p className="home-lead">
-                May magalang at walang-tanong na paraan para magka-cash agad kapag
-                may biglaang pangangailangan.
+                Mabilis at walang-hassle na paraan para magka-cash agad kapag may
+                biglaang gastos.
               </p>
             </div>
             <div className="home-grid">
@@ -269,7 +269,7 @@ function Home() {
               <div className="home-cell">
                 <span className="home-cell__icon"><FaFileInvoiceDollar aria-hidden="true" /></span>
                 <h3 className="home-cell__title">Biglaang bayarin</h3>
-                <p className="home-cell__text">Kailangang ayusin sa bahay o mga due date na hindi inaasahan.</p>
+                <p className="home-cell__text">Home repair o mga bill na dumating nang hindi inaasahan.</p>
               </div>
             </div>
           </div>
@@ -294,7 +294,7 @@ function Home() {
               <div className="home-step">
                 <span className="home-step__num">STEP 2</span>
                 <h3 className="home-step__title">Patas na appraisal</h3>
-                <p className="home-step__text">Titimbangin at susuriin namin ang ginto mo ayon sa karat at timbang, tapos sasabihin agad ang eksaktong halagang pwede mong mahiram.</p>
+                <p className="home-step__text">Titimbangin at susuriin namin ang ginto mo base sa karat at timbang, at sasabihin agad kung magkano ang pwede mong ma-loan.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 3</span>
@@ -303,8 +303,8 @@ function Home() {
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 4</span>
-                <h3 className="home-step__title">Ikaw ang masusunod</h3>
-                <p className="home-step__text">Ikaw ang magdedesisyon kung tutuloy. Walang pilitan.</p>
+                <h3 className="home-step__title">Ikaw ang bahala</h3>
+                <p className="home-step__text">Ikaw ang magdedesisyon kung tutuloy — no pressure, walang obligasyon.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 5</span>
@@ -314,7 +314,7 @@ function Home() {
               <div className="home-step">
                 <span className="home-step__num">STEP 6</span>
                 <h3 className="home-step__title">Tubusin nang ligtas</h3>
-                <p className="home-step__text">Bayaran ang loan sa loob ng napagkasunduang term para maibalik nang buo at ligtas ang alahas mo.</p>
+                <p className="home-step__text">Bayaran ang loan within the agreed term para mabawi mo nang buo at ligtas ang alahas mo.</p>
               </div>
             </div>
           </div>
@@ -327,15 +327,15 @@ function Home() {
               <p className="home-eyebrow">Privacy</p>
               <h2 className="home-h2">Ang privacy mo, priority namin.</h2>
               <p className="home-lead">
-                Alam naming pribadong bagay ang pagsasangla. Sanay ang mga branch at
-                staff namin sa diskreto at propesyonal na serbisyo.
+                Alam naming personal na bagay ang pagsasangla. Trained ang staff
+                namin sa discreet at professional na serbisyo.
               </p>
             </div>
             <div className="home-feature-grid">
               <div className="home-feature">
                 <span className="home-feature__icon"><FaUserShield aria-hidden="true" /></span>
                 <h3 className="home-feature__title">Diskretong serbisyo</h3>
-                <p className="home-feature__text">Walang usisero. Tahimik at may respeto ang bawat transaksyon.</p>
+                <p className="home-feature__text">Private at may respeto ang bawat transaksyon — walang tanong-tanong.</p>
               </div>
               <div className="home-feature">
                 <span className="home-feature__icon"><FaLock aria-hidden="true" /></span>

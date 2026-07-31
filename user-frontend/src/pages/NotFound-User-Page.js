@@ -35,7 +35,7 @@ const NotFound = () => {
         <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
           <h1 className="mb-3 text-6xl md:text-7xl font-extrabold tracking-tight text-[#d4a853]">404</h1>
           <p className="text-base text-gray-200 md:text-lg">
-            Pasensya na — hindi namin mahanap ang page na ’yan.
+            Oops! Hindi namin mahanap ang page na hinahanap mo.
           </p>
         </div>
       </section>

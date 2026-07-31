@@ -218,7 +218,7 @@ function FAQsUserPage() {
         <section className="bg-white py-12">
           <div className="container mx-auto max-w-4xl px-4">
             <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-[#1a1a2e] md:text-3xl">
-              Mga Tanong sa Regulasyon / Industriya
+              FAQs sa Regulasyon / Industriya
             </h2>
             <div>
               {REGULATORY_FAQS.map((item, index) => (
@@ -237,7 +237,7 @@ function FAQsUserPage() {
         <section className="bg-[#faf8f5] py-12">
           <div className="container mx-auto max-w-4xl px-4 text-center">
             <p className="mb-6 text-gray-600">
-              May tanong ka pa? Basahin ang mga polisiya namin o kausapin kami.
+              May tanong ka pa? Check ang policies namin o i-message lang kami.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
