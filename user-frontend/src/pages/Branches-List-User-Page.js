@@ -456,7 +456,7 @@ function BranchesMapView() {
     } catch (err) {
       console.error("[SOCKET] ❌ Failed to open guest chat:", err);
       // UAT F-G4: inline dismissible banner instead of a blocking alert().
-      setOpenError("Could not open chat. Please try again later.");
+      setOpenError("Hindi mabuksan ang chat. Paki-subukan ulit mamaya.");
     } finally {
       setOpeningBranchId(null);
       setOpeningStage("");
@@ -514,15 +514,15 @@ function BranchesMapView() {
       {/* UAT F-G4: in-app switch-conversation confirmation (was window.confirm) */}
       <GuestConfirmDialog
         open={!!pendingSwitch}
-        title="Switch conversations?"
+        title="Lumipat ng chat?"
         body={
           pendingSwitch
-            ? `You already have an active conversation with ${pendingSwitch.activeEmail}. ` +
-              `Close it and start a new chat with ${pendingSwitch.branch.name || pendingSwitch.branch.email}?`
+            ? `May bukas ka pang chat sa ${pendingSwitch.activeEmail}. ` +
+              `Isara ito at magsimula ng bagong chat sa ${pendingSwitch.branch.name || pendingSwitch.branch.email}?`
             : ""
         }
-        confirmLabel="Switch chat"
-        cancelLabel="Keep current chat"
+        confirmLabel="Lumipat ng chat"
+        cancelLabel="Ituloy ang kasalukuyan"
         onConfirm={() => {
           const target = pendingSwitch.branch;
           setPendingSwitch(null);
@@ -555,7 +555,7 @@ function BranchesMapView() {
             <FaSearch className="search-icon" aria-hidden="true" />
             <input
               type="text"
-              placeholder="Search branches..."
+              placeholder="Hanapin ang branch..."
               className="search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -576,20 +576,20 @@ function BranchesMapView() {
             onChange={handleFilterChange}
             className="filter-select"
           >
-            <option value="all">All Branches</option>
-            <option value="jewelry">w/ Jewelry Display</option>
+            <option value="all">Lahat ng Branch</option>
+            <option value="jewelry">May Jewelry Display</option>
           </select>
         </div>
 
         {/* 📌 Branch List */}
         <div className="branch-list w-full" ref={branchListRef}>
           {isLoading ? (
-            <p className="no-results">Loading branches...</p>
+            <p className="no-results">Nilo-load ang mga branch...</p>
           ) : filteredBranches.length === 0 ? (
             <p className="no-results">
               {filter === "jewelry"
-                ? "No sales branches with jewelry display found."
-                : "Loading branches..."}
+                ? "Walang nahanap na branch na may jewelry display."
+                : "Nilo-load ang mga branch..."}
             </p>
           ) : (
             filteredBranches.map((branch) => {
@@ -623,7 +623,7 @@ function BranchesMapView() {
                     <span>
                       {branch.schedule
                         ? highlightMatch(formatSchedule(branch.schedule), searchQuery)
-                        : "No schedule available"}
+                        : "Walang nakalagay na schedule"}
                     </span>
                   </div>
 
@@ -639,10 +639,10 @@ function BranchesMapView() {
                     {openingBranchId === branch.id ? (
                       <span className="chat-btn-loading">
                         <span className="chat-btn-spinner" aria-hidden="true" />
-                        {openingStage === "verifying" ? "Verifying…" : "Connecting…"}
+                        {openingStage === "verifying" ? "Vine-verify…" : "Kumokonekta…"}
                       </span>
                     ) : (
-                      `Chat with ${branch.name}`
+                      `Mag-chat sa ${branch.name}`
                     )}
                   </button>
                 </div>

@@ -158,8 +158,8 @@ function ContactUs() {
       <div className="contact-card">
         <h1 className="contact-header">Contact Us</h1>
         <p className="contact-subtitle">
-          Message us or start a live chat about pawning, jewelry, and branch
-          services — we’re happy to help.
+          Mag-iwan ng mensahe o mag-live chat tungkol sa sangla, alahas, at
+          serbisyo ng branch — handa kaming tumulong.
         </p>
 
         {/* Error Message */}
@@ -182,7 +182,7 @@ function ContactUs() {
               type="text"
               name="name"
               id="name"
-              placeholder="Your Name"
+              placeholder="Ang pangalan mo"
               value={formData.name}
               onChange={handleChange}
               required
@@ -195,7 +195,7 @@ function ContactUs() {
               type="email"
               name="email"
               id="email"
-              placeholder="Your Email"
+              placeholder="Ang email mo"
               value={formData.email}
               onChange={handleChange}
               required
@@ -207,7 +207,7 @@ function ContactUs() {
             <textarea
               name="message"
               id="message"
-              placeholder="Your Message"
+              placeholder="Ang mensahe o tanong mo"
               value={formData.message}
               onChange={handleChange}
               required

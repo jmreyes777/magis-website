@@ -139,6 +139,32 @@ footer * {
 .footer-contact-label { min-width: 6.25rem; color: var(--footer-dim); }
 .footer-email { overflow-wrap: anywhere; }
 
+/* Live-chat entry links (Branch Live Chat / Customer Support) */
+.footer-chat-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  text-decoration: none;
+}
+.footer-chat-link:hover { text-decoration: underline; }
+.footer-chat-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+  animation: footer-chat-pulse 2.2s ease-out infinite;
+  flex-shrink: 0;
+}
+@keyframes footer-chat-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .footer-chat-dot { animation: none; }
+}
+
 /* ---------- Google Maps button ---------- */
 .map-button {
   display: inline-flex; align-items: center; gap: 0.45rem;

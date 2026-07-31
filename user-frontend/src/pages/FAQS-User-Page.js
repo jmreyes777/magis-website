@@ -187,9 +187,10 @@ function FAQsUserPage() {
         <section className="bg-white py-10">
           <div className="container mx-auto max-w-4xl px-4">
             <p className="text-base leading-relaxed text-gray-600">
-              These FAQs provide quick answers about our services and general rules for pawnshops in
-              the Philippines. They do not replace the specific terms on your pawn ticket or the full
-              Terms &amp; Conditions and Privacy Policy published on this site.
+              Mabilisang sagot ito sa mga tanong tungkol sa serbisyo namin at sa mga
+              pangkalahatang patakaran ng mga pawnshop sa Pilipinas. Hindi nito pinapalitan ang
+              nakasulat sa pawn ticket mo o ang kumpletong Terms &amp; Conditions at Privacy
+              Policy na nakalathala sa site na ito.
             </p>
           </div>
         </section>
@@ -198,7 +199,7 @@ function FAQsUserPage() {
         <section className="bg-[#faf8f5] py-12">
           <div className="container mx-auto max-w-4xl px-4">
             <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-[#1a1a2e] md:text-3xl">
-              Company FAQs
+              Mga Tanong Tungkol sa Magis
             </h2>
             <div>
               {COMPANY_FAQS.map((item, index) => (
@@ -217,7 +218,7 @@ function FAQsUserPage() {
         <section className="bg-white py-12">
           <div className="container mx-auto max-w-4xl px-4">
             <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-[#1a1a2e] md:text-3xl">
-              Regulatory / Industry FAQs
+              Mga Tanong sa Regulasyon / Industriya
             </h2>
             <div>
               {REGULATORY_FAQS.map((item, index) => (
@@ -236,7 +237,7 @@ function FAQsUserPage() {
         <section className="bg-[#faf8f5] py-12">
           <div className="container mx-auto max-w-4xl px-4 text-center">
             <p className="mb-6 text-gray-600">
-              Need more help? View our policies or contact us.
+              May tanong ka pa? Basahin ang mga polisiya namin o kausapin kami.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link
@@ -261,7 +262,7 @@ function FAQsUserPage() {
                 to="/branches"
                 className="rounded-full border border-[#d4a853]/40 bg-white px-6 py-3 font-semibold text-[#1a1a2e] transition hover:bg-[#d4a853]/10"
               >
-                Find a Branch
+                Hanapin ang Branch
               </Link>
             </div>
           </div>

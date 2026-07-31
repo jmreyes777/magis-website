@@ -122,19 +122,19 @@ function AuctionCountdown({ target, onRollover }) {
     <div className="auction-countdown">
       <div className="countdown-item">
         <div className="countdown-value">{timeLeft.days}</div>
-        <div className="countdown-label">Days</div>
+        <div className="countdown-label">Araw</div>
       </div>
       <div className="countdown-item">
         <div className="countdown-value">{timeLeft.hours}</div>
-        <div className="countdown-label">Hours</div>
+        <div className="countdown-label">Oras</div>
       </div>
       <div className="countdown-item">
         <div className="countdown-value">{timeLeft.minutes}</div>
-        <div className="countdown-label">Minutes</div>
+        <div className="countdown-label">Minuto</div>
       </div>
       <div className="countdown-item">
         <div className="countdown-value">{timeLeft.seconds}</div>
-        <div className="countdown-label">Seconds</div>
+        <div className="countdown-label">Segundo</div>
       </div>
     </div>
   );
@@ -207,7 +207,7 @@ function Home() {
     <div className="home-page flex flex-col min-h-screen">
       <Seo
         title="Magis Pawnshop & Jewelry | Instant Cash for Your Gold"
-        description="Trusted pawning, auctions, and jewelry sales since 1996. Get instant cash for your gold with high appraisals, low interest rates, and fast processing."
+        description="Sangla ng gold jewelry, subasta, at jewelry sales since 1996. Mataas ang appraisal, mababa ang interest, at mabilis ang proseso — instant cash for your gold."
         path="/"
         jsonLd={HOME_JSONLD}
       />
@@ -215,18 +215,19 @@ function Home() {
       {/* Hero */}
       <section className="home-hero">
         <div className="home-shell home-hero__inner">
-          <h1 className="home-hero__title">Quick cash using your gold jewelry.</h1>
+          <h1 className="home-hero__title">Kailangan ng quick cash? Isangla ang gold jewelry mo.</h1>
           <p className="home-hero__sub">
-            A secure, private, and fair way to get emergency funds. Walang kaba, walang
-            mahabang proseso. Just straightforward service for when you need it most.
+            Ligtas, pribado, at patas na paraan para magka-pera sa oras ng
+            pangangailangan. Walang kaba, walang mahabang proseso — diretsong
+            serbisyo kapag kailangan mo talaga.
           </p>
           <Link to="/branches" className="home-cta">
-            <FaMapMarkerAlt aria-hidden="true" /> Find a Branch Near You{' '}
+            <FaMapMarkerAlt aria-hidden="true" /> Hanapin ang Branch na Malapit Sa'yo{' '}
             <FaArrowRight aria-hidden="true" />
           </Link>
           <div className="home-trustline">
-            <span><FaCertificate className="mr-2" aria-hidden="true" /> Serving since 1996</span>
-            <span><FaBalanceScale className="mr-2" aria-hidden="true" /> Fair appraisals</span>
+            <span><FaCertificate className="mr-2" aria-hidden="true" /> Serbisyo simula 1996</span>
+            <span><FaBalanceScale className="mr-2" aria-hidden="true" /> Patas na appraisal</span>
             <span><FaClock className="mr-2" aria-hidden="true" /> Cash in minutes</span>
           </div>
         </div>
@@ -237,38 +238,38 @@ function Home() {
         <section className="home-section">
           <div className="home-shell">
             <div className="home-section-head">
-              <p className="home-eyebrow">Use cases</p>
-              <h2 className="home-h2">Practical help for urgent expenses.</h2>
+              <p className="home-eyebrow">Para saan?</p>
+              <h2 className="home-h2">Praktikal na tulong para sa biglaang gastos.</h2>
               <p className="home-lead">
-                We provide a respectful, no-questions-asked way to get cash immediately
-                when life happens.
+                May magalang at walang-tanong na paraan para magka-cash agad kapag
+                may biglaang pangangailangan.
               </p>
             </div>
             <div className="home-grid">
               <div className="home-cell">
                 <span className="home-cell__icon"><FaHeartbeat aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Medical needs</h3>
-                <p className="home-cell__text">Hospital bills, sudden treatments, or medicines.</p>
+                <h3 className="home-cell__title">Pang-ospital at gamot</h3>
+                <p className="home-cell__text">Hospital bill, biglaang check-up, o mga gamot.</p>
               </div>
               <div className="home-cell">
                 <span className="home-cell__icon"><FaGraduationCap aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Education</h3>
-                <p className="home-cell__text">Tuition fees and school requirements.</p>
+                <h3 className="home-cell__title">Pang-eskwela</h3>
+                <p className="home-cell__text">Tuition at school requirements ng mga anak.</p>
               </div>
               <div className="home-cell">
                 <span className="home-cell__icon"><FaStore aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Business relief</h3>
-                <p className="home-cell__text">Pandagdag puhunan for your sari-sari store or small business.</p>
+                <h3 className="home-cell__title">Pang-negosyo</h3>
+                <p className="home-cell__text">Pandagdag-puhunan sa sari-sari store o maliit na negosyo mo.</p>
               </div>
               <div className="home-cell">
                 <span className="home-cell__icon"><FaWallet aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Daily expenses</h3>
-                <p className="home-cell__text">Bridging the gap during a salary delay.</p>
+                <h3 className="home-cell__title">Pang-araw-araw</h3>
+                <p className="home-cell__text">Pantawid habang hinihintay ang sweldo.</p>
               </div>
               <div className="home-cell">
                 <span className="home-cell__icon"><FaFileInvoiceDollar aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Unexpected bills</h3>
-                <p className="home-cell__text">Urgent household repairs or due dates.</p>
+                <h3 className="home-cell__title">Biglaang bayarin</h3>
+                <p className="home-cell__text">Kailangang ayusin sa bahay o mga due date na hindi inaasahan.</p>
               </div>
             </div>
           </div>
@@ -278,42 +279,42 @@ function Home() {
         <section className="home-section home-section--navy">
           <div className="home-shell">
             <div className="home-section-head">
-              <p className="home-eyebrow">Process</p>
-              <h2 className="home-h2">How the process works.</h2>
+              <p className="home-eyebrow">Ganito kadali</p>
+              <h2 className="home-h2">Paano mag-sangla sa Magis.</h2>
               <p className="home-lead">
-                A fast, transparent, and no-pressure experience from start to finish.
+                Mabilis, malinaw, at walang pressure — mula pagpasok hanggang paglabas.
               </p>
             </div>
             <div className="home-steps">
               <div className="home-step">
                 <span className="home-step__num">STEP 1</span>
-                <h3 className="home-step__title">Bring your item</h3>
-                <p className="home-step__text">Visit any branch with your gold jewelry.</p>
+                <h3 className="home-step__title">Dalhin ang alahas mo</h3>
+                <p className="home-step__text">Pumunta sa kahit anong branch dala ang gold jewelry mo.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 2</span>
-                <h3 className="home-step__title">Fair appraisal</h3>
-                <p className="home-step__text">We appraise your gold by karat and weight at our posted branch rates and tell you the exact amount you can borrow.</p>
+                <h3 className="home-step__title">Patas na appraisal</h3>
+                <p className="home-step__text">Titimbangin at susuriin namin ang ginto mo ayon sa karat at timbang, tapos sasabihin agad ang eksaktong halagang pwede mong mahiram.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 3</span>
-                <h3 className="home-step__title">Clear terms</h3>
-                <p className="home-step__text">Ipapaliwanag namin nang maayos ang terms at interest rates. Walang hidden charges.</p>
+                <h3 className="home-step__title">Malinaw na usapan</h3>
+                <p className="home-step__text">Ipapaliwanag namin nang maayos ang terms at interest rate. Walang hidden charges.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 4</span>
-                <h3 className="home-step__title">Your decision</h3>
-                <p className="home-step__text">You decide whether to proceed. Walang pilitan.</p>
+                <h3 className="home-step__title">Ikaw ang masusunod</h3>
+                <p className="home-step__text">Ikaw ang magdedesisyon kung tutuloy. Walang pilitan.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 5</span>
-                <h3 className="home-step__title">Get your cash</h3>
-                <p className="home-step__text">If you accept, receive your funds within minutes.</p>
+                <h3 className="home-step__title">Kunin ang cash mo</h3>
+                <p className="home-step__text">Kapag pumayag ka, hawak mo na ang pera within minutes.</p>
               </div>
               <div className="home-step">
                 <span className="home-step__num">STEP 6</span>
-                <h3 className="home-step__title">Redeem securely</h3>
-                <p className="home-step__text">Pay the loan amount within the agreed term to get your jewelry back safely.</p>
+                <h3 className="home-step__title">Tubusin nang ligtas</h3>
+                <p className="home-step__text">Bayaran ang loan sa loob ng napagkasunduang term para maibalik nang buo at ligtas ang alahas mo.</p>
               </div>
             </div>
           </div>
@@ -324,27 +325,27 @@ function Home() {
           <div className="home-shell">
             <div className="home-section-head">
               <p className="home-eyebrow">Privacy</p>
-              <h2 className="home-h2">Your privacy is our priority.</h2>
+              <h2 className="home-h2">Ang privacy mo, priority namin.</h2>
               <p className="home-lead">
-                Pawning is a private matter. Our branches and staff are trained to give
-                you a discreet and highly professional experience.
+                Alam naming pribadong bagay ang pagsasangla. Sanay ang mga branch at
+                staff namin sa diskreto at propesyonal na serbisyo.
               </p>
             </div>
             <div className="home-feature-grid">
               <div className="home-feature">
                 <span className="home-feature__icon"><FaUserShield aria-hidden="true" /></span>
-                <h3 className="home-feature__title">Discreet service</h3>
-                <p className="home-feature__text">Walang usisero. We handle every transaction quietly and respectfully.</p>
+                <h3 className="home-feature__title">Diskretong serbisyo</h3>
+                <p className="home-feature__text">Walang usisero. Tahimik at may respeto ang bawat transaksyon.</p>
               </div>
               <div className="home-feature">
                 <span className="home-feature__icon"><FaLock aria-hidden="true" /></span>
-                <h3 className="home-feature__title">Secure storage</h3>
-                <p className="home-feature__text">Your gold is kept completely safe until the day you redeem it.</p>
+                <h3 className="home-feature__title">Ligtas ang alahas mo</h3>
+                <p className="home-feature__text">Nakatago nang ligtas ang ginto mo hanggang sa araw na tubusin mo ito.</p>
               </div>
               <div className="home-feature">
                 <span className="home-feature__icon"><FaBalanceScale aria-hidden="true" /></span>
-                <h3 className="home-feature__title">Fair rates</h3>
-                <p className="home-feature__text">We offer highly competitive appraisals and transparent interest rates starting at 1%</p>
+                <h3 className="home-feature__title">Patas na rates</h3>
+                <p className="home-feature__text">Mataas ang appraisal at malinaw ang interest rate — nagsisimula sa 1%.</p>
               </div>
             </div>
           </div>
@@ -354,22 +355,22 @@ function Home() {
         <section className="home-section home-section--navy">
           <div className="home-shell">
             <div className="home-section-head">
-              <p className="home-eyebrow">Monthly subasta</p>
-              <h2 className="home-h2">Clear policies on unredeemed items.</h2>
+              <p className="home-eyebrow">Buwanang subasta</p>
+              <h2 className="home-h2">Malinaw na patakaran sa mga hindi natubos.</h2>
               <p className="home-lead">
-                We understand that financial plans can change. Gusto naming maging malinaw
-                sa simula pa lang kung ano ang mangyayari kung hindi mabayaran ang loan.
+                Naiintindihan naming nagbabago ang sitwasyon. Gusto naming maging malinaw
+                sa simula pa lang kung ano ang mangyayari kapag hindi nabayaran ang loan.
               </p>
             </div>
             <ul className="home-policy">
-              <li>If your loan term expires and you cannot renew or redeem your item, it will be included in our scheduled monthly subasta (auction).</li>
-              <li>This is a standard, transparent procedure that allows the pawnshop to recover the unpaid loan amount.</li>
-              <li>We ensure all deadlines and policies are clearly explained to you before you sign anything, para walang surprises.</li>
+              <li>Kapag lumagpas ang loan term at hindi mo na-renew o natubos ang alahas, isasama ito sa nakatakdang buwanang subasta (auction).</li>
+              <li>Standard at malinaw na proseso ito para mabawi ng pawnshop ang hindi nabayarang loan.</li>
+              <li>Ipapaliwanag namin ang lahat ng deadline at patakaran bago ka pumirma — para walang surprises.</li>
             </ul>
 
             <div className="home-countdown-wrap">
               <p className="home-countdown-meta">
-                Next scheduled subasta
+                Susunod na subasta
                 <strong>
                   {nextAuctionDate.toLocaleDateString('en-PH', {
                     year: 'numeric',

@@ -61,10 +61,12 @@ function Footer() {
     { name: "Email",     url: `mailto:${EMAIL}`,                             sr: "Email us",                Icon: MdEmail },
   ];
 
-  const phones = [
-    { label: "Globe/TM", number: "0962-061-8672" },
-    { label: "Smart/Sun", number: "0919-XXX-XXXX" },
-    { label: "Landline", number: "(045) 4XX-XXXX" },
+  const phones = [{ label: "Globe", number: "0962-061-8672" }];
+  // Live-chat entry points — branches list (per-branch chat) and the
+  // customer-support chat on the contact page.
+  const chatLinks = [
+    { label: "Branch Live Chat", to: "/branches", sr: "Open the branches list to chat with a branch" },
+    { label: "Customer Support", to: "/contact-us", sr: "Open the customer support live chat" },
   ];
   const email = "";
 
@@ -187,8 +189,8 @@ function Footer() {
               />
             </picture>
             <p className="footer-copy">
-              Magis Gold & Gems is a BSP-regulated pawnshop. We aim to serve you
-              with transparent rates and friendly customer care.
+              Ang Magis Gold & Gems ay pawnshop na regulated ng BSP. Layunin naming
+              pagsilbihan ka nang may malinaw na rates at magiliw na serbisyo.
             </p>
 
             <div className="social-icons">
@@ -249,12 +251,12 @@ function Footer() {
             <ul>
               {/* SEO W2: dead "/about" link (it 404'd) replaced with the guide
                   hub — sitewide internal links to the keyword-targeted guides. */}
-              <li><Link to="/branches">Branch Finder</Link></li>
+              <li><Link to="/branches">Hanapin ang Branch</Link></li>
               <li><Link to="/faqs">FAQs</Link></li>
-              <li><Link to="/guides/how-to-pawn">How to Pawn (Sangla)</Link></li>
-              <li><Link to="/guides/gold-prices-appraisal">Gold Prices &amp; Appraisal</Link></li>
-              <li><Link to="/guides/gold-karat-guide">Gold Karat Guide</Link></li>
-              <li><Link to="/guides/pawnshop-interest-rates">Interest Rates &amp; Tubos</Link></li>
+              <li><Link to="/guides/how-to-pawn">Paano Mag-sangla</Link></li>
+              <li><Link to="/guides/gold-prices-appraisal">Presyo ng Ginto at Appraisal</Link></li>
+              <li><Link to="/guides/gold-karat-guide">Gabay sa Karat ng Ginto</Link></li>
+              <li><Link to="/guides/pawnshop-interest-rates">Interest Rates at Tubos</Link></li>
               <li className="pt-2"><Link to="/terms">Terms &amp; Conditions</Link></li>
               <li><Link to="/privacy-policy">Privacy Policy</Link></li>
             </ul>
@@ -268,6 +270,14 @@ function Footer() {
                 <li key={p.label}>
                   <span className="footer-contact-label">{p.label}:</span>
                   <a href={`tel:${p.number.replace(/[^\d+]/g, "")}`}>{p.number}</a>
+                </li>
+              ))}
+              {chatLinks.map((c) => (
+                <li key={c.label}>
+                  <Link to={c.to} aria-label={c.sr} className="footer-chat-link">
+                    <span className="footer-chat-dot" aria-hidden="true" />
+                    {c.label}
+                  </Link>
                 </li>
               ))}
               {email && (
@@ -307,7 +317,7 @@ function Footer() {
                     d="M12 2C7.58 2 4 5.58 4 10c0 5.25 6.5 11.79 7.01 12.29.26.26.68.26.94 0C13.5 21.79 20 15.25 20 10c0-4.42-3.58-8-8-8Zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6Z"
                   />
                 </svg>
-                View on Google Maps
+                Tingnan sa Google Maps
               </a>
             </div>
           </div>

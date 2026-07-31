@@ -116,7 +116,7 @@ function Pawning() {
 
     // if paymentDate before pawnDate → show error
     if (end < start) {
-      setCalcError("Planned payment date cannot be earlier than the pawn date.");
+      setCalcError("Hindi pwedeng mas maaga ang petsa ng bayad kaysa sa petsa ng sangla.");
       return;
     }
 
@@ -152,18 +152,18 @@ function Pawning() {
       <section className="pawn-hero">
         <div className="pawn-shell pawn-hero__inner">
           <p className="pawn-eyebrow">Sangla / Pawn loans</p>
-          <h1 className="pawn-hero__title">Pawn your gold with confidence.</h1>
+          <h1 className="pawn-hero__title">I-pawn ang ginto mo — ligtas at walang kaba.</h1>
           <p className="pawn-hero__sub">
-            Quick, fair cash for your gold jewelry — often in minutes, with clear
-            terms and a private, secure experience.
+            Mabilis at patas na cash para sa gold jewelry mo — kadalasan minuto
+            lang, malinaw ang usapan, at pribado ang transaksyon.
           </p>
           <div className="pawn-cta-row">
             <Link to="/branches" className="pawn-cta">
-              <FaComments aria-hidden="true" /> Chat with a Branch{" "}
+              <FaComments aria-hidden="true" /> Mag-chat sa Branch{" "}
               <FaArrowRight aria-hidden="true" />
             </Link>
             <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
-              View FAQs <FaArrowRight aria-hidden="true" />
+              Basahin ang FAQs <FaArrowRight aria-hidden="true" />
             </Link>
           </div>
         </div>
@@ -174,10 +174,10 @@ function Pawning() {
         <section id="how-to-pawn" className="pawn-section">
           <div className="pawn-shell">
             <div className="pawn-section-head">
-              <p className="pawn-eyebrow">How to pawn</p>
-              <h2 className="pawn-h2">A simple, transparent process.</h2>
+              <p className="pawn-eyebrow">Paano mag-sangla</p>
+              <h2 className="pawn-h2">Simple at malinaw na proseso.</h2>
               <p className="pawn-lead">
-                Secure and straightforward — get fair cash for your gold in just a few steps.
+                Ligtas at diretso — makukuha mo ang patas na halaga para sa ginto mo sa ilang hakbang lang.
               </p>
             </div>
 
@@ -186,26 +186,26 @@ function Pawning() {
                 {
                   icon: <FaRegIdCard aria-hidden="true" />,
                   num: "STEP 1",
-                  title: "Bring your item",
-                  text: "Visit any branch with your gold jewelry and one valid government-issued ID.",
+                  title: "Dalhin ang alahas",
+                  text: "Pumunta sa kahit anong branch dala ang gold jewelry mo at isang valid government ID.",
                 },
                 {
                   icon: <FaBalanceScale aria-hidden="true" />,
                   num: "STEP 2",
                   title: "Appraisal",
-                  text: "We assess karat, weight, and condition to determine a fair loan value.",
+                  text: "Susuriin namin ang karat, timbang, at kondisyon para malaman ang patas na halaga ng loan.",
                 },
                 {
                   icon: <FaClipboardCheck aria-hidden="true" />,
                   num: "STEP 3",
-                  title: "Offer & ticket",
-                  text: "Review the charges and terms. If accepted, sign your ticket and receive cash.",
+                  title: "Alok at ticket",
+                  text: "Silipin ang charges at terms. Kapag sang-ayon ka, pirmahan ang ticket at kunin ang cash.",
                 },
                 {
                   icon: <FaMoneyBillAlt aria-hidden="true" />,
                   num: "STEP 4",
-                  title: "Secure storage",
-                  text: "We store your item safely until you redeem or renew, under BSP standards.",
+                  title: "Ligtas na tago",
+                  text: "Itatago namin nang ligtas ang alahas mo hanggang sa pagtubos o pag-renew, ayon sa pamantayan ng BSP.",
                 },
               ].map((step, i) => (
                 <div key={i} className="pawn-cell">
@@ -220,8 +220,8 @@ function Pawning() {
             <div className="pawn-note">
               <FaShieldAlt aria-hidden="true" />
               <p>
-                <strong>Your peace of mind:</strong> Every item is appraised by trained staff,
-                recorded on an official pawn ticket, and kept in secure storage until you redeem it.
+                <strong>Para panatag ka:</strong> Bawat alahas ay ina-appraise ng sanay na staff,
+                nakatala sa opisyal na pawn ticket, at nakatago nang ligtas hanggang sa tubusin mo.
               </p>
             </div>
           </div>
@@ -231,10 +231,10 @@ function Pawning() {
         <section id="accepted-items" className="pawn-section pawn-section--navy">
           <div className="pawn-shell">
             <div className="pawn-section-head">
-              <p className="pawn-eyebrow">Accepted items</p>
-              <h2 className="pawn-h2">What we appraise and accept.</h2>
+              <p className="pawn-eyebrow">Mga tinatanggap</p>
+              <h2 className="pawn-h2">Anong alahas ang tinatanggap namin.</h2>
               <p className="pawn-lead">
-                We accept a wide range of gold jewelry for appraisal and pawning.
+                Malawak ang tinatanggap naming gold jewelry para sa appraisal at sangla.
               </p>
             </div>
 
@@ -243,21 +243,21 @@ function Pawning() {
                 <span className="pawn-cell__icon"><FaMoneyBillAlt aria-hidden="true" /></span>
                 <h3 className="pawn-cell__title">Gold jewelry</h3>
                 <p className="pawn-cell__text">
-                  Rings, necklaces, bracelets, earrings, pendants — every karat from 10K to 24K, appraised by karat and weight.
+                  Singsing, kwintas, pulseras, hikaw, palawit — lahat ng karat mula 10K hanggang 24K, susuriin ayon sa karat at timbang.
                 </p>
               </div>
               <div className="pawn-cell">
                 <span className="pawn-cell__icon"><FaBalanceScale aria-hidden="true" /></span>
-                <h3 className="pawn-cell__title">With stones</h3>
+                <h3 className="pawn-cell__title">May bato</h3>
                 <p className="pawn-cell__text">
-                  Gold jewelry with stones (e.g., diamonds) is carefully evaluated.
+                  Maingat naming susuriin ang gold jewelry na may bato (hal. diamante).
                 </p>
               </div>
               <div className="pawn-cell">
                 <span className="pawn-cell__icon"><FaInfoCircle aria-hidden="true" /></span>
-                <h3 className="pawn-cell__title">Ask us</h3>
+                <h3 className="pawn-cell__title">Itanong sa amin</h3>
                 <p className="pawn-cell__text">
-                  Have something else? Acceptance depends on our appraiser's evaluation at the branch.
+                  May iba ka pang alahas? Depende sa evaluation ng appraiser sa branch kung matatanggap.
                 </p>
               </div>
             </div>
@@ -268,19 +268,19 @@ function Pawning() {
         <section id="how-to-renew" className="pawn-section">
           <div className="pawn-shell">
             <div className="pawn-section-head">
-              <p className="pawn-eyebrow">How to renew</p>
-              <h2 className="pawn-h2">Extend your term by paying interest.</h2>
+              <p className="pawn-eyebrow">Paano mag-renew</p>
+              <h2 className="pawn-h2">Palawigin ang term — bayaran lang ang interest.</h2>
               <p className="pawn-lead">
-                Keep your item and push back the maturity date in three quick steps.
+                Hindi mawawala ang alahas mo — iusog ang maturity date sa tatlong mabilis na hakbang.
               </p>
             </div>
 
             <div className="pawn-feature pawn-feature--solo">
-              <h3 className="pawn-feature__title">Follow these simple steps</h3>
+              <h3 className="pawn-feature__title">Sundan lang ang tatlong hakbang</h3>
               <ul className="pawn-checklist">
-                <li>Visit any Magis branch on or before the maturity date.</li>
-                <li>Present your original pawn ticket and a valid ID.</li>
-                <li>Pay the charges printed on your ticket to renew your term.</li>
+                <li>Pumunta sa kahit anong Magis branch bago o sakto sa maturity date.</li>
+                <li>Ipakita ang original na pawn ticket at valid ID.</li>
+                <li>Bayaran ang charges na nakasulat sa ticket para ma-renew ang term.</li>
               </ul>
             </div>
           </div>
@@ -290,30 +290,30 @@ function Pawning() {
         <section id="how-to-redeem" className="pawn-section pawn-section--navy">
           <div className="pawn-shell">
             <div className="pawn-section-head">
-              <p className="pawn-eyebrow">How to redeem</p>
-              <h2 className="pawn-h2">Reclaim your jewelry.</h2>
+              <p className="pawn-eyebrow">Paano tumubos</p>
+              <h2 className="pawn-h2">Tubusin ang alahas mo.</h2>
               <p className="pawn-lead">
-                Settle the principal and charges due, then take your item home.
+                Bayaran ang principal at mga charges, tapos iuwi na ang alahas mo.
               </p>
             </div>
 
             <div className="pawn-feature-grid">
               <div className="pawn-feature">
-                <h3 className="pawn-feature__title">Requirements</h3>
+                <h3 className="pawn-feature__title">Mga kailangan</h3>
                 <ul className="pawn-checklist">
-                  <li>Original pawn ticket.</li>
-                  <li>Valid ID of the pawner or representative.</li>
-                  <li>Payment of principal plus charges due.</li>
+                  <li>Original na pawn ticket.</li>
+                  <li>Valid ID ng nagsangla o ng kinatawan.</li>
+                  <li>Bayad sa principal at mga charges.</li>
                 </ul>
               </div>
               <div className="pawn-feature">
-                <h3 className="pawn-feature__title">Reminders</h3>
+                <h3 className="pawn-feature__title">Mga paalala</h3>
                 <ul className="pawn-checklist">
                   <li className="is-warn">
-                    Representatives need an authorization letter, valid ID, and the original pawn ticket.
+                    Kailangan ng kinatawan ang authorization letter, valid ID, at ang original na pawn ticket.
                   </li>
                   <li className="is-warn">
-                    After verification, your item is released along with your redeemed ticket.
+                    Pagkatapos ng verification, ibibigay ang alahas kasama ang natubos na ticket.
                   </li>
                 </ul>
               </div>
@@ -326,9 +326,9 @@ function Pawning() {
           <div className="pawn-shell">
             <div className="pawn-section-head">
               <p className="pawn-eyebrow">Interest calculator</p>
-              <h2 className="pawn-h2">Estimate your charges.</h2>
+              <h2 className="pawn-h2">I-estimate ang babayaran mo.</h2>
               <p className="pawn-lead">
-                For planning only — actual rates vary per branch and appear on your pawn ticket.
+                Pang-plano lang ito — iba-iba ang aktwal na rate kada branch at nakasulat ito sa pawn ticket mo.
               </p>
             </div>
 
@@ -356,18 +356,18 @@ function Pawning() {
 
               <div className="pawn-calc__inputs">
                 <div className="pawn-field">
-                  <label htmlFor="principal">Principal amount (₱)</label>
+                  <label htmlFor="principal">Halaga ng principal (₱)</label>
                   <input
                     type="number"
                     id="principal"
                     min="0"
-                    placeholder="Enter amount"
+                    placeholder="Ilagay ang halaga"
                     value={principal}
                     onChange={(e) => setPrincipal(e.target.value)}
                   />
                 </div>
                 <div className="pawn-field">
-                  <label htmlFor="pawnDate">Pawn date</label>
+                  <label htmlFor="pawnDate">Petsa ng sangla</label>
                   <input
                     type="date"
                     id="pawnDate"
@@ -376,7 +376,7 @@ function Pawning() {
                   />
                 </div>
                 <div className="pawn-field">
-                  <label htmlFor="paymentDate">Planned payment date</label>
+                  <label htmlFor="paymentDate">Planong petsa ng bayad</label>
                   <input
                     type="date"
                     id="paymentDate"
@@ -390,7 +390,7 @@ function Pawning() {
                 {!principal || !pawnDate || !paymentDate ? (
                   <div className="pawn-result-empty">
                     <FaCalculator aria-hidden="true" />
-                    <p>Fill in the three fields above — your estimate appears here instantly.</p>
+                    <p>Punan ang tatlong field sa taas — lalabas agad dito ang estimate mo.</p>
                   </div>
                 ) : calcError ? (
                   <p className="pawn-result-error">{calcError}</p>
@@ -405,13 +405,13 @@ function Pawning() {
                     </span>
                     <p className="pawn-result__sub">
                       {mode === "redeem"
-                        ? "Principal + interest — pay in full to reclaim your item."
-                        : "Interest only — pay this to extend your pawn term."}
+                        ? "Principal + interest — bayaran nang buo para maiuwi ang alahas mo."
+                        : "Interest lang — ito ang bayaran para umusog ang term mo."}
                     </p>
 
                     <div className="pawn-stats">
                       <div className="pawn-stat">
-                        <span className="pawn-stat__label">Days elapsed</span>
+                        <span className="pawn-stat__label">Araw na lumipas</span>
                         <span className="pawn-stat__value">
                           {daysElapsed} day{daysElapsed === 1 ? "" : "s"}
                         </span>
@@ -434,7 +434,7 @@ function Pawning() {
               </div>
 
               <p className="pawn-calc__note">
-                *For sample estimation only. Actual rates, maturity, and grace periods vary per branch.
+                *Sample estimate lang ito. Iba-iba ang aktwal na rates, maturity, at grace period kada branch.
               </p>
             </div>
           </div>
@@ -445,47 +445,47 @@ function Pawning() {
           <div className="pawn-shell">
             <div className="pawn-section-head">
               <p className="pawn-eyebrow">Terms &amp; conditions</p>
-              <h2 className="pawn-h2">Fair terms, clearly explained.</h2>
-              <p className="pawn-lead">A simple summary of how your pawn works — from your ticket to the day you redeem.</p>
+              <h2 className="pawn-h2">Patas na terms, malinaw na paliwanag.</h2>
+              <p className="pawn-lead">Simpleng buod kung paano gumagana ang sangla mo — mula ticket hanggang araw ng pagtubos.</p>
             </div>
 
             <div className="pawn-feature-grid">
               <div className="pawn-feature">
-                <h3 className="pawn-feature__title">Your transaction</h3>
+                <h3 className="pawn-feature__title">Ang transaksyon mo</h3>
                 <ul className="pawn-checklist">
                   <li>
-                    <strong>Charges &amp; periods:</strong> Exact interest, charges, and grace
-                    periods are printed on your pawn ticket.
+                    <strong>Charges at panahon:</strong> Nakasulat sa pawn ticket mo ang eksaktong
+                    interest, charges, at grace period.
                   </li>
                   <li>
-                    <strong>Ticket is your contract:</strong> Keep it safe — it's required for
-                    renewals and redemption.
+                    <strong>Ticket = kontrata mo:</strong> Ingatan ito — kailangan ito sa
+                    pag-renew at pagtubos.
                   </li>
                   <li>
-                    <strong>KYC / AMLA:</strong> Valid ID and documentation are required to comply with AMLA.
+                    <strong>KYC / AMLA:</strong> Kailangan ang valid ID at dokumento bilang pagsunod sa AMLA.
                   </li>
                   <li>
-                    <strong>BSP-regulated:</strong> We strictly follow Bangko Sentral ng Pilipinas regulations.
+                    <strong>BSP-regulated:</strong> Mahigpit kaming sumusunod sa regulasyon ng Bangko Sentral ng Pilipinas.
                   </li>
                 </ul>
               </div>
               <div className="pawn-feature">
-                <h3 className="pawn-feature__title">Redemption &amp; care</h3>
+                <h3 className="pawn-feature__title">Pagtubos at pag-iingat</h3>
                 <ul className="pawn-checklist">
                   <li>
-                    <strong>Redemption &amp; renewals:</strong> Only the pawner or an authorized
-                    representative may redeem.
+                    <strong>Pagtubos at pag-renew:</strong> Tanging ang nagsangla o awtorisadong
+                    kinatawan lang ang pwedeng tumubos.
                   </li>
                   <li>
-                    <strong>Unredeemed items:</strong> May be auctioned following BSP rules and notices.
+                    <strong>Hindi natubos:</strong> Maaaring maisubasta ayon sa mga patakaran at abiso ng BSP.
                   </li>
                   <li>
-                    <strong>Care &amp; liability:</strong> Items are stored securely per industry standards.
+                    <strong>Pag-iingat:</strong> Nakatago nang ligtas ang mga alahas ayon sa pamantayan ng industriya.
                   </li>
                   <li>
-                    <strong>Privacy:</strong> See our{" "}
+                    <strong>Privacy:</strong> Basahin ang{" "}
                     <Link to="/privacy-policy" className="pawn-link">Privacy Policy</Link>{" "}
-                    for how your data is handled.
+                    namin kung paano iniingatan ang data mo.
                   </li>
                 </ul>
               </div>
@@ -494,8 +494,8 @@ function Pawning() {
             <div className="pawn-note">
               <FaExclamationTriangle aria-hidden="true" />
               <p>
-                This summary is for convenience only. The <strong>pawn ticket</strong> and
-                applicable laws prevail. For complete terms, visit{" "}
+                Pinadaling buod lang ito. Ang <strong>pawn ticket</strong> at umiiral na batas
+                pa rin ang masusunod. Para sa kumpletong terms, puntahan ang{" "}
                 <Link to="/terms" className="pawn-link">Terms &amp; Conditions</Link>.
               </p>
             </div>
@@ -506,20 +506,20 @@ function Pawning() {
         <section className="pawn-section">
           <div className="pawn-shell">
             <div className="pawn-section-head">
-              <p className="pawn-eyebrow">Get started</p>
-              <h2 className="pawn-h2">Visit us for a free appraisal.</h2>
+              <p className="pawn-eyebrow">Simulan na</p>
+              <h2 className="pawn-h2">Dumaan ka — libre ang appraisal.</h2>
               <p className="pawn-lead">
-                Our appraisers evaluate your jewelry and walk you through all charges and terms
-                clearly — no pressure, no obligation.
+                Susuriin ng appraiser namin ang alahas mo at ipapaliwanag nang malinaw ang lahat
+                ng charges at terms — walang pressure, walang obligasyon.
               </p>
             </div>
             <div className="pawn-cta-row">
               <Link to="/branches" className="pawn-cta">
-                <FaComments aria-hidden="true" /> Chat with a Branch{" "}
+                <FaComments aria-hidden="true" /> Mag-chat sa Branch{" "}
                 <FaArrowRight aria-hidden="true" />
               </Link>
               <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
-                Read FAQs <FaArrowRight aria-hidden="true" />
+                Basahin ang FAQs <FaArrowRight aria-hidden="true" />
               </Link>
             </div>
           </div>

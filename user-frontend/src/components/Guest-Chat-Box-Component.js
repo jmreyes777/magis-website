@@ -2174,10 +2174,10 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
               <div className="greeting-card">
                 <h3 className="greeting-title">Magis Live Chat</h3>
                 <p className="greeting-text">
-                  Ask about sangla, tubos, renewal, subasta schedule, branch hours.
+                  Magtanong tungkol sa sangla, tubos, renewal, schedule ng subasta, o branch hours.
                 </p>
                 <p className="greeting-text" style={{ marginTop: '8px' }}>
-                  We're here to help you get quick answers before visiting this branch.
+                  Nandito kami para masagot agad ang tanong mo bago ka pumunta sa branch.
                 </p>
                 <div className="trust-badge">
                   <svg viewBox="0 0 24 24" fill="currentColor">

@@ -9,9 +9,9 @@ import Seo from "../components/Seo";
 
 const HELPFUL_LINKS = [
   { to: "/", label: "Home" },
-  { to: "/pawning", label: "Pawning" },
+  { to: "/pawning", label: "Sangla" },
   { to: "/jewelry-sales", label: "Jewelry Sales" },
-  { to: "/branches", label: "Find a Branch" },
+  { to: "/branches", label: "Hanapin ang Branch" },
   { to: "/faqs", label: "FAQs" },
   { to: "/contact-us", label: "Contact Us" },
 ];
@@ -35,7 +35,7 @@ const NotFound = () => {
         <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
           <h1 className="mb-3 text-6xl md:text-7xl font-extrabold tracking-tight text-[#d4a853]">404</h1>
           <p className="text-base text-gray-200 md:text-lg">
-            Sorry, we couldn’t find that page.
+            Pasensya na — hindi namin mahanap ang page na ’yan.
           </p>
         </div>
       </section>
@@ -45,8 +45,7 @@ const NotFound = () => {
         <section className="py-12 bg-white">
           <div className="container mx-auto px-4 max-w-3xl text-center">
             <p className="text-gray-700 mb-8">
-              The page may have moved or no longer exists. Try one of these
-              instead:
+              Baka lumipat na o wala na ang page. Subukan ang isa sa mga ito:
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               {HELPFUL_LINKS.map((link) => (

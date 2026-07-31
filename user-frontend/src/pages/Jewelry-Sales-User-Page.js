@@ -77,7 +77,7 @@ function LayawayCalculator() {
       <div className="jewelry-calculator-header">
         <div className="jewelry-calculator-input-group">
           <label className="jewelry-calculator-label">
-            Tag Price (₱)
+            Presyo sa Tag (₱)
           </label>
           <input
             type="number"
@@ -103,7 +103,7 @@ function LayawayCalculator() {
 
       <div className="jewelry-calculator-results">
         <div className="jewelry-calc-hero">
-          <span className="jewelry-calc-hero-label">Pay today (down)</span>
+          <span className="jewelry-calc-hero-label">Bayad ngayon (down)</span>
           <span className="jewelry-calc-hero-amount">{peso(res.down)}</span>
           <span className="jewelry-calc-hero-plan">{res.label}</span>
         </div>
@@ -116,19 +116,19 @@ function LayawayCalculator() {
                 <span className="jewelry-calc-chip-value">{peso(res.withFee)}</span>
               </div>
               <div className="jewelry-calc-chip">
-                <span className="jewelry-calc-chip-label">Rounded base</span>
+                <span className="jewelry-calc-chip-label">Rounded na base</span>
                 <span className="jewelry-calc-chip-value">{peso(res.base)}</span>
               </div>
             </>
           ) : (
             <div className="jewelry-calc-chip">
-              <span className="jewelry-calc-chip-label">Tag price</span>
+              <span className="jewelry-calc-chip-label">Presyo sa tag</span>
               <span className="jewelry-calc-chip-value">{peso(res.base)}</span>
             </div>
           )}
 
           <div className="jewelry-calc-chip">
-            <span className="jewelry-calc-chip-label">Balance</span>
+            <span className="jewelry-calc-chip-label">Balanse</span>
             <span className="jewelry-calc-chip-value">{peso(res.balance)}</span>
           </div>
 
@@ -139,7 +139,7 @@ function LayawayCalculator() {
         </div>
 
         <p className="jewelry-calculator-disclaimer">
-          * Confirm final computation in-branch.
+          * Kumpirmahin ang final na computation sa branch.
         </p>
       </div>
     </div>
@@ -152,13 +152,13 @@ function LayawayCalculator() {
 export default function JewelrySales() {
   // Images live under public/images/, e.g. `${BASE}/images/pendant.png`
   const types = [
-    { key: "rings",     label: "Ring",     src: `${BASE}/images/ring.png`,      alt: "Gold rings" },
-    { key: "earrings",  label: "Earring",  src: `${BASE}/images/earring.png`,   alt: "Gold earrings" },
-    { key: "bracelets", label: "Bracelet", src: `${BASE}/images/bracelet.png`,  alt: "Gold bracelets" },
-    { key: "chains",    label: "Chain",    src: `${BASE}/images/chain.png`,     alt: "Gold chains" },
-    { key: "necklace",  label: "Necklace", src: `${BASE}/images/necklace.png`,  alt: "Gold necklaces" },
+    { key: "rings",     label: "Singsing", src: `${BASE}/images/ring.png`,      alt: "Gold rings" },
+    { key: "earrings",  label: "Hikaw",    src: `${BASE}/images/earring.png`,   alt: "Gold earrings" },
+    { key: "bracelets", label: "Pulseras", src: `${BASE}/images/bracelet.png`,  alt: "Gold bracelets" },
+    { key: "chains",    label: "Kadena",   src: `${BASE}/images/chain.png`,     alt: "Gold chains" },
+    { key: "necklace",  label: "Kwintas",  src: `${BASE}/images/necklace.png`,  alt: "Gold necklaces" },
     { key: "bangles",   label: "Bangle",   src: `${BASE}/images/bangle.png`,    alt: "Gold bangles" },
-    { key: "pendants",  label: "Pendant",  src: `${BASE}/images/pendant.png`,   alt: "Gold pendants" },
+    { key: "pendants",  label: "Palawit",  src: `${BASE}/images/pendant.png`,   alt: "Gold pendants" },
   ];
 
   // Answers may be a string or an array of paragraphs (rendered as separate
@@ -279,30 +279,31 @@ export default function JewelrySales() {
         >
           <div className="jewelry-hero-content">
             <h1 className="jewelry-hero-title">
-              Quality Gold Jewelry, Fair and Affordable
+              De-kalidad na Gold Jewelry — Patas at Abot-kaya
             </h1>
             <p className="jewelry-hero-subtitle">
-              Discover fine gold pieces for everyday wear and special moments —
-              available at our branches. Visit us to view actual items and pricing.
+              May mga pinong gintong alahas para sa araw-araw at sa mga espesyal na
+              okasyon — makikita sa mga branch namin. Dumaan para makita ang aktwal
+              na items at presyo.
             </p>
             <div className="jewelry-hero-cta-container">
               <Link
                 to={{ pathname: "/branches", search: "?filter=jewelry" }}
                 className="btn-primary-cta"
               >
-                Find a Jewelry Branch <FaMapMarkedAlt className="ml-2" />
+                Hanapin ang Jewelry Branch <FaMapMarkedAlt className="ml-2" />
               </Link>
               <button
                 onClick={() => window.location.href = '/branches'}
                 className="btn-secondary-cta"
               >
-                Chat With Our Team <FaComments className="ml-2" />
+                Mag-chat sa Team Namin <FaComments className="ml-2" />
               </button>
             </div>
             <div className="jewelry-hero-trust">
               <span className="jewelry-hero-trust-item"><FaGem /> 10K–24K gold</span>
-              <span className="jewelry-hero-trust-item"><FaShieldAlt /> Actual pricing</span>
-              <span className="jewelry-hero-trust-item"><FaCheckCircle /> Layaway (hulugan) available</span>
+              <span className="jewelry-hero-trust-item"><FaShieldAlt /> Aktwal na presyo</span>
+              <span className="jewelry-hero-trust-item"><FaCheckCircle /> May layaway (hulugan)</span>
             </div>
           </div>
         </section>
@@ -312,10 +313,10 @@ export default function JewelrySales() {
           <div className="jewelry-section-header">
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
               <FaGem className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="jewelry-section-title">Gold Jewelry Types</h2>
+              <h2 className="jewelry-section-title">Mga Klase ng Gold Jewelry</h2>
             </div>
             <p className="jewelry-section-subtitle">
-              Styles and availability vary per branch. Visit us to view actual items and pricing.
+              Iba-iba ang istilo at availability kada branch. Dumaan para makita ang aktwal na items at presyo.
             </p>
           </div>
 
@@ -341,10 +342,10 @@ export default function JewelrySales() {
           <div className="jewelry-section-header">
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
               <FaShieldAlt className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="jewelry-section-title">Layaway Options</h2>
+              <h2 className="jewelry-section-title">Layaway (Hulugan) Options</h2>
             </div>
             <p className="jewelry-section-subtitle">
-              Flexible payment plans to help you own your dream jewelry
+              Flexible na hulugan para makuha mo ang pangarap mong alahas
             </p>
           </div>
 
@@ -354,12 +355,12 @@ export default function JewelrySales() {
                 Payment Option 1
               </h4>
               <ul className="jewelry-layaway-list">
-                <li>10% Down Payment</li>
-                <li>Maximum 2 weeks to complete full payment</li>
-                <li>90% One-time payment of outstanding balance</li>
+                <li>10% down payment</li>
+                <li>Hanggang 2 linggo para mabayaran nang buo</li>
+                <li>90% one-time na bayad sa natitirang balanse</li>
               </ul>
               <p className="jewelry-layaway-example">
-                <strong>Example:</strong> ₱5,000 × 10% = ₱500 down → ₱4,500 remaining.
+                <strong>Halimbawa:</strong> ₱5,000 × 10% = ₱500 down → ₱4,500 ang matitira.
               </p>
             </div>
 
@@ -368,14 +369,14 @@ export default function JewelrySales() {
                 Payment Option 2
               </h4>
               <ul className="jewelry-layaway-list">
-                <li>20% Down on (Principal + 4%)</li>
-                <li>Plan 1: ₱3,000–₱5,000 → 2 months</li>
-                <li>Plan 2: ₱5,001+ → 3 months</li>
-                <li>Round base to nearest 50 or 100</li>
-                <li>Down rounded up to nearest ₱50</li>
+                <li>20% down sa (Principal + 4%)</li>
+                <li>Plan 1: ₱3,000–₱5,000 → 2 buwan</li>
+                <li>Plan 2: ₱5,001+ → 3 buwan</li>
+                <li>Iro-round ang base sa pinakamalapit na 50 o 100</li>
+                <li>Down payment, iro-round up sa pinakamalapit na ₱50</li>
               </ul>
               <p className="jewelry-layaway-example">
-                <strong>Example:</strong> ₱4,000 + 4% = ₱4,160 → Rounded ₱4,200 → 20% = ₱832 → ₱850 down → ₱3,350 balance.
+                <strong>Halimbawa:</strong> ₱4,000 + 4% = ₱4,160 → Rounded ₱4,200 → 20% = ₱832 → ₱850 down → ₱3,350 balanse.
               </p>
             </div>
           </div>
@@ -390,10 +391,10 @@ export default function JewelrySales() {
           <div className="jewelry-section-header">
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
               <FaCheckCircle className="text-3xl" style={{ color: '#d4a853' }} />
-              <h2 className="jewelry-section-title">Frequently Asked Questions</h2>
+              <h2 className="jewelry-section-title">Mga Madalas Itanong</h2>
             </div>
             <p className="jewelry-section-subtitle">
-              Common questions about our jewelry sales
+              Mga karaniwang tanong tungkol sa jewelry sales namin
             </p>
           </div>
 
@@ -410,9 +411,9 @@ export default function JewelrySales() {
               </details>
             ))}
             <p className="jewelry-section-subtitle" style={{ marginTop: "1.5rem" }}>
-              If you have questions about a specific piece, payment option, or returns
-              request, message Magi’s directly so we can guide you based on current
-              availability and branch policy.
+              Kung may tanong ka tungkol sa isang partikular na piyesa, payment option,
+              o returns, i-message lang kami para magabayan ka base sa kasalukuyang
+              availability at patakaran ng branch.
             </p>
           </div>
         </section>
@@ -427,35 +428,35 @@ export default function JewelrySales() {
               </h2>
             </div>
             <p className="jewelry-section-subtitle">
-              Important information about jewelry purchases
+              Mahalagang impormasyon sa pagbili ng alahas
             </p>
           </div>
 
           <div className="jewelry-terms-grid">
             <div className="jewelry-terms-card">
               <p className="jewelry-terms-item">
-                <strong>Karat &amp; Weight:</strong> Tags show karat, weight, and price. Verify before purchase.
+                <strong>Karat at timbang:</strong> Nakasulat sa tag ang karat, timbang, at presyo. I-verify bago bilhin.
               </p>
               <p className="jewelry-terms-item">
-                <strong>Pricing:</strong> Prices vary per branch and may change without prior notice.
+                <strong>Presyo:</strong> Iba-iba ang presyo kada branch at maaaring magbago nang walang paunang abiso.
               </p>
               <p className="jewelry-terms-item">
-                <strong>Condition:</strong> Items are inspected before release; slight variations may occur.
+                <strong>Kondisyon:</strong> Ini-inspect ang items bago i-release; maaaring may bahagyang pagkakaiba.
               </p>
               <p className="jewelry-terms-item">
-                <strong>Receipts:</strong> Official receipts reflect item details and payment amount.
+                <strong>Resibo:</strong> Makikita sa official receipt ang detalye ng item at halagang binayaran.
               </p>
             </div>
 
             <div className="jewelry-terms-card">
               <p className="jewelry-terms-item">
-                <strong>Returns &amp; Exchanges:</strong> Handled with care and subject to store policy — contact us promptly about any concern.
+                <strong>Returns at palitan:</strong> Maingat naming inaasikaso at nakabatay sa patakaran ng store — i-contact kami agad kung may concern.
               </p>
               <p className="jewelry-terms-item">
-                <strong>Availability:</strong> Stocks differ per branch; some items may sell quickly.
+                <strong>Availability:</strong> Iba-iba ang stock kada branch; mabilis maubos ang ibang items.
               </p>
               <p className="jewelry-terms-item">
-                <strong>Compliance:</strong> All transactions follow BSP and consumer regulations.
+                <strong>Compliance:</strong> Sumusunod ang lahat ng transaksyon sa BSP at consumer regulations.
               </p>
             </div>
           </div>
@@ -464,23 +465,23 @@ export default function JewelrySales() {
         {/* CTA */}
         <section className="jewelry-cta-banner">
             <h2 className="jewelry-cta-title">
-              Ready to Inquire About Available Jewelry?
+              May Gusto Kang Itanong sa Available na Alahas?
             </h2>
             <p className="mb-6 text-sm md:text-base max-w-2xl mx-auto">
-              Our staff can help with sizing, pricing, and availability. We’re happy to assist!
+              Matutulungan ka ng staff namin sa sizing, presyo, at availability. Happy kaming tumulong!
             </p>
             <div className="jewelry-cta-buttons">
               <Link
                 to={{ pathname: "/branches", search: "?filter=jewelry" }}
                 className="jewelry-cta-primary"
               >
-                Find a Jewelry Branch <FaMapMarkedAlt className="ml-2" />
+                Hanapin ang Jewelry Branch <FaMapMarkedAlt className="ml-2" />
               </Link>
               <button
                 onClick={() => window.location.href = '/branches'}
                 className="jewelry-cta-secondary"
               >
-                Chat With Our Team <FaComments className="ml-2" />
+                Mag-chat sa Team Namin <FaComments className="ml-2" />
               </button>
             </div>
         </section>
@@ -489,7 +490,7 @@ export default function JewelrySales() {
           <div className="jewelry-live-header">
             <h2 className="jewelry-live-title">Live Selling Sessions</h2>
             <p className="jewelry-live-subtitle">
-              Watch our live selling sessions to see featured jewelry designs. For current availability, message us or visit your nearest branch.
+              Panoorin ang live selling namin para makita ang mga featured na disenyo. Para sa kasalukuyang availability, mag-message o dumaan sa pinakamalapit na branch.
             </p>
           </div>
           <div className="jewelry-live-container">
