@@ -115,9 +115,11 @@ function Footer() {
   // Real presence for the live-chat dots. Starts offline (deterministic
   // prerender frame), then syncs from /api/branch-status/all and re-polls on
   // an interval + whenever the tab becomes visible again. "Branch Live Chat"
-  // is green if ANY non-support branch is online; "Customer Support" tracks
-  // the dedicated support inbox. Fetch failures leave dots gray (unknown ≈
-  // offline) rather than advertising a chat nobody is staffing.
+  // is green if ANY branch is online; "Customer Support" tracks the support
+  // inbox. The support inbox is itself a branch admin account (see
+  // REACT_APP_SUPPORT_BRANCH_EMAIL), so its presence counts toward BOTH dots.
+  // Fetch failures leave dots gray (unknown ≈ offline) rather than
+  // advertising a chat nobody is staffing.
   const [liveStatus, setLiveStatus] = useState({ branches: false, support: false });
   useEffect(() => {
     const controller = new AbortController();
@@ -135,8 +137,8 @@ function Footer() {
         let supportOnline = false;
         Object.entries(statuses).forEach(([emailKey, s]) => {
           if (!s?.online) return;
+          branchesOnline = true;
           if (emailKey.toLowerCase() === SUPPORT_BRANCH_EMAIL) supportOnline = true;
-          else branchesOnline = true;
         });
         if (!cancelled) {
           setLiveStatus({ branches: branchesOnline, support: supportOnline });
