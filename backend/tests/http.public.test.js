@@ -63,6 +63,20 @@ describe("security-header envelope (helmet + custom middleware)", () => {
   });
 });
 
+describe("GET /api/branch-status/all (footer presence bulk read)", () => {
+  // The harness runs without Firestore creds, so the route's Firestore
+  // baseline read throws — this pins three contracts: the path is registered
+  // (not the tail JSON 404), it fails CLOSED with a generic JSON error (no
+  // stack/em leak), and error responses are never marked cacheable
+  // (publicCache stamps `public` on 2xx only).
+  test("registered, fails closed as JSON 500, error is no-store", async () => {
+    const res = await request("/api/branch-status/all");
+    assert.equal(res.status, 500);
+    assert.deepEqual(res.json, { error: "Internal server error" });
+    assert.equal(res.headers.get("cache-control"), "no-store");
+  });
+});
+
 describe("unmatched API routes (A10-2)", () => {
   test("JSON 404 — machine-readable, no SPA index.html fallthrough", async () => {
     const res = await request("/api/definitely-not-a-route");

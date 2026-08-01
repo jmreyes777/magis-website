@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import "./Footer-User-Component.css";
 
@@ -8,6 +8,18 @@ import { MdEmail } from "react-icons/md";
 
 const EMAIL = "magisgoldandgems.pawnshop@gmail.com";
 const LS_KEY = "emailProviderPreference"; // "gmail" | "outlook" | "yahoo"
+
+const API_BASE =
+  (process.env.REACT_APP_API_URL &&
+    process.env.REACT_APP_API_URL.replace(/\/$/, "")) ||
+  "";
+// Must match the ContactUs page's support inbox so both dots agree.
+const SUPPORT_BRANCH_EMAIL = (
+  process.env.REACT_APP_SUPPORT_BRANCH_EMAIL || "support@magisgold.com"
+).toLowerCase();
+// Presence refresh cadence — the backend caches /branch-status/all for ~30s,
+// so polling faster than this just re-reads the same cached payload.
+const STATUS_POLL_MS = 60_000;
 
 // --- Inline SVG brand marks (no external files needed) ---
 const GmailLogo = ({ className }) => (
@@ -63,10 +75,11 @@ function Footer() {
 
   const phones = [{ label: "Globe", number: "0962-061-8672" }];
   // Live-chat entry points — branches list (per-branch chat) and the
-  // customer-support chat on the contact page.
+  // customer-support chat on the contact page. `statusKey` selects which
+  // liveStatus flag drives the green/gray presence dot.
   const chatLinks = [
-    { label: "Branch Live Chat", to: "/branches", sr: "Open the branches list to chat with a branch" },
-    { label: "Customer Support", to: "/contact-us", sr: "Open the customer support live chat" },
+    { label: "Branch Live Chat", to: "/branches", sr: "Open the branches list to chat with a branch", statusKey: "branches" },
+    { label: "Customer Support", to: "/contact-us", sr: "Open the customer support live chat", statusKey: "support" },
   ];
   const email = "";
 
@@ -97,6 +110,55 @@ function Footer() {
       const saved = localStorage.getItem(LS_KEY) || "";
       if (saved) setPref(saved);
     } catch { /* storage unavailable → keep defaults */ }
+  }, []);
+
+  // Real presence for the live-chat dots. Starts offline (deterministic
+  // prerender frame), then syncs from /api/branch-status/all and re-polls on
+  // an interval + whenever the tab becomes visible again. "Branch Live Chat"
+  // is green if ANY non-support branch is online; "Customer Support" tracks
+  // the dedicated support inbox. Fetch failures leave dots gray (unknown ≈
+  // offline) rather than advertising a chat nobody is staffing.
+  const [liveStatus, setLiveStatus] = useState({ branches: false, support: false });
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+
+    const refresh = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/branch-status/all`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const statuses = data?.statuses || {};
+        let branchesOnline = false;
+        let supportOnline = false;
+        Object.entries(statuses).forEach(([emailKey, s]) => {
+          if (!s?.online) return;
+          if (emailKey.toLowerCase() === SUPPORT_BRANCH_EMAIL) supportOnline = true;
+          else branchesOnline = true;
+        });
+        if (!cancelled) {
+          setLiveStatus({ branches: branchesOnline, support: supportOnline });
+        }
+      } catch {
+        /* network error / abort → keep last known state */
+      }
+    };
+
+    refresh();
+    const timer = setInterval(refresh, STATUS_POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   const composeUrl = (provider, to) => {
@@ -272,14 +334,26 @@ function Footer() {
                   <a href={`tel:${p.number.replace(/[^\d+]/g, "")}`}>{p.number}</a>
                 </li>
               ))}
-              {chatLinks.map((c) => (
-                <li key={c.label}>
-                  <Link to={c.to} aria-label={c.sr} className="footer-chat-link">
-                    <span className="footer-chat-dot" aria-hidden="true" />
-                    {c.label}
-                  </Link>
-                </li>
-              ))}
+              {chatLinks.map((c) => {
+                const online = !!liveStatus[c.statusKey];
+                const statusText = online ? "online now" : "currently offline";
+                return (
+                  <li key={c.label}>
+                    <Link
+                      to={c.to}
+                      aria-label={`${c.sr} (${statusText})`}
+                      title={`${c.label} — ${statusText}`}
+                      className="footer-chat-link"
+                    >
+                      <span
+                        className={`footer-chat-dot${online ? "" : " footer-chat-dot--off"}`}
+                        aria-hidden="true"
+                      />
+                      {c.label}
+                    </Link>
+                  </li>
+                );
+              })}
               {email && (
                 <li>
                   <span className="footer-contact-label">Email:</span>

@@ -9,6 +9,76 @@ const { getRedis, ensureRedisConnected } = require("../utils/redis");
 const PRESENCE_PREFIX = process.env.REDIS_PRESENCE_PREFIX || "branch:online:";
 
 /**
+ * GET /branch-status/all
+ * Returns { statuses: { [branchEmail]: { online: boolean, lastSeen: ISOString | "Unavailable" } } }
+ *
+ * Bulk variant powering the footer live-chat indicators (one request instead
+ * of N per-branch polls). Same order of truth as the single-branch route:
+ *  1) Redis TTL presence keys (branch:online:<email>) → online now
+ *  2) Firestore `branchStatus` docs → lastSeen / offline entries
+ * Redis is a soft dependency — on failure we serve Firestore data alone.
+ *
+ * NOTE: registered before "/branch-status" only for readability; the paths
+ * are distinct so Express routing is unambiguous either way.
+ */
+router.get("/branch-status/all", publicCache(30, 60), async (req, res) => {
+  const statuses = {};
+
+  // 1) Firestore baseline (also enumerates branches currently offline)
+  try {
+    const snap = await db.collection("branchStatus").get();
+    snap.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      statuses[doc.id.toLowerCase()] = {
+        online: !!data.online,
+        lastSeen: data.lastSeen || "Unavailable",
+      };
+    });
+  } catch (error) {
+    console.error("[branch-status/all] ❌ Firestore read failed:", error.message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+
+  // 2) Redis presence overlay (most current; TTL keys exist only while online)
+  try {
+    const client = getRedis();
+    await ensureRedisConnected(client);
+    const keys = [];
+    let cursor = "0";
+    do {
+      const [next, batch] = await client.scan(
+        cursor,
+        "MATCH",
+        `${PRESENCE_PREFIX}*`,
+        "COUNT",
+        100
+      );
+      cursor = next;
+      keys.push(...batch);
+    } while (cursor !== "0");
+
+    if (keys.length) {
+      const values = await client.mget(keys);
+      keys.forEach((key, i) => {
+        const email = key.slice(PRESENCE_PREFIX.length).toLowerCase();
+        const ts = Number(values[i]);
+        statuses[email] = {
+          online: true,
+          lastSeen: Number.isFinite(ts)
+            ? new Date(ts).toISOString()
+            : statuses[email]?.lastSeen || "Unavailable",
+        };
+      });
+    }
+  } catch (e) {
+    // Soft-fail: Firestore data already collected above
+    console.warn("[branch-status/all] Redis scan failed; serving Firestore only:", e.message);
+  }
+
+  return res.status(200).json({ statuses });
+});
+
+/**
  * GET /branch-status?branchEmail=<email>
  * Returns { online: boolean, lastSeen: ISOString | "Unavailable" }
  *
