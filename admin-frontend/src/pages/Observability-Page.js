@@ -288,7 +288,7 @@ function Observability() {
           <div className="admin-card mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">Recent client errors</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Latest {errors.length} error beacons from visitors’ browsers (deduped per session, retained {" "}
+              Latest {errors.length} error beacons from the guest site and admin dashboard (deduped per session, retained {" "}
               {process.env.REACT_APP_CERR_RETENTION_DAYS || 30} days). “hydration” events indicate prerender drift.
             </p>
             {loading && !data ? (
@@ -301,6 +301,7 @@ function Observability() {
                   <thead>
                     <tr className="text-left text-xs text-gray-500 uppercase">
                       <th className="py-2 pr-4">Time</th>
+                      <th className="py-2 pr-4">App</th>
                       <th className="py-2 pr-4">Type</th>
                       <th className="py-2 pr-4">Message</th>
                       <th className="py-2 pr-4">Path</th>
@@ -311,6 +312,11 @@ function Observability() {
                     {errors.map((ev) => (
                       <tr key={ev.id} className="border-t border-gray-100 align-top">
                         <td className="py-2 pr-4 whitespace-nowrap">{fmtTime(ev.at)}</td>
+                        <td className="py-2 pr-4">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${ev.app === "admin" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-600"}`}>
+                            {ev.app || "guest"}
+                          </span>
+                        </td>
                         <td className="py-2 pr-4">
                           <span className={`px-2 py-0.5 rounded text-xs font-medium ${TYPE_BADGE[ev.type] || "bg-gray-100 text-gray-700"}`}>
                             {ev.type}

@@ -2,9 +2,11 @@
 //
 // OBS1 (observability megaplan): intake for client-side error telemetry.
 //
-// The public site beacons uncaught errors / promise rejections / ErrorBoundary
-// crashes / React hydration recoveries via navigator.sendBeacon (see
-// user-frontend/src/utils/errorReporter.js). Mirrors the RUM intake contract
+// The public site AND the admin dashboard beacon uncaught errors / promise
+// rejections / ErrorBoundary crashes / React hydration recoveries via
+// navigator.sendBeacon (user-frontend/src/utils/errorReporter.js and
+// admin-frontend/src/utils/errorReporter.js — the latter tags app:"admin").
+// Mirrors the RUM intake contract
 // (routes/rum.js): text/plain body parsed here (no CORS preflight, no
 // express.json), hard schema clamps, its own rate-limit bucket (mounted in
 // server.js), 204-always so the client never cares.
@@ -80,8 +82,12 @@ router.post("/", express.text({ type: "*/*", limit: "4kb" }), (req, res) => {
     const message = String(data.message || "").slice(0, 500);
     if (!message) return res.status(204).end();
 
+    // Which app the beacon came from (guest site vs staff dashboard).
+    const app = data.app === "admin" ? "admin" : "guest";
+
     const entry = {
       t: "cerr",
+      app,
       type,
       message,
       stack: String(data.stack || "").slice(0, 1500) || null,
@@ -109,9 +115,9 @@ router.post("/", express.text({ type: "*/*", limit: "4kb" }), (req, res) => {
         if (!crossed) return;
         return sendSecurityAlert(
           "client-error-spike",
-          `Client-error spike: ${SPIKE_THRESHOLD}+ errors in 15 min on the guest site`,
+          `Client-error spike: ${SPIKE_THRESHOLD}+ errors in 15 min`,
           [
-            `latest: [${entry.type}] ${entry.message.slice(0, 160)}`,
+            `latest: [${entry.app}/${entry.type}] ${entry.message.slice(0, 160)}`,
             `path: ${entry.path}`,
             `release: ${entry.release || "unknown"}`,
             "action: check /observability in the admin app or filter Render logs for '\"t\":\"cerr\"'",

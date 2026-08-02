@@ -1,6 +1,7 @@
 //magis-project/admin-frontend/src/components/ErrorBoundary-Component.js
 
 import React, { Component } from 'react';
+import reportClientError from '../utils/errorReporter';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -14,6 +15,8 @@ class ErrorBoundary extends Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("Error caught by ErrorBoundary:", error, errorInfo);
+    // OBS1: surface staff-dashboard crashes on the Observability page.
+    reportClientError("boundary", error, errorInfo && errorInfo.componentStack);
     this.setState({ errorInfo });
   }
 

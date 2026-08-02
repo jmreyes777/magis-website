@@ -11,14 +11,20 @@ import "./styles/branch-chat-dashboard-modern.css"; // Branch chat dashboard mod
 import ErrorBoundary from "./components/ErrorBoundary-Component";
 import { AuthProvider } from "./context/AuthContext";
 import reportWebVitals from "./reportWebVitals";
+import reportClientError from "./utils/errorReporter";
 
 // ─── Silence internal Timeout (b) & handleError logs globally ───
+// Anything NOT silenced is beaconed to /api/client-errors (OBS1) so staff-
+// dashboard crashes show up on the Observability page instead of relying on
+// branch staff to report them.
 // 1) Unhandled promise rejections
 window.addEventListener("unhandledrejection", event => {
   const err = event.reason;
   if (err && err.message === "Timeout (b)") {
     event.preventDefault();
+    return;
   }
+  reportClientError("rejection", err);
 });
 
 // 2) Global errors
@@ -26,7 +32,13 @@ window.addEventListener("error", event => {
   const err = event.error;
   if (err && err.message === "Timeout (b)") {
     event.preventDefault();
+    return;
   }
+  reportClientError(
+    "error",
+    err || event.message,
+    event.filename ? `${event.filename}:${event.lineno}:${event.colno}` : undefined
+  );
 });
 
 // 3) Patch console.error to filter any Timeout or handleError lines
