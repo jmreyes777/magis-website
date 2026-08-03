@@ -167,11 +167,11 @@ function FAQsUserPage() {
         ]}
         jsonLd={FAQ_SCHEMA}
       />
-      {/* Hero */}
-      <section
-        className="relative h-72 md:h-80 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/hero.jpg')" }}
-      >
+      {/* Hero — gradient-only. The old background-image pointed at
+          /images/hero.jpg, which never existed (silent 404 on every visit);
+          the overlay below is what users actually saw, so rendering is
+          unchanged. Drop a real photo back in here when one is available. */}
+      <section className="relative h-72 md:h-80">
         <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
         <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
           <h1 className="mb-3 text-3xl font-extrabold tracking-tight md:text-5xl">
