@@ -543,6 +543,20 @@ const guestContactLimiter = rateLimit({
 });
 app.use("/api/guest/contact", guestContactLimiter);
 
+// CHATUX2: per-IP throttle on the post-chat CSAT intake — the endpoint is
+// guest-authed and idempotent per conversation-day, so this only bounds junk
+// traffic volume (one legit guest never needs more than a handful).
+const guestCsatLimiter = rateLimit({
+  windowMs: Number(process.env.GUEST_CSAT_RL_WINDOW_MS) || 10 * 60 * 1000, // 10 min
+  max: Number(process.env.GUEST_CSAT_RL_MAX) || 10,                        // ratings / IP / window
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKey,
+  message: { error: "Too many requests. Please try again later." },
+  store: rlStore("rl:guest-csat:"),
+});
+app.use("/api/guest/csat", guestCsatLimiter);
+
 // SPD0-2: RUM beacons — cheap (204 + one log line) but public, so cap per IP.
 // A page emits ~5 metrics/view; 60/10min accommodates real browsing patterns.
 const rumLimiter = rateLimit({
@@ -597,6 +611,8 @@ app.use("/api/mfa", mfaRoutes);
 // Gold pricing intel for the admin header ticker (history + reprice baseline).
 // Authed surface (admin/staff sessions only) — no public limiter needed.
 app.use("/api/gold", require("./routes/gold"));
+// CHATUX3: staff web-push subscriptions (branch-admin authed; see routes file).
+app.use("/api/push", require("./routes/push"));
 
 // Login Rate Limiting (NOW using Redis store for multi-instance correctness)
 // skipSuccessfulRequests: only FAILED attempts consume the budget (OWASP-style

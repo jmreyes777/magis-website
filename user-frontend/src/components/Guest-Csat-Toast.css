@@ -1,0 +1,125 @@
+/* CHATUX2: post-chat CSAT toast — small, bottom-right, self-dismissing. */
+
+.csat-toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 1200; /* above footer, below any full-screen chat overlay */
+  width: min(300px, calc(100vw - 32px));
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
+  padding: 12px 14px;
+  animation: csat-toast-in 0.24s ease-out;
+}
+
+.csat-toast--leaving {
+  animation: csat-toast-out 0.24s ease-in forwards;
+}
+
+.csat-toast-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.csat-toast-question {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.35;
+}
+
+.csat-toast-close {
+  flex: 0 0 auto;
+  background: transparent;
+  border: 0;
+  padding: 0 2px;
+  font-size: 1.25rem;
+  line-height: 1;
+  color: #9ca3af;
+  cursor: pointer;
+}
+
+.csat-toast-close:hover,
+.csat-toast-close:focus-visible {
+  color: #4b5563;
+}
+
+.csat-toast-stars {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.csat-toast-star {
+  background: transparent;
+  border: 0;
+  padding: 2px 4px;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #d1d5db;
+  cursor: pointer;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+
+.csat-toast-star--hot {
+  color: #f59e0b;
+  transform: scale(1.12);
+}
+
+.csat-toast-star:focus-visible {
+  outline: 2px solid #f59e0b;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.csat-toast-hint {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: #9ca3af;
+}
+
+.csat-toast-thanks {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #166534;
+  text-align: center;
+  padding: 6px 0;
+}
+
+@keyframes csat-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes csat-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .csat-toast,
+  .csat-toast--leaving {
+    animation: none;
+  }
+  .csat-toast-star {
+    transition: none;
+  }
+}

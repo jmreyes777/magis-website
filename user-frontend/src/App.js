@@ -4,6 +4,7 @@ import { Helmet, HelmetProvider } from "react-helmet-async";
 import ScrollToTop from "./Shared/ScrollToTop-Component";
 import ErrorBoundary from "./Shared/ErrorBoundary-Component";
 import Header from "./components/Header-User-Component";
+import GuestCsatToast from "./components/Guest-Csat-Toast";
 
 // Public Components. Import thunks are declared once so the lazy() routes and
 // the idle-time prefetcher (SPD3-1) share the same chunk requests.
@@ -152,6 +153,11 @@ function App() {
             </ErrorBoundary>
           </Suspense>
         </main>
+
+        {/* CHATUX2: post-chat rating toast — renders nothing until an eligible
+            chat close dispatches the magis:csat event (utils/csat.js). Lives
+            outside <Routes> so it survives navigation while fading out. */}
+        <GuestCsatToast />
       </div>
     </HelmetProvider>
   );

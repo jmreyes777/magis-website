@@ -20,7 +20,12 @@ function BranchAdminAnalytics() {
   const [responseTimeData, setResponseTimeData] = useState(null);
   const [conversationSummaryData, setConversationSummaryData] = useState(null);
   const [branchPerformanceData, setBranchPerformanceData] = useState(null);
+  const [csatData, setCsatData] = useState(null);
   const [error, setError] = useState(null);
+
+  // CHATUX2: below this sample size an average is noise, not signal — the UI
+  // shows the raw count instead of a misleading star number.
+  const MIN_CSAT_SAMPLE = 5;
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -88,6 +93,17 @@ function BranchAdminAnalytics() {
       } else {
         const errorText = await summaryRes.text();
         console.error("[FRONTEND] Conversation summary error:", errorText);
+      }
+
+      // Fetch CSAT summary (CHATUX2 — own branch's post-chat ratings)
+      const csatRes = await fetch(
+        `${process.env.REACT_APP_API_URL}/api/analytics/csat-summary?startDate=${startDateStr}&endDate=${endDateStr}`,
+        { headers }
+      );
+      if (csatRes.ok) {
+        setCsatData(await csatRes.json());
+      } else {
+        console.error("[FRONTEND] CSAT summary error:", await csatRes.text());
       }
 
       // Fetch branch performance (superadmin only)
@@ -191,6 +207,18 @@ function BranchAdminAnalytics() {
     { key: 'messageCount', label: 'Messages' },
     { key: 'uniqueConversations', label: 'Conversations' },
     { key: 'avgMessagesPerConversation', label: 'Avg Messages/Conv' },
+    {
+      key: 'csatAvg',
+      label: 'CSAT',
+      // Honesty rule: an average only renders alongside its sample size, and
+      // never below the minimum sample — tiny n shows the count, not stars.
+      render: (value, row) =>
+        row.csatCount >= MIN_CSAT_SAMPLE
+          ? `${value} \u2605 (${row.csatCount})`
+          : row.csatCount > 0
+            ? `${row.csatCount} rating${row.csatCount === 1 ? '' : 's'}`
+            : '\u2014',
+    },
   ];
 
   return (
@@ -261,7 +289,7 @@ function BranchAdminAnalytics() {
               )}
 
               {/* Enhanced Metrics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6">
                 <div className="admin-card metrics-card-enhanced">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-sm font-medium text-gray-600">Total Messages</p>
@@ -312,6 +340,38 @@ function BranchAdminAnalytics() {
                   <p className="text-xs text-gray-500 mt-2">
                     {conversationSummaryData?.conversationsWithMedia || 0} with media
                   </p>
+                </div>
+
+                {/* CHATUX2: post-chat guest satisfaction. Ratings are optional
+                    + frequency-capped on the guest side, so treat this as a
+                    trend within THIS branch — sample sizes are small by
+                    design and the average hides below MIN_CSAT_SAMPLE. */}
+                <div className="admin-card metrics-card-enhanced">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-gray-600">Guest Satisfaction</p>
+                    <span className="px-2 py-1 text-xs font-semibold rounded bg-amber-100 text-amber-800">
+                      CSAT
+                    </span>
+                  </div>
+                  {csatData && csatData.count >= MIN_CSAT_SAMPLE ? (
+                    <>
+                      <p className="text-3xl font-bold text-gray-900">
+                        {csatData.avg} <span className="text-amber-500">★</span>
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {csatData.count} ratings this period
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-3xl font-bold text-gray-400">—</p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {csatData?.count
+                          ? `${csatData.count} rating${csatData.count === 1 ? '' : 's'} \u2014 collecting (min ${MIN_CSAT_SAMPLE})`
+                          : 'No ratings yet this period'}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
 

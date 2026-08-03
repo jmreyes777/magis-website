@@ -62,6 +62,11 @@ const { z } = require("zod");
 // IMPORTANT: ioredis helper (idempotent connect guards)
 const { getRedis, getRedisSub, ensureRedisConnected } = require("./redis");
 
+// CHATUX3: staff web push — fires when a guest message arrives and no admin
+// is effectively watching (no socket, or none confirmed ready). Cooldown and
+// the VAPID-unconfigured no-op both live inside the helper.
+const { notifyGuestWaiting } = require("./pushNotify");
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Global-runtime structures (per-process)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -923,10 +928,12 @@ const initializeSocket = (server) => {
                 io.to(getRoomName("admin", branchEmail)).emit("receiveMessage", relayedMessage);
                 console.log(`[SOCKET] 📡 Fallback: delivering guest message to admin-${branchEmail}`);
                 await bufferUndelivered(branchEmail, relayedMessage);
+                notifyGuestWaiting(branchEmail, guestId); // connected but none ready
               }
             } else {
               io.to(getRoomName("admin", branchEmail)).emit("receiveMessage", relayedMessage);
               await bufferUndelivered(branchEmail, relayedMessage);
+              notifyGuestWaiting(branchEmail, guestId); // no admin sockets at all
             }
           } else if (sender === "branch") {
             const guestSnap = await db
@@ -970,6 +977,16 @@ const initializeSocket = (server) => {
 
         io.to(guestRoom).emit("receiveMessage", savedMessage);
         io.to(getRoomName("admin", branchEmail)).emit("receiveMessage", savedMessage);
+
+        // CHATUX3: first-contact path — if nobody from the branch is connected,
+        // the room emit above went nowhere; wake the staff's devices instead.
+        if (
+          sender === "guest" &&
+          (!onlineAdminsMap[branchEmail] ||
+            Object.keys(onlineAdminsMap[branchEmail]).length === 0)
+        ) {
+          notifyGuestWaiting(branchEmail, guestId);
+        }
 
         const unreadSnap = await db
           .collection("messages")

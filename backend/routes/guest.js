@@ -405,4 +405,57 @@ router.post(
   }
 );
 
+/**
+ * POST /guest/csat
+ * Body: { guestId, branchEmail, rating: 1..5 }
+ *
+ * CHATUX2: optional post-chat satisfaction rating. Strictly voluntary — the
+ * guest UI only offers it after a conversation with at least one staff reply
+ * and under a long client-side cooldown (see user-frontend/src/utils/csat.js);
+ * this endpoint just validates + records.
+ *
+ * Requires a valid guest JWT + guestId ownership (same stack as /force-close),
+ * so ratings can't be stuffed anonymously. Idempotent per conversation-day:
+ * the doc id is guest+branch+day, so re-rating overwrites instead of double
+ * counting. Docs expire via TTL (CSAT_RETENTION_DAYS, default 365).
+ */
+router.post("/csat", authenticateGuest, ensureGuestOwns, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  const { guestId, branchEmail } = req.body || {};
+  const rating = Number(req.body?.rating);
+
+  if (!guestId || !branchEmail) {
+    return res.status(400).json({ error: "Missing guestId or branchEmail." });
+  }
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+    return res.status(400).json({ error: "rating must be an integer 1-5." });
+  }
+
+  try {
+    const branch = String(branchEmail).toLowerCase().slice(0, 120);
+    const retentionDays = Math.max(parseInt(process.env.CSAT_RETENTION_DAYS, 10) || 365, 1);
+    // Asia/Manila day key — matches the RUM rollup convention (routes/rum.js).
+    const day = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
+    const docId = `${guestId}__${branch}__${day}`.slice(0, 400);
+
+    await db.collection("csatRatings").doc(docId).set({
+      guestId,
+      branchEmail: branch,
+      rating,
+      day,
+      at: new Date().toISOString(),
+      expireAt: new Date(Date.now() + retentionDays * 86400_000),
+    });
+
+    // Structured log line so ratings are greppable on the Render stream even
+    // before any dashboard surfaces them.
+    console.log(JSON.stringify({ t: "csat", branch, rating, day }));
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    console.error("[CSAT] ❌ Error recording rating:", err.message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;

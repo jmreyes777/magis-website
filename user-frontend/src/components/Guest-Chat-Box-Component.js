@@ -15,6 +15,8 @@ import {
   sendMessage,
 } from "../Shared/User-Utils-socket";
 import MessageItem from "../Shared/Message-Item-Component";
+import { findBranchBySlug, buildBranchSeo } from "../utils/branchSeo";
+import maybePromptCsat from "../utils/csat";
 import { optimizeImage } from "../Shared/Utils-imageOptimization";
 import "./Guest-Chat-Box-Component.css";
 import GuestIdleNotice from "./Guest-Idle-Notice-Component";
@@ -1802,6 +1804,11 @@ const GuestChatBox = ({ branchId, branchEmail, branchName, guestId, onClose }) =
     setIsClosing(true);                // triggers the slide-out animation
     window.setTimeout(() => {
       handleChatClose();
+      // CHATUX2: AFTER the chat is gone, optionally offer the rating toast
+      // (App-level listener). Gated inside: staff must have replied in this
+      // conversation + a 14-day per-device cooldown — regulars aren't nagged.
+      // Explicit-X closes only: idle/navigation closes never prompt.
+      maybePromptCsat({ messages, guestId, branchEmail, branchName });
     }, CLOSE_ANIM_MS);
   };
 

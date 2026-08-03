@@ -14,6 +14,7 @@ import AuthContext from "../context/AuthContext";
 import GoldPriceTicker from "./GoldPriceTicker-Component";
 import HeaderWaitingChip from "./HeaderWaitingChip-Component";
 import BranchIdentityChip from "./BranchIdentityChip-Component";
+import PushBell from "./PushBell-Component";
 import { onUnreadUpdate } from "./Admin-Utils-socket";
 
 const SNAPSHOT_REFRESH_MS = 30 * 1000;
@@ -124,6 +125,9 @@ export default function AdminHeaderWidgets({ chats, unreadCounts }) {
           unreadCounts={live ? unreadCounts : snapUnread}
         />
       )}
+      {/* CHATUX3: push toggle is branch-scoped (subscriptions bind to the
+          branch token), so superadmin sessions don't get a dead bell. */}
+      {branchEmail && <PushBell />}
       <GoldPriceTicker />
       <BranchIdentityChip branchEmail={branchEmail} />
     </>

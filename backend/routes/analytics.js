@@ -383,6 +383,92 @@ router.get("/conversation-summary", authenticateBranchAdmin, async (req, res) =>
   }
 });
 
+// ── CHATUX2: CSAT aggregation ────────────────────────────────────────────────────────
+// Ratings are tiny (one doc per guest+branch+day, TTL-bounded), so both
+// variants stay within single-field/equality queries — no new composite
+// index required:
+//   - branch-scoped: equality on branchEmail, date-filtered in memory
+//   - global:        range on `at` only (ISO strings sort chronologically)
+const CSAT_MAX_DOCS = Math.max(parseInt(process.env.CSAT_MAX_DOCS, 10) || 20000, 1);
+
+// Same windowing rules as buildBoundedMessagesQuery, without the query.
+function resolveAnalyticsWindow(startDate, endDate) {
+  let startIso = toIsoBound(startDate);
+  let endIso = toIsoBound(endDate, true);
+  if (!startIso || !endIso) {
+    const endMs = endIso ? new Date(endIso).getTime() : Date.now();
+    const startMs = startIso
+      ? new Date(startIso).getTime()
+      : endMs - ANALYTICS_DEFAULT_DAYS * 86400000;
+    startIso = startIso || new Date(startMs).toISOString();
+    endIso = endIso || new Date(endMs).toISOString();
+  }
+  return { startIso, endIso };
+}
+
+// Fetch ratings in a window and group per branch.
+// Returns Map<branchEmail, { count, avg, distribution: {1..5} }>.
+async function fetchCsatByBranch({ branchEmail, startIso, endIso }) {
+  let q = db.collection("csatRatings");
+  if (branchEmail) {
+    q = q.where("branchEmail", "==", branchEmail);
+  } else {
+    q = q.where("at", ">=", startIso).where("at", "<=", endIso);
+  }
+  const snap = await q.limit(CSAT_MAX_DOCS).get();
+
+  const byBranch = new Map();
+  snap.forEach((doc) => {
+    const r = doc.data() || {};
+    // Branch-scoped variant filters the window here instead of in the query.
+    if (branchEmail && (r.at < startIso || r.at > endIso)) return;
+    const rating = Number(r.rating);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) return;
+
+    const key = r.branchEmail || "unknown";
+    if (!byBranch.has(key)) {
+      byBranch.set(key, { count: 0, sum: 0, distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } });
+    }
+    const s = byBranch.get(key);
+    s.count += 1;
+    s.sum += rating;
+    s.distribution[rating] += 1;
+  });
+
+  for (const s of byBranch.values()) {
+    s.avg = s.count > 0 ? Math.round((s.sum / s.count) * 10) / 10 : 0;
+    delete s.sum;
+  }
+  return byBranch;
+}
+
+/**
+ * GET /api/analytics/csat-summary
+ * The authenticated branch's own post-chat satisfaction ratings (CHATUX2).
+ * Query params: startDate, endDate (same windowing as the other endpoints).
+ * Aggregates only — no guest identifiers leave the server.
+ */
+router.get("/csat-summary", authenticateBranchAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const { startIso, endIso } = resolveAnalyticsWindow(startDate, endDate);
+    const byBranch = await fetchCsatByBranch({
+      branchEmail: req.branchEmail,
+      startIso,
+      endIso,
+    });
+    const stats = byBranch.get(req.branchEmail) || {
+      count: 0,
+      avg: 0,
+      distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+    };
+    return res.json({ ...stats, window: { start: startIso, end: endIso } });
+  } catch (error) {
+    console.error("[ANALYTICS] Error fetching CSAT summary:", error.message);
+    return res.status(500).json({ error: "Failed to fetch CSAT analytics" });
+  }
+});
+
 /**
  * GET /api/analytics/branch-performance
  * Get branch performance comparison (superadmin only)
@@ -416,6 +502,16 @@ router.get("/branch-performance", authenticateSuperAdmin, async (req, res) => {
       branchPerformance[branchEmail].messages.push(msg);
     });
 
+    // CHATUX2: satisfaction per branch for the same window — avg is only
+    // meaningful alongside its sample size, so both are returned and the UI
+    // is expected to show `avg ★ (n)`, never a bare average.
+    let csatByBranch = new Map();
+    try {
+      csatByBranch = await fetchCsatByBranch({ startIso, endIso });
+    } catch (e) {
+      console.warn("[ANALYTICS] CSAT merge skipped:", e.message);
+    }
+
     // Calculate metrics for each branch
     const performanceData = Object.values(branchPerformance).map(branch => ({
       branchEmail: branch.branchEmail,
@@ -423,7 +519,9 @@ router.get("/branch-performance", authenticateSuperAdmin, async (req, res) => {
       uniqueConversations: branch.uniqueGuests.size,
       avgMessagesPerConversation: branch.uniqueGuests.size > 0
         ? Math.round(branch.messageCount / branch.uniqueGuests.size)
-        : 0
+        : 0,
+      csatAvg: csatByBranch.get(branch.branchEmail)?.avg ?? null,
+      csatCount: csatByBranch.get(branch.branchEmail)?.count ?? 0
     })).sort((a, b) => b.messageCount - a.messageCount);
 
     res.status(200).json({

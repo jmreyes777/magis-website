@@ -1,0 +1,57 @@
+/* CHATUX3: staff push-notification bell (rendered among the header widgets). */
+
+.push-bell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e8e6e3;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  white-space: nowrap;
+}
+
+.push-bell:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.push-bell--on {
+  color: #ffd700;
+  border-color: rgba(255, 215, 0, 0.55);
+  background: rgba(255, 215, 0, 0.12);
+}
+
+.push-bell--on:hover:not(:disabled) {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: rgba(255, 215, 0, 0.75);
+}
+
+.push-bell--denied {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.push-bell:disabled {
+  cursor: not-allowed;
+}
+
+.push-bell__icon {
+  flex-shrink: 0;
+}
+
+/* Tight headers: drop the text, keep the bell. */
+@media (max-width: 900px) {
+  .push-bell__text {
+    display: none;
+  }
+  .push-bell {
+    padding: 4px 7px;
+  }
+}

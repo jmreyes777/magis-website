@@ -77,6 +77,40 @@ describe("GET /api/branch-status/all (footer presence bulk read)", () => {
   });
 });
 
+describe("POST /api/guest/csat (CHATUX2 post-chat rating)", () => {
+  // Sits behind authenticateGuest + ensureGuestOwns — pin that the route is
+  // registered and anonymous rating stuffing fails closed as JSON 401.
+  test("without a guest token → JSON 401", async () => {
+    const res = await request("/api/guest/csat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guestId: "guest-x", branchEmail: "b@x.com", rating: 5 }),
+    });
+    assert.equal(res.status, 401);
+    assert.equal(typeof res.json.error, "string");
+  });
+});
+
+describe("/api/push (CHATUX3 staff web-push subscriptions)", () => {
+  // Whole router sits behind authenticateBranchAdmin — pin that anonymous
+  // callers can neither read the VAPID key nor plant subscriptions.
+  test("GET /public-key without a token → JSON 401", async () => {
+    const res = await request("/api/push/public-key");
+    assert.equal(res.status, 401);
+    assert.equal(typeof res.json.error, "string");
+  });
+
+  test("POST /subscribe without a token → JSON 401", async () => {
+    const res = await request("/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subscription: { endpoint: "https://x", keys: { p256dh: "a", auth: "b" } } }),
+    });
+    assert.equal(res.status, 401);
+    assert.equal(typeof res.json.error, "string");
+  });
+});
+
 describe("unmatched API routes (A10-2)", () => {
   test("JSON 404 — machine-readable, no SPA index.html fallthrough", async () => {
     const res = await request("/api/definitely-not-a-route");
