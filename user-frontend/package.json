@@ -68,7 +68,7 @@
     "autoprefixer": "^10.5.4",
     "babel-plugin-transform-remove-console": "^6.9.4",
     "cross-env": "^7.0.3",
-    "postcss": "^8.5.19",
+    "postcss": "^8.5.23",
     "puppeteer": "^24.43.1",
     "resolve-url-loader": "^5.0.0",
     "serve": "^14.2.6",
