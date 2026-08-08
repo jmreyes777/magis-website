@@ -215,7 +215,7 @@ function Home() {
       {/* Hero */}
       <section className="home-hero">
         <div className="home-shell home-hero__inner">
-          <h1 className="home-hero__title">Kailangan ng quick cash? Isangla ang gold jewelry mo.</h1>
+          <h1 className="home-hero__title">Isangla ang gold jewelry mo — instant cash, patas na presyo.</h1>
           <p className="home-hero__sub">
             Safe, private, at patas na paraan para magka-cash kapag kailangan.
             Walang mahabang proseso, walang hassle — diretso at mabilis na
@@ -335,7 +335,7 @@ function Home() {
               <div className="home-feature">
                 <span className="home-feature__icon"><FaUserShield aria-hidden="true" /></span>
                 <h3 className="home-feature__title">Diskretong serbisyo</h3>
-                <p className="home-feature__text">Private at may respeto ang bawat transaksyon — walang tanong-tanong.</p>
+                <p className="home-feature__text">Private at may respeto ang bawat transaksyon — diskreto at walang husga.</p>
               </div>
               <div className="home-feature">
                 <span className="home-feature__icon"><FaLock aria-hidden="true" /></span>
