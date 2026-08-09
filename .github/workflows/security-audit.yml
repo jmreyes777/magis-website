@@ -8,9 +8,14 @@ name: Security audit
 # flip STRICT to "true" after the initial two-week triage window so NEW
 # high/critical findings fail the check.
 #
-# ── Triage log (2026-07-26) — accepted findings, revisit when noted ──────────
-# All lockfile-fixable highs were fixed (backend brace-expansion/glob/minimatch/
-# sucrase chains; frontend audit-fix passes). What intentionally remains:
+# ── Triage log (2026-08-09, SEC26 wave B — supersedes 2026-07-26) ─────────
+# Backend runtime audit is CLEAN (firebase-admin v14 + scoped uuid overrides;
+# nanoid/postcss/socket.io-parser audit-fixed). STRICT is now ON for every
+# package except tools/catalog-cutouts (see matrix): its @imgly chain pins
+# lodash, which has NO patched release for GHSA-r5fr-rjxr-66jc /
+# GHSA-f23m-r3pf-42rh — accepted for an OFFLINE CI-only tool that never
+# touches production traffic; revisit when @imgly or lodash publish fixes.
+# What intentionally remains (unchanged from prior triage):
 #   1. react-router GHSA-qwww-vcr4-c8h2 (admin-frontend, high): "RSC Mode CSRF
 #      bypass" — vulnerable >=7.12.0 <8.3.0, fixed only in the v8 major. NOT
 #      APPLICABLE: both SPAs use classic client-side BrowserRouter; no React
@@ -25,9 +30,8 @@ name: Security audit
 #   3. serve@14 (both frontends, devDependencies): Playwright's local static
 #      server for e2e only — never deployed (render.yaml serves prebuilt SPAs
 #      via node/static hosting). Outside the --omit=dev gate already.
-#   4. backend firebase-admin@13 chain (moderate x8): fix requires the v14
-#      major. Moderates don't trip the high/critical gate; take with the next
-#      planned firebase-admin upgrade.
+#   4. RESOLVED 2026-08-09: backend firebase-admin@13 moderates — upgraded to
+#      v14; transitive uuid pinned via scoped overrides (gaxios/teeny-request).
 
 on:
   push:
@@ -44,8 +48,9 @@ permissions:
   contents: read
 
 env:
-  # Flip to "true" after the triage window to make high/critical findings fail CI.
-  STRICT: "false"
+  # SEC26 wave B (2026-08-09): triage window over — high/critical RUNTIME
+  # findings now FAIL CI (per-dir opt-out lives in the matrix below).
+  STRICT: "true"
 
 jobs:
   npm-audit:
@@ -60,6 +65,11 @@ jobs:
           - user-frontend
           - magis-edge-worker
           - tools/catalog-cutouts
+        include:
+          # Offline CI-only tool; lodash chain has no upstream patch (see
+          # triage log). Warn-only until @imgly/lodash ship fixes.
+          - dir: tools/catalog-cutouts
+            warn_only: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -79,10 +89,10 @@ jobs:
             echo "✅ no high/critical runtime findings"
           else
             echo "⚠️ high/critical runtime findings above"
-            if [ "$STRICT" = "true" ]; then
+            if [ "$STRICT" = "true" ] && [ "${{ matrix.warn_only }}" != "true" ]; then
               exit 1
             else
-              echo "(warn-only mode: not failing the build — flip STRICT after triage)"
+              echo "(warn-only for this package — see triage log)"
             fi
           fi
 

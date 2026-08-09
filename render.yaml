@@ -56,6 +56,16 @@ services:
       # service will fail to boot. Left as sync:false so you opt in deliberately.
       - key: REQUIRE_REDIS
         sync: false
+      # SEC26 wave B: reject tokens when the revocation store is unreachable
+      # (fail-closed) instead of accepting them. Recommended "true" in prod now
+      # that managed Redis is provisioned. See backend.env.example:32.
+      - key: JWT_REVOCATION_FAIL_CLOSED
+        sync: false
+      # SEC26 wave B: origin edge-lock. "monitor" logs non-edge /api traffic,
+      # "enforce" blocks it. Flip to enforce only after monitor logs are clean
+      # (backend.env.example:233-235).
+      - key: EDGE_AUTH_MODE
+        sync: false
       # ── Secrets / connection strings: set values in the Render dashboard ──────
       # (Full list + docs: backend/backend.env.example)
       - key: REDIS_URL
