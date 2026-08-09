@@ -10,7 +10,8 @@
 
 const express = require("express");
 const router = express.Router();
-const { db, admin } = require("../utils/firebase");
+const { db } = require("../utils/firebase");
+const { FieldValue } = require("firebase-admin/firestore"); // v14: namespace API removed
 
 // SCT (SPD4-3): socket connect fast-path — ms from socket.connect() to the
 // server's joinRoom ack, beaconed by the guest chat client. Same pipeline,
@@ -79,7 +80,7 @@ async function flushRollups() {
   if (pending.size === 0) return;
   const batch = pending;
   pending = new Map();
-  const inc = admin.firestore.FieldValue.increment;
+  const inc = FieldValue.increment;
   for (const [day, metrics] of batch) {
     try {
       // NOTE: with set()+merge, dotted string keys are literal field names —

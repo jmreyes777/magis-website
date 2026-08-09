@@ -19,7 +19,8 @@
 // staff system can be retired without affecting branch auth.
 
 const crypto = require("crypto");
-const { db, admin } = require("./firebase");
+const { db } = require("./firebase");
+const { FieldValue } = require("firebase-admin/firestore"); // v14: namespace API removed
 
 const COLLECTION = "branchAdmins";
 const BRANCHES_COLLECTION = "branches";
@@ -162,7 +163,7 @@ async function upsertCredentials({
     branchName || (existing && existing.branchName) || (await getBranchName(branchId)) || "Branch Admin";
 
   const passwordHash = await hashPassword(password);
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const now = FieldValue.serverTimestamp();
 
   await ref.set(
     {
@@ -188,7 +189,7 @@ async function upsertCredentials({
 
 async function update(id, patch = {}) {
   const ref = db.collection(COLLECTION).doc(String(id));
-  await ref.update({ ...patch, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  await ref.update({ ...patch, updatedAt: FieldValue.serverTimestamp() });
   return getById(id);
 }
 

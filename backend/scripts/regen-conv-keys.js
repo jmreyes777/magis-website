@@ -22,7 +22,8 @@
  */
 const path = require("path");
 const crypto = require("crypto");
-const admin = require("firebase-admin");
+const { initializeApp, cert } = require("firebase-admin/app"); // v14: namespace API removed
+const { getFirestore } = require("firebase-admin/firestore");
 const dotenv = require("dotenv");
 
 dotenv.config({ path: path.resolve(__dirname, "..", "backend.env") });
@@ -78,14 +79,14 @@ for (const v of ["FIREBASE_PROJECT_ID", "FIREBASE_PRIVATE_KEY", "FIREBASE_CLIENT
     process.exit(1);
   }
 }
-admin.initializeApp({
-  credential: admin.credential.cert({
+initializeApp({
+  credential: cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
     privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
   }),
 });
-const db = admin.firestore();
+const db = getFirestore();
 
 (async () => {
   console.log(

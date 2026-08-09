@@ -2,7 +2,8 @@
 
 const express = require('express');
 const multer = require('multer');
-const { db, storage, admin, uploadToStorage } = require('../utils/firebase'); // Firebase utilities
+const { db, storage, uploadToStorage } = require('../utils/firebase'); // Firebase utilities
+const { FieldValue } = require('firebase-admin/firestore'); // v14: namespace API removed
 const authenticateSuperAdmin = require('../middlewares/authenticateSuperAdmin'); // Super admin middleware
 const authenticateBranchAdmin = require('../middlewares/authenticateBranchAdmin'); // Branch admin middleware
 const { v4: uuidv4 } = require('uuid'); // For generating unique filenames
@@ -57,7 +58,7 @@ router.post('/', authenticateSuperAdmin, upload.single('picture'), async (req, r
     const newBranch = {
       ...branchData,
       picture: pictureUrl || null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     };
 
     await branchRef.set(newBranch);
@@ -123,7 +124,7 @@ router.put('/:id', authenticateSuperAdmin, upload.single('picture'), async (req,
     const updatedBranch = {
       ...branchData,
       picture: pictureUrl || branchData.picture || null,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     };
 
     await branchRef.update(updatedBranch);

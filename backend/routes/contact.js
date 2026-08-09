@@ -11,7 +11,8 @@
 
 const express = require("express");
 const router = express.Router();
-const { db, admin } = require("../utils/firebase");
+const { db } = require("../utils/firebase");
+const { FieldValue } = require("firebase-admin/firestore"); // v14: namespace API removed
 const nodemailer = require("nodemailer");
 
 // Optional Cloudflare Turnstile verification (no-op unless TURNSTILE_SECRET set).
@@ -103,7 +104,7 @@ router.post("/", async (req, res) => {
       source: "contact-form",
       ip: req.ip || null,
       userAgent: String(req.headers["user-agent"] || "").slice(0, 512) || null,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     // Best-effort email notification. Never fail the request on email issues —

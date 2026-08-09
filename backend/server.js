@@ -195,7 +195,8 @@ function noteFiveXx(req, statusCode) {
   }
 })();
 
-const { db, admin, initFirebase } = require("./utils/firebase");
+const { db, initFirebase } = require("./utils/firebase");
+const { getAuth } = require("firebase-admin/auth"); // v14: namespace API removed
 // TST5: firebase init is lazy at import; boot stays eager + fail-fast (exact
 // old behavior). Tests import this file with NODE_ENV=test and no credentials.
 if (process.env.NODE_ENV !== "test") initFirebase();
@@ -723,7 +724,7 @@ app.post("/api/superadmin/login", express.json(), async (req, res) => {
 
   try {
     // 1️⃣ Verify the Firebase ID token
-    const decoded = await admin.auth().verifyIdToken(idToken);
+    const decoded = await getAuth().verifyIdToken(idToken);
     const emailLower = (decoded.email || "").toLowerCase();
 
     // 2️⃣ Ensure they’re a superadmin (or the special allowed email)
@@ -863,7 +864,7 @@ async function identityFromFirebaseIdToken(idToken) {
   if (!idToken || typeof idToken !== "string") return null;
   let decoded;
   try {
-    decoded = await admin.auth().verifyIdToken(idToken);
+    decoded = await getAuth().verifyIdToken(idToken);
   } catch (_) {
     return null; // not a (currently-valid) Firebase token — caller may try HMAC proof
   }
@@ -873,7 +874,7 @@ async function identityFromFirebaseIdToken(idToken) {
   // minted; fall back to the authoritative user record.
   if (role !== "branchadmin" || !branchId || !branchName) {
     try {
-      const userRecord = await admin.auth().getUser(decoded.uid);
+      const userRecord = await getAuth().getUser(decoded.uid);
       const claims = userRecord.customClaims || {};
       role = claims.role || role;
       branchId = claims.branchId || branchId;

@@ -1,7 +1,10 @@
-const admin = require("firebase-admin");
-admin.initializeApp();
+// v14: namespace API removed — modular init (this is a standalone one-off
+// backfill script, not a mounted route; it uses ADC credentials).
+const { initializeApp } = require("firebase-admin/app");
+const { getFirestore, FieldPath } = require("firebase-admin/firestore");
+initializeApp();
 
-const db = admin.firestore();
+const db = getFirestore();
 
 async function backfillArchivedField() {
   const PAGE_SIZE = Number(process.env.BACKFILL_PAGE_SIZE || 500);
@@ -22,7 +25,7 @@ async function backfillArchivedField() {
   // updates (within Firestore's 500-op batch limit).
   for (;;) {
     let query = messagesRef
-      .orderBy(admin.firestore.FieldPath.documentId())
+      .orderBy(FieldPath.documentId())
       .limit(PAGE_SIZE);
     if (lastDoc) query = query.startAfter(lastDoc);
 

@@ -1,6 +1,13 @@
 //magis-project/backend/utils/firebase.js
 
-const admin = require("firebase-admin");
+// firebase-admin@14 (SEC26 Wave 0): the legacy `admin.*` namespace API was
+// removed upstream — v14 is modular-only. This hub owns app init and exposes
+// the same { db, storage, … } surface consumers always used, so the upgrade
+// is invisible to route/middleware code.
+const { initializeApp, getApps, getApp, cert } = require("firebase-admin/app");
+const { getFirestore } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
+const { getAuth } = require("firebase-admin/auth");
 const dotenv = require("dotenv");
 const path = require("path");
 
@@ -41,9 +48,9 @@ function initFirebase() {
   console.log("[INFO] All required environment variables are loaded.");
 
   try {
-    if (!admin.apps.length) {
-      _real.app = admin.initializeApp({
-        credential: admin.credential.cert({
+    if (!getApps().length) {
+      _real.app = initializeApp({
+        credential: cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -53,13 +60,13 @@ function initFirebase() {
       });
       console.log("[SUCCESS] Firebase successfully initialized.");
     } else {
-      _real.app = admin.app();
+      _real.app = getApp();
       console.log("[INFO] Firebase already initialized.");
     }
 
-    _real.db = admin.firestore();
+    _real.db = getFirestore(_real.app);
     _real.db.settings({ ignoreUndefinedProperties: true });
-    _real.storage = admin.storage();
+    _real.storage = getStorage(_real.app);
     console.log("[SUCCESS] Firestore and Storage initialized.");
   } catch (error) {
     console.error("[CRITICAL] Failed to initialize Firebase:", error.message);
@@ -114,7 +121,7 @@ const assignCustomClaims = async (uid, claims) => {
 
   try {
     validateClaims(claims);
-    await admin.auth().setCustomUserClaims(uid, claims);
+    await getAuth().setCustomUserClaims(uid, claims);
     console.log(`[SUCCESS] Assigned claims to user ${uid}:`, claims);
   } catch (error) {
     console.error(`[ERROR] Failed to assign claims to user ${uid}:`, error.message);
@@ -128,7 +135,7 @@ const getCustomClaims = async (uid) => {
   }
 
   try {
-    const userRecord = await admin.auth().getUser(uid);
+    const userRecord = await getAuth().getUser(uid);
     console.log(`[INFO] Retrieved claims for user ${uid}:`, userRecord.customClaims);
     return userRecord.customClaims || {};
   } catch (error) {
@@ -164,8 +171,6 @@ const uploadToStorage = async (fileBuffer, fileName, metadata = {}) => {
     throw error;
   }
 };
-
-const { getAuth } = require("firebase-admin/auth");
 
 // Boot-time connectivity probes + TOTP MFA project config. Runs once, from
 // initFirebase() — identical work to the old import-time IIFEs, just deferred
@@ -219,7 +224,6 @@ const enableTotpMfa = async () => {
 // (firebaseApp was exported before but had zero consumers; initFirebase is the
 // explicit boot hook used by server.js.)
 module.exports = {
-  admin,
   db,
   storage,
   initFirebase,

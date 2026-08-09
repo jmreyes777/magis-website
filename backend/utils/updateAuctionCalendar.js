@@ -1,14 +1,14 @@
 // backend/utils/updateAuctionCalendar.js
-const admin = require("firebase-admin");
-const db = admin.firestore();
+const { db } = require("./firebase"); // v14: namespace API removed — shared lazy handle
+const { Timestamp, FieldValue } = require("firebase-admin/firestore");
 
 async function addUpcomingAuctions(dates) {
   // dates: array of { startAt: Date, endAt?: Date | null, label?: string }
   const auctionRef = db.collection("siteConfig").doc("auction");
 
   const upcoming = dates.map((d) => ({
-    startAt: admin.firestore.Timestamp.fromDate(d.startAt),
-    endAt: d.endAt ? admin.firestore.Timestamp.fromDate(d.endAt) : null,
+    startAt: Timestamp.fromDate(d.startAt),
+    endAt: d.endAt ? Timestamp.fromDate(d.endAt) : null,
     label: d.label || "",
   }));
 
@@ -16,7 +16,7 @@ async function addUpcomingAuctions(dates) {
     {
       upcomingDates: upcoming,
       // keep existing fields; we DO NOT overwrite them by using merge:true
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true }
   );
