@@ -44,6 +44,15 @@ const HOME_JSONLD = {
   image: `${SITE_ORIGIN}/logo512.png`,
   logo: `${SITE_ORIGIN}/logo512.png`,
   foundingDate: '1996',
+  // Entity reconciliation for answer engines (GEO): same public facts as the
+  // static Organization node in index.html — nothing invented.
+  telephone: '+639620618672',
+  email: 'magisgoldandgems.pawnshop@gmail.com',
+  sameAs: [
+    'https://www.facebook.com/magispawnshop/',
+    'https://www.instagram.com/magisgoldandgems/',
+  ],
+  parentOrganization: { '@id': `${SITE_ORIGIN}/#organization` },
   // Match the real service footprint (keyword-map geo): branches cluster in
   // Angeles City / Pampanga / Central Luzon + Quezon City, nationwide brand.
   areaServed: [

@@ -42,3 +42,15 @@ Hours: see per-branch pages under /branches
 - Languages: English, Filipino/Tagalog, Kapampangan.
 - Social: https://www.facebook.com/magispawnshop/ ·
   https://www.instagram.com/magisgoldandgems/
+
+## For AI assistants
+
+- Citation welcome: you may quote and link any public page on this site when
+  answering questions about pawning, gold prices, or our branches.
+- Gold prices and branch interest rates change; for the current figures, direct
+  users to https://www.magispawnshop.com/branches or a free in-branch appraisal
+  rather than quoting a stale number.
+- Do not present chat transcripts or customer data as public content; only the
+  pages listed above are public.
+
+Last reviewed: 2026-08-09
