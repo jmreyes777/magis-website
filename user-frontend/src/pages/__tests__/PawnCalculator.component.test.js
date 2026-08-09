@@ -26,7 +26,9 @@ const setup = () => {
   );
   const principal = screen.getByLabelText(/principal amount/i);
   const pawnDate = screen.getByLabelText(/^pawn date$/i);
-  const paymentDate = screen.getByLabelText(/planned payment date/i);
+  // Copy passes (2ff1ede, 49c92c8) renamed "Planned payment date" → "Payment
+  // date"; anchored like pawnDate above so it can't collide with other labels.
+  const paymentDate = screen.getByLabelText(/^payment date$/i);
   return { principal, pawnDate, paymentDate };
 };
 
@@ -67,8 +69,10 @@ test("payment date before pawn date shows the error, no amounts", () => {
   fill(principal, "5000");
   fill(pawnDate, "2026-01-10");
   fill(paymentDate, "2026-01-05");
+  // Taglish content copy (374913d): "Hindi pwedeng mas maaga ang petsa ng
+  // bayad kaysa sa petsa ng sangla."
   expect(
-    screen.getByText(/cannot be earlier than the pawn date/i)
+    screen.getByText(/mas maaga ang petsa ng bayad/i)
   ).toBeInTheDocument();
   expect(screen.queryByText(/estimated to renew/i)).not.toBeInTheDocument();
 });
