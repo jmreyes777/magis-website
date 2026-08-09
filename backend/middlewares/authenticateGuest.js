@@ -1,21 +1,28 @@
 // middlewares/authenticateGuest.js
 
 const { verifyJWT } = require("../utils/secretPool");
+const { csrfGuard } = require("./csrfGuard"); // SEC26: double-submit check for cookie-auth
 
 // Keep skew tolerance consistent with Edge/Backend where applicable
 const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
 
 module.exports = async function authenticateGuest(req, res, next) {
   let token;
+  let tokenSource = null; // SEC26: 'header' | 'cookie' | 'body'
 
   // 1) Prefer Authorization header (Bearer <token>)
   const authHeader = (req.headers.authorization || "").trim();
   if (authHeader.startsWith("Bearer ")) {
     token = authHeader.slice(7).trim();
+    tokenSource = "header";
 
   // 2) Fallback to HTTP-only cookie if present
   } else if (req.cookies && typeof req.cookies.guestToken === "string") {
     token = (req.cookies.guestToken || "").trim();
+    tokenSource = "cookie";
+    // SEC26 (CSRF-1): validate the double-submit token for cookie-carried
+    // credentials on mutating requests — the only CSRF-rideable flow.
+    if (csrfGuard(req, res)) return;
 
   // 3) Fallback to a token in the JSON body (P3-4): for header-less calls such
   //    as navigator.sendBeacon (tab-close force-close), which can't set an
@@ -24,6 +31,7 @@ module.exports = async function authenticateGuest(req, res, next) {
   //    logs, and outbound Referer headers.
   } else if (req.body && typeof req.body.token === "string") {
     token = (req.body.token || "").trim();
+    tokenSource = "body";
 
   // 4) No token provided
   } else {
@@ -48,6 +56,7 @@ module.exports = async function authenticateGuest(req, res, next) {
 
     // Attach decoded payload for downstream middleware/routes
     req.user = payload;
+    req.authSource = tokenSource; // SEC26: observability + authz contract tests
     return next();
 
   } catch (err) {

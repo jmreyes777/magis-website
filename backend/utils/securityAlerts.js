@@ -120,7 +120,14 @@ async function sendSecurityAlert(ruleKey, title, lines = []) {
     if (!ENABLED || !hasAnyTransport()) return false;
     if (!(await underThrottle(ruleKey))) return false;
     console.warn(`[ALERT] 🚨 ${title} (rule=${ruleKey})`);
-    await deliver(title, [...lines, `time: ${new Date().toISOString()}`]);
+    // SEC26 W6: point the operator at the playbook from inside the page itself
+    // (skipped for success heartbeats, which start with ✅/🟢/ℹ).
+    const isHeartbeat = /^[✅🟢ℹ]/u.test(title);
+    await deliver(title, [
+      ...lines,
+      `time: ${new Date().toISOString()}`,
+      isHeartbeat ? "" : "runbook: SECURITY-INCIDENT-RUNBOOK.md (repo root) — contain → scope → notify",
+    ]);
     return true;
   } catch (e) {
     console.warn("[ALERT] sendSecurityAlert failed:", e?.message || e);

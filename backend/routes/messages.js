@@ -17,6 +17,13 @@ const {
   ensureBranchOwns,
 } = require("../middlewares/ensureResourceOwner");
 const rateLimitByGuest       = require("../middlewares/rateLimitByGuest");
+// SEC26 Wave 0 (A06-1): origin-side hot-read limits (media / history / conv-key).
+// Built once per bucket at module load; mounted AFTER auth so the limiter keys
+// on the authenticated identity rather than IP.
+const { hotReadLimiter }     = require("../middlewares/hotReadLimiter");
+const mediaReadLimiter   = hotReadLimiter("media");
+const historyReadLimiter = hotReadLimiter("history");
+const convKeyLimiter     = hotReadLimiter("convkey");
 const { requireMFA }          = require("../middlewares/requireMFA");
 const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
 const {
@@ -867,6 +874,7 @@ router.get(
   "/history/:guestId",
   authenticateBranchAdmin,
   requireMFA, // SPI gate: active MFA session required (P0-2)
+  historyReadLimiter, // A06-1: per-branch origin budget on the paging read
   async (req, res) => {
     const { guestId } = req.params;
     if (!guestId) {
@@ -959,7 +967,7 @@ router.patch(
  * own chat. The guest token carries guestId + the branch email (room mapping),
  * so we scope strictly to req.user — a guest can only ever obtain its own key.
  */
-router.post("/conversation-key", authenticateGuest, async (req, res) => {
+router.post("/conversation-key", authenticateGuest, convKeyLimiter, async (req, res) => {
   try {
     const guestId = req.user.guestId;
     const branchEmail = (req.user.email || "").toLowerCase();
@@ -988,6 +996,7 @@ router.get(
   "/conversation-key/:guestId",
   authenticateBranchAdmin,
   requireMFA, // SPI gate: active MFA session required to obtain decryption key (P0-2)
+  convKeyLimiter, // A06-1: per-branch origin budget on key fetches
   async (req, res) => {
     try {
       const { guestId } = req.params;
@@ -1014,7 +1023,7 @@ router.get(
  * the authenticated participant. Chat objects are stored PRIVATE (P1-3), so a
  * fresh signed URL is minted per request and expires in ~15 min.
  */
-router.get("/media/:id", authenticateGuest, async (req, res) => {
+router.get("/media/:id", authenticateGuest, mediaReadLimiter, async (req, res) => {
   try {
     const snap = await db.collection("messages").doc(req.params.id).get();
     if (!snap.exists) return res.status(404).json({ error: "Message not found." });
@@ -1035,6 +1044,7 @@ router.get(
   "/admin-media/:id",
   authenticateBranchAdmin,
   requireMFA, // SPI gate: active MFA session required to view chat media (P0-2/P1-3)
+  mediaReadLimiter, // A06-1: per-branch origin budget on signed-URL minting
   async (req, res) => {
     try {
       const branchEmail = (req.branchEmail || "").toLowerCase();

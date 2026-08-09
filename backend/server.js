@@ -23,17 +23,30 @@ process.env.JWT_CLOCK_SKEW_SEC = process.env.JWT_CLOCK_SKEW_SEC || "60";
 process.env.JWT_TTL_MIN = process.env.JWT_TTL_MIN || "30";         // guests / short-lived
 process.env.JWT_ADMIN_TTL_MIN = process.env.JWT_ADMIN_TTL_MIN || "240"; // admins/superadmins
 
-// P2-4: superadmin allowlist is config-driven (SUPERADMIN_EMAILS, comma-separated).
-// A legacy default is retained so an unconfigured deploy does not lock out the
-// existing owner; set SUPERADMIN_EMAILS to manage it via config (and silence the
-// warning). Firebase role:'superadmin' custom claims are still honored as well.
-const SUPERADMIN_EMAILS = (process.env.SUPERADMIN_EMAILS || "jmreyes3167@gmail.com")
+// P2-4 → SEC26 Wave 0: superadmin allowlist is config-driven ONLY
+// (SUPERADMIN_EMAILS, comma-separated). The legacy hardcoded default is gone —
+// a baked-in principal is exactly the "default credential" class Secure-by-
+// Design bans. Missing config now fails FAST in prod-like envs (a deploy
+// without it is a misconfiguration, not something to paper over silently);
+// dev/test proceed with an empty allowlist since Firebase role:'superadmin'
+// custom claims remain an independent, still-honored path.
+const SUPERADMIN_EMAILS = (process.env.SUPERADMIN_EMAILS || "")
   .split(",")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 if (!process.env.SUPERADMIN_EMAILS) {
+  const isProdLike =
+    process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging";
+  if (isProdLike) {
+    console.error(
+      "[SERVER] \u274c SUPERADMIN_EMAILS is not set in a production/staging env.\n" +
+        "         The hardcoded legacy default was removed (SEC26 Wave 0).\n" +
+        "         Set SUPERADMIN_EMAILS (comma-separated) and redeploy."
+    );
+    process.exit(1);
+  }
   console.warn(
-    "[SERVER] \u26a0\ufe0f SUPERADMIN_EMAILS not set \u2014 using a legacy default allowlist. Set SUPERADMIN_EMAILS to manage superadmins via config (P2-4)."
+    "[SERVER] \u26a0\ufe0f SUPERADMIN_EMAILS not set \u2014 allowlist is EMPTY (dev). Firebase role:'superadmin' custom claims still work."
   );
 }
 
@@ -297,9 +310,24 @@ app.options("*", (req, res) => {
   return res.sendStatus(403);
 });
 
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true }));
+// SEC26 Wave 2 (A02): the previous global 10MB JSON ceiling was ~50x anything
+// a legitimate JSON route carries (media travels as multipart via multer with
+// its own 25MB cap, never JSON). Oversized bodies now 413 at the parser,
+// before any handler work. JSON_BODY_LIMIT is the rollback lever if an
+// overlooked payload class surfaces — no redeploy-with-code-change needed.
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || "200kb" }));
+app.use(express.urlencoded({ extended: true, limit: process.env.JSON_BODY_LIMIT || "200kb" }));
 app.use(cookieParser());
+
+// SEC26 Wave 2 (A02): default every /api response to Cache-Control: no-store
+// — authed/tokened JSON must never land in shared or browser caches. Runs
+// BEFORE routes so any route that legitimately wants caching (publicCache on
+// public GETs, edge-cached config) overwrites this default when it sets its
+// own header. Flipping the default means a future authed route can't forget.
+app.use("/api", (req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 
 // ── P2-2: lock the API surface to the Cloudflare edge ───────────────────────
 // Rejects (enforce) or logs (monitor) direct-to-origin /api requests that did

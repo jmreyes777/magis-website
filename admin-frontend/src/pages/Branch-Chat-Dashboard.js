@@ -29,6 +29,7 @@ import AdminHeaderWidgets, {
   unreadStorageKey,
 } from "../components/AdminHeaderWidgets-Component";
 import ConnectionStatus from "../components/ConnectionStatus-Component";
+import PasskeyNudge from "../components/PasskeyNudge-Component"; // SEC26 W5: adoption nudge (no enforcement)
 import { ensureSessionHydrated } from "../utils/sessionHydration";
 import { db, storage } from "../firebase-config";
 import {
@@ -2722,6 +2723,9 @@ const BranchChatDashboard = () => {
 
       {/* Network/connection status banner (offline / reconnecting / back-online) */}
       <ConnectionStatus />
+
+      {/* SEC26 W5: one-line passkey nudge for admins with zero enrolled passkeys */}
+      <PasskeyNudge />
 
       <div className="flex flex-row flex-grow overflow-hidden">
         {/* Sidebar */}

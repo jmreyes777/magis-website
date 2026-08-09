@@ -23,16 +23,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 20
 
       - name: Install generator deps
         working-directory: tools/catalog-cutouts
-        run: npm install --no-audit --no-fund
+        # SEC26 Wave 3: this job holds contents:write — the ONE workflow that
+        # can push to main. npm ci (lockfile-exact, refuses drift) instead of
+        # npm install, so a hijacked transitive release can't ride the bot's
+        # write access into the repo.
+        run: npm ci --no-audit --no-fund
 
       - name: Generate cutouts
         working-directory: tools/catalog-cutouts

@@ -2,6 +2,7 @@
 
 const admin = require("firebase-admin");
 const { verifyJWT } = require("../utils/secretPool"); // worker-backed verifier
+const { csrfGuard } = require("./csrfGuard"); // SEC26: double-submit check for cookie-auth
 
 // Keep clock skew aligned with the rest of your stack (edge + backend worker)
 const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
@@ -13,6 +14,7 @@ const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
 const authenticateBranchAdmin = async (req, res, next) => {
   try {
     let token;
+    let tokenSource = null; // SEC26: 'header' | 'cookie' | 'body' — cookie flows get the CSRF guard
 
     // 1) Prefer Authorization header
     const authHeader = req.headers.authorization;
@@ -25,11 +27,17 @@ const authenticateBranchAdmin = async (req, res, next) => {
           .json({ error: "Invalid token format. Expected Bearer token." });
       }
       token = credentials;
+      tokenSource = "header";
     }
     // 2) Fallback to cookie
     else if (req.cookies && req.cookies.branchAdminToken) {
       token = req.cookies.branchAdminToken;
+      tokenSource = "cookie";
       console.debug("[AUTH] Retrieved token from HTTP-only cookie.");
+      // SEC26 (CSRF-1): browser-managed cookie credentials are the ONLY flow a
+      // cross-site attacker can ride — validate the double-submit token here,
+      // before any verification work. Header/body flows are exempt by design.
+      if (csrfGuard(req, res)) return;
     }
     // 3) Fallback to a token in the JSON body (P3-4): for header-less calls such
     //    as navigator.sendBeacon (tab-close offline beacon), which cannot set an
@@ -38,6 +46,7 @@ const authenticateBranchAdmin = async (req, res, next) => {
     //    access logs, browser history, proxy/CDN logs, and Referer headers.
     else if (req.body && typeof req.body.token === "string" && req.body.token) {
       token = req.body.token.trim();
+      tokenSource = "body";
     }
     // 4) No token available
     else {
@@ -119,6 +128,7 @@ const authenticateBranchAdmin = async (req, res, next) => {
     req.branchEmail = email;
     req.branchName = branchName;
     req.user = decoded;
+    req.authSource = tokenSource; // SEC26: observability + authz contract tests
 
     console.info(
       `[AUTH] Branch Admin authenticated (${isFallback ? "fallback" : "firebase"}): ${email}`
