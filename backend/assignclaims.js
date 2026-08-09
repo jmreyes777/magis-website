@@ -1,4 +1,5 @@
-const admin = require('firebase-admin');
+const { initializeApp, getApps, cert } = require('firebase-admin/app'); // v14: namespace API removed
+const { getAuth } = require('firebase-admin/auth');
 const dotenv = require('dotenv');
 const path = require('path');
 
@@ -6,9 +7,9 @@ const path = require('path');
 dotenv.config({ path: path.resolve(__dirname, './backend.env') });
 
 // Initialize Firebase Admin SDK
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -19,7 +20,7 @@ if (!admin.apps.length) {
 const assignCustomClaims = async (uid, claims) => {
   try {
     console.log(`Assigning custom claims to user ${uid}:`, claims);
-    await admin.auth().setCustomUserClaims(uid, claims);
+    await getAuth().setCustomUserClaims(uid, claims);
     console.log(`Successfully assigned custom claims to user ${uid}.`);
   } catch (error) {
     console.error(`Failed to assign custom claims to user ${uid}:`, error.message);

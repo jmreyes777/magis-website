@@ -18,7 +18,8 @@
 // tokens simply fail verification and fall back to the emailed code.
 
 const crypto = require("crypto");
-const { db, admin } = require("./firebase");
+const { db } = require("./firebase");
+const { FieldValue } = require("firebase-admin/firestore"); // v14: namespace API removed
 
 const COLLECTION = "staff_trusted_devices";
 const TRUST_DAYS = Number(process.env.STAFF_TRUSTED_DEVICE_DAYS || 30);
@@ -50,7 +51,7 @@ async function createTrustedDevice({ staffId, email, userAgent }) {
     secretHash: hashSecret(secret),
     expiresAt,
     userAgent: userAgent || null,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
     lastUsedAt: new Date().toISOString(),
   });
   return { token: `${ref.id}.${secret}`, expiresAt, days: TRUST_DAYS };

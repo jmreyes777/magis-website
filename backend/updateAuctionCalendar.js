@@ -4,7 +4,8 @@
  * Firestore → siteConfig / auction
  */
 
-const admin = require("firebase-admin");
+const { initializeApp, getApps, cert } = require("firebase-admin/app"); // v14: namespace API removed
+const { getFirestore, Timestamp, FieldValue } = require("firebase-admin/firestore");
 const dotenv = require("dotenv");
 const path = require("path");
 
@@ -14,9 +15,9 @@ dotenv.config({ path: path.resolve(__dirname, "./backend.env") });
 // -----------------------------
 // Initialize Firebase Admin SDK
 // -----------------------------
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
+if (!getApps().length) {
+  initializeApp({
+    credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -24,7 +25,7 @@ if (!admin.apps.length) {
   });
 }
 
-const db = admin.firestore();
+const db = getFirestore();
 
 /**
  * Add or replace the list of upcoming auctions.
@@ -41,15 +42,15 @@ async function addUpcomingAuctions(dates) {
   const auctionRef = db.collection("siteConfig").doc("auction");
 
   const upcoming = dates.map((d) => ({
-    startAt: admin.firestore.Timestamp.fromDate(d.startAt),
-    endAt: d.endAt ? admin.firestore.Timestamp.fromDate(d.endAt) : null,
+    startAt: Timestamp.fromDate(d.startAt),
+    endAt: d.endAt ? Timestamp.fromDate(d.endAt) : null,
     label: d.label || "",
   }));
 
   await auctionRef.set(
     {
       upcomingDates: upcoming,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     },
     { merge: true }
   );

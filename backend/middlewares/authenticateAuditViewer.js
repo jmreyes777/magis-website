@@ -16,7 +16,7 @@
 // This middleware does NOT mutate any existing middleware/route — it is purely
 // additive and isolated to the /api/audit surface.
 
-const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth"); // v14: namespace API removed
 const { verifyJWT } = require("../utils/secretPool");
 
 const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
@@ -56,7 +56,7 @@ module.exports = async function authenticateAuditViewer(req, res, next) {
         return res.status(401).json({ error: "Token has been revoked. Please log in again." });
       }
       try {
-        decoded = await admin.auth().verifyIdToken(token);
+        decoded = await getAuth().verifyIdToken(token);
       } catch (fbErr) {
         return res.status(401).json({ error: "Invalid or expired token. Please log in again." });
       }

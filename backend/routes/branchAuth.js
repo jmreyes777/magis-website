@@ -18,7 +18,8 @@
 const express = require("express");
 const router = express.Router();
 
-const { db, admin } = require("../utils/firebase");
+const { db } = require("../utils/firebase");
+const { getAuth } = require("firebase-admin/auth"); // v14: namespace API removed
 const { signJWT, verifyJWT } = require("../utils/secretPool");
 const { getClientGeo } = require("../utils/geoSecurity");
 const { sendMail, escapeHtml } = require("../utils/email");
@@ -148,10 +149,10 @@ async function mintFirebaseToken(account) {
     // (rules compare resource.data.branchEmail == request.auth.token.email).
     let userRecord;
     try {
-      userRecord = await admin.auth().getUserByEmail(email);
+      userRecord = await getAuth().getUserByEmail(email);
     } catch (e) {
       if (e.code === "auth/user-not-found") {
-        userRecord = await admin.auth().createUser({ email, emailVerified: true });
+        userRecord = await getAuth().createUser({ email, emailVerified: true });
       } else {
         throw e;
       }
@@ -166,12 +167,12 @@ async function mintFirebaseToken(account) {
       existing.branchName !== claims.branchName ||
       existing.id !== claims.id;
     if (needsUpdate) {
-      await admin.auth().setCustomUserClaims(userRecord.uid, { ...existing, ...claims });
+      await getAuth().setCustomUserClaims(userRecord.uid, { ...existing, ...claims });
     }
 
     // Pass claims as developer claims too so THIS token carries them immediately
     // (no propagation wait).
-    return await admin.auth().createCustomToken(userRecord.uid, claims);
+    return await getAuth().createCustomToken(userRecord.uid, claims);
   } catch (e) {
     console.error("[BRANCH] Firebase custom-token mint failed:", e.message);
     return null;
@@ -730,7 +731,7 @@ router.post("/admin/reset-mfa", authenticateSuperAdmin, express.json(), async (r
     // code) — nothing to unenroll; still clear their step-up sessions below.
     let userRecord = null;
     try {
-      userRecord = await admin.auth().getUserByEmail(loginEmail);
+      userRecord = await getAuth().getUserByEmail(loginEmail);
     } catch (e) {
       if (e.code !== "auth/user-not-found") throw e;
     }
@@ -738,12 +739,12 @@ router.post("/admin/reset-mfa", authenticateSuperAdmin, express.json(), async (r
     if (userRecord) {
       factorsCleared = (userRecord.multiFactor?.enrolledFactors || []).length;
       if (factorsCleared > 0) {
-        await admin.auth().updateUser(userRecord.uid, {
+        await getAuth().updateUser(userRecord.uid, {
           multiFactor: { enrolledFactors: null },
         });
       }
       // Sessions minted with the old factor must not outlive it.
-      await admin.auth().revokeRefreshTokens(userRecord.uid);
+      await getAuth().revokeRefreshTokens(userRecord.uid);
     }
 
     const sessSnap = await db

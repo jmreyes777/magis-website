@@ -24,7 +24,8 @@
 // Review the dry-run output first, then re-run with --apply.
 // ---------------------------------------------------------------------------
 
-const { admin, db } = require("../utils/firebase");
+const { db } = require("../utils/firebase");
+const { FieldValue } = require("firebase-admin/firestore"); // v14: namespace API removed
 
 const COLLECTION = "branchAdmins";
 // Stale credential field(s) left over from the retired password-login flow.
@@ -76,7 +77,7 @@ async function main() {
 
   const deletion = {};
   STALE_FIELDS.forEach((f) => {
-    deletion[f] = admin.firestore.FieldValue.delete();
+    deletion[f] = FieldValue.delete();
   });
 
   let updated = 0;

@@ -93,7 +93,8 @@ async function streamSnapshotCollection(bucket, date, colId, onLine) {
 }
 
 // ── Value deserialization (inverse of backup's serializeValue) ───────────────
-function makeDeserializer(admin, db) {
+const { Timestamp, GeoPoint } = require("firebase-admin/firestore");
+function makeDeserializer(db) {
   return function deserializeValue(v) {
     if (v === null || typeof v !== "object") return v;
     if (Array.isArray(v)) return v.map(deserializeValue);
@@ -109,10 +110,10 @@ function makeDeserializer(admin, db) {
         seconds -= 1;
         nanos += 1e9;
       }
-      return new admin.firestore.Timestamp(seconds, nanos);
+      return new Timestamp(seconds, nanos);
     }
     if (v.__t === "geo" && typeof v.lat === "number" && typeof v.lng === "number")
-      return new admin.firestore.GeoPoint(v.lat, v.lng);
+      return new GeoPoint(v.lat, v.lng);
     if (v.__t === "ref" && typeof v.path === "string") return db.doc(v.path);
     if (v.__t === "bytes" && typeof v.b64 === "string") return Buffer.from(v.b64, "base64");
     const out = {};
@@ -139,8 +140,8 @@ function prefixPath(p, prefix) {
 }
 
 // ── Restore one collection ───────────────────────────────────────────────────
-async function restoreCollection({ bucket, db, admin, date, colId, manifestEntry, prefix, apply, sampler }) {
-  const deserialize = makeDeserializer(admin, db);
+async function restoreCollection({ bucket, db, date, colId, manifestEntry, prefix, apply, sampler }) {
+  const deserialize = makeDeserializer(db);
   const writer = apply ? db.bulkWriter() : null;
   if (writer) {
     writer.onWriteError((err) => {
@@ -213,7 +214,7 @@ async function deleteCollectionTree(db, colId) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const { admin, db, storage } = require("../utils/firebase");
+  const { db, storage } = require("../utils/firebase");
   const { serializeValue } = require("./firestore-backup");
   const bucket = storage.bucket();
 
@@ -295,7 +296,6 @@ async function main() {
     const r = await restoreCollection({
       bucket,
       db,
-      admin,
       date,
       colId,
       manifestEntry: manifest.collections[colId],

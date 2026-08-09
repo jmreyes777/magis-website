@@ -9,7 +9,8 @@
 
 const express = require('express');
 const router = express.Router();
-const { db, admin } = require('../utils/firebase');
+const { db } = require('../utils/firebase');
+const { getAuth } = require('firebase-admin/auth'); // v14: namespace API removed
 const authenticateBranchAdmin = require('../middlewares/authenticateBranchAdmin');
 const {
   getClientGeo,
@@ -110,8 +111,8 @@ router.get('/session-status', authenticateBranchAdmin, async (req, res) => {
       try {
         // Fallback (HMAC) tokens have no Firebase `uid`, so look up by email in that case.
         const userRecord = req.user.uid
-          ? await admin.auth().getUser(req.user.uid)
-          : await admin.auth().getUserByEmail(email);
+          ? await getAuth().getUser(req.user.uid)
+          : await getAuth().getUserByEmail(email);
         const enrolledFactors = userRecord.multiFactor?.enrolledFactors || [];
         mfaEnrolled = enrolledFactors.length > 0;
       } catch (lookupErr) {
@@ -296,7 +297,7 @@ router.get('/enrollment-status', authenticateBranchAdmin, async (req, res) => {
         required: true,
       });
     }
-    const userRecord = await admin.auth().getUser(req.user.uid);
+    const userRecord = await getAuth().getUser(req.user.uid);
     const enrolledFactors = userRecord.multiFactor?.enrolledFactors || [];
     
     res.json({

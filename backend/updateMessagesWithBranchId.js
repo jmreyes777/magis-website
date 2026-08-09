@@ -1,5 +1,6 @@
 // 🚀 Import Firebase Admin SDK securely
-const admin = require("firebase-admin");
+const { initializeApp, cert } = require("firebase-admin/app"); // v14: namespace API removed
+const { getFirestore } = require("firebase-admin/firestore");
 const dotenv = require("dotenv");
 const fs = require("fs");
 const path = require("path");
@@ -38,11 +39,11 @@ if (!serviceAccount) {
 }
 
 // ✅ Initialize Firebase Admin
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+initializeApp({
+  credential: cert(serviceAccount),
 });
 
-const db = admin.firestore();
+const db = getFirestore();
 
 async function updateMessagesWithBranchId() {
   try {

@@ -14,7 +14,8 @@
 // Storage: collection `staff_otps`, one active doc per email (doc id = email).
 
 const crypto = require("crypto");
-const { db, admin } = require("./firebase");
+const { db } = require("./firebase");
+const { FieldValue } = require("firebase-admin/firestore"); // v14: namespace API removed
 
 const COLLECTION = "staff_otps";
 
@@ -95,7 +96,7 @@ async function requestOtp({ email, sessionId, ip, userAgent }) {
     sessionId: sessionId || null,
     ip: ip || null,
     userAgent: userAgent || null,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   });
 
   return {

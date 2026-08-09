@@ -15,7 +15,8 @@
 
 const { Server } = require("socket.io");
 const cookie = require("cookie");
-const { db, admin } = require("./firebase");
+const { db } = require("./firebase");
+const { getAuth } = require("firebase-admin/auth"); // v14: namespace API removed
 const { verifyJWT } = require("./secretPool");   // worker-thread backed JWT ops
 const { recordAuditEvent, ACTIONS } = require("./auditLog");
 const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
@@ -404,7 +405,7 @@ const initializeSocket = (server) => {
       } catch (fallbackErr) {
         // 2) Firebase ID token
         try {
-          const firebaseDecoded = await admin.auth().verifyIdToken(token);
+          const firebaseDecoded = await getAuth().verifyIdToken(token);
           decodedToken = firebaseDecoded;
           branchEmail = (firebaseDecoded.email || clientEmail || "").toLowerCase();
           console.log(`[SOCKET AUTH] 🟢 Verified Firebase token for ${branchEmail}`);

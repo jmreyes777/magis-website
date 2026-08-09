@@ -1,12 +1,12 @@
 //magis-project/backend/utils/checkClaims.js
 
-const { admin } = require('./firebase'); // Import Firebase utilities from your existing firebase.js
+const { getAuth } = require('firebase-admin/auth'); // v14: namespace API removed
 
 // Functions
 async function checkCustomClaims(uid) {
   try {
     console.log(`[INFO] Checking custom claims for UID: ${uid}`);
-    const user = await admin.auth().getUser(uid);
+    const user = await getAuth().getUser(uid);
     console.log("[SUCCESS] Custom Claims:", user.customClaims || "No custom claims found.");
   } catch (error) {
     console.error("[ERROR] Failed to fetch custom claims:", error.message);
@@ -17,7 +17,7 @@ async function assignCustomClaims(uid, branchId) {
   try {
     console.log(`[INFO] Assigning custom claims to UID: ${uid}`);
     const claims = { role: "branchadmin", branchId };
-    await admin.auth().setCustomUserClaims(uid, claims);
+    await getAuth().setCustomUserClaims(uid, claims);
     console.log("[SUCCESS] Custom claims assigned successfully:", claims);
   } catch (error) {
     console.error("[ERROR] Failed to assign custom claims:", error.message);

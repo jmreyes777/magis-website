@@ -1,9 +1,10 @@
 require("dotenv").config({ path: "./backend.env" });
-const admin = require("firebase-admin");
+const { initializeApp, cert } = require("firebase-admin/app"); // v14: namespace API removed
+const { getFirestore } = require("firebase-admin/firestore");
 
 // Initialize Firebase
-const firebaseApp = admin.initializeApp({
-  credential: admin.credential.cert({
+const firebaseApp = initializeApp({
+  credential: cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
     privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
     clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
@@ -12,7 +13,7 @@ const firebaseApp = admin.initializeApp({
   storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
 });
 
-const db = admin.firestore();
+const db = getFirestore();
 
 async function testMessagesCollection() {
   try {

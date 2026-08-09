@@ -4,16 +4,15 @@
 // (no app initialization, no credentials).
 const { test, describe } = require("node:test");
 const assert = require("node:assert/strict");
-const admin = require("firebase-admin");
 
 const { serializeValue } = require("../scripts/firestore-backup");
 const { makeDeserializer, stableStringify, prefixPath } = require("../scripts/firestore-restore");
 
-const { Timestamp, GeoPoint } = admin.firestore;
+const { Timestamp, GeoPoint } = require("firebase-admin/firestore"); // v14: namespace API removed
 
 // Fake db: only .doc() is needed by the ref branch; echoes the path back.
 const fakeDb = { doc: (p) => ({ path: p, constructor: { name: "DocumentReference" } }) };
-const deserialize = makeDeserializer(admin, fakeDb);
+const deserialize = makeDeserializer(fakeDb);
 
 // Simulate the actual pipeline: serialize → JSONL line on disk → parse → restore.
 const throughDisk = (v) => JSON.parse(JSON.stringify(serializeValue(v)));

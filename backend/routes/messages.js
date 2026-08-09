@@ -6,7 +6,7 @@ const crypto = require("crypto");
 const { db } = require("../utils/firebase");
 const { getSocketIOInstance } = require("../utils/socket");
 const { v4: uuidv4 } = require("uuid");
-const admin = require("firebase-admin");
+const { getStorage } = require("firebase-admin/storage"); // v14: namespace API removed
 const { z } = require("zod");
 const multer = require("multer");
 const authenticateGuest       = require("../middlewares/authenticateGuest");
@@ -63,7 +63,7 @@ const io = getSocketIOInstance();
 // TST5: resolve the bucket lazily (at call time) — grabbing it at import
 // required an already-initialized Firebase app, which was an invisible
 // import-order dependency on utils/firebase's old side effects.
-const getBucket = () => admin.storage().bucket();
+const getBucket = () => getStorage().bucket();
 
 // Upload a buffer to Cloud Storage as a PRIVATE object (P1-3). Returns the
 // storage path (object name). Callers store the path on the message; media is

@@ -14,7 +14,8 @@
 // using a random per-user salt; only the derived hash is stored.
 
 const crypto = require("crypto");
-const { db, admin } = require("./firebase");
+const { db } = require("./firebase");
+const { FieldValue } = require("firebase-admin/firestore"); // v14: namespace API removed
 
 const COLLECTION = "staffAccounts";
 
@@ -171,8 +172,8 @@ async function createStaff({
     failedLoginCount: 0,
     lockedUntil: null,
     createdBy: createdBy || null,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
     lastLoginAt: null,
   });
   return { id: ref.id };
@@ -180,7 +181,7 @@ async function createStaff({
 
 async function updateStaff(id, patch = {}) {
   const ref = db.collection(COLLECTION).doc(String(id));
-  await ref.update({ ...patch, updatedAt: admin.firestore.FieldValue.serverTimestamp() });
+  await ref.update({ ...patch, updatedAt: FieldValue.serverTimestamp() });
   return getById(id);
 }
 

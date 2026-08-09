@@ -1,6 +1,6 @@
 // middlewares/authenticateBranchAdmin.js
 
-const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth"); // v14: namespace API removed
 const { verifyJWT } = require("../utils/secretPool"); // worker-backed verifier
 const { csrfGuard } = require("./csrfGuard"); // SEC26: double-submit check for cookie-auth
 
@@ -83,7 +83,7 @@ const authenticateBranchAdmin = async (req, res, next) => {
       // 🟢 If HMAC path fails for any other reason, try Firebase ID token
       try {
         // Note: Firebase Admin SDK handles its own clock tolerance internally.
-        decoded = await admin.auth().verifyIdToken(token);
+        decoded = await getAuth().verifyIdToken(token);
         console.log("[AUTH] ✅ Verified Firebase token for:", decoded.email);
       } catch (firebaseErr) {
         // If the HMAC path was the saturated one (worker pool full), this is a
