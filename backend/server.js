@@ -643,6 +643,30 @@ app.use("/api/gold", require("./routes/gold"));
 // CHATUX3: staff web-push subscriptions (branch-admin authed; see routes file).
 app.use("/api/push", require("./routes/push"));
 
+// ── Workstream C (2026 agentic interoperability): read-only MCP endpoint ──
+// AI agents (ChatGPT/Claude/Perplexity apps & connectors) can call four
+// read-only tools: branch directory, next auction, live-chat availability,
+// service facts — all data already public on the site (see mcp/mcpServer.js).
+// Stateless Streamable HTTP: POST only; no sessions; no auth surface. The
+// limiter is deliberately generous (tools serve from the same Redis caches as
+// the REST routes) but still caps abuse per edge-authenticated client IP.
+const { handleMcpPost, handleMcpMethodNotAllowed } = require("./mcp/mcpServer");
+const mcpLimiter = rateLimit({
+  windowMs: Number(process.env.MCP_RL_WINDOW_MS) || 10 * 60 * 1000, // 10 min
+  max: Number(process.env.MCP_RL_MAX) || 120,                       // calls / IP / window
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: rateLimitKey, // edge-authenticated client IP (P3-2)
+  message: {
+    jsonrpc: "2.0",
+    error: { code: -32000, message: "Rate limit exceeded. Try again later." },
+    id: null,
+  },
+  store: rlStore("rl:mcp:"),
+});
+app.post("/api/mcp", mcpLimiter, handleMcpPost);
+app.all("/api/mcp", handleMcpMethodNotAllowed);
+
 // Login Rate Limiting (NOW using Redis store for multi-instance correctness)
 // skipSuccessfulRequests: only FAILED attempts consume the budget (OWASP-style
 // brute-force limiting). Without it, 5 requests/15min/IP — shared across BOTH

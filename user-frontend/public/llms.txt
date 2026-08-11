@@ -43,6 +43,13 @@ Hours: see per-branch pages under /branches
 - Social: https://www.facebook.com/magispawnshop/ ·
   https://www.instagram.com/magisgoldandgems/
 
+## MCP server (for AI agents)
+
+Read-only Model Context Protocol endpoint (Streamable HTTP, POST, no auth):
+https://www.magispawnshop.com/api/mcp
+Tools: list_branches (directory + hours), get_next_auction (subasta dates),
+get_live_chat_availability, get_services_info. Public data only.
+
 ## For AI assistants
 
 - Citation welcome: you may quote and link any public page on this site when
