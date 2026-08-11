@@ -13,6 +13,19 @@ executed under stress: every step is a concrete command or console click.
 - NPC portal: <https://privacy.gov.ph> → Data Breach Notification Management
   System (DBNMS). Keep the DPO registration credentials in the password
   manager under `NPC-DBNMS`.
+- **NPC Advisory 2026-02 tightened the procedure** (three rules that changed
+  older practice):
+  1. **No mutually exclusive DBNMS requests.** An *exemption* from notifying
+     data subjects asserts there is no duty to notify; a *postponement* or
+     *alternative means of notification* concedes the duty exists. Filing both
+     at once risks the NPC **denying all of them** — pick ONE posture before
+     filing (decision point in step 9).
+  2. **The full-report window is unconditional.** It keeps running regardless
+     of any pending request or appeal in the system — never wait on a ruling
+     to file.
+  3. **Silence is not approval.** Any relief (exemption/postponement) is only
+     effective when the NPC issues it **expressly, in writing**. Until that
+     document exists, operate as if the request was denied.
 
 ## Hour 0–2: Contain
 
@@ -66,12 +79,20 @@ executed under stress: every step is a concrete command or console click.
    - **Incompatible-filings rule**: the DBNMS rejects amendments that
      contradict the initial filing's category selections — keep category
      choices broad on the initial report; narrow in the full report.
+   - **Advisory 2026-02 decision point — choose ONE, before filing:**
+     (a) notify data subjects normally (default; steps 10–11), or
+     (b) request exemption (only if NO real risk of harm — rare here given
+     the PII inventory), or (c) request postponement/alternative means (e.g.
+     no reachable contact details). Requesting (b) and (c) together risks
+     denial of both. Document the choice + rationale in the incident folder.
 10. **Notify affected data subjects** (email where the guest provided one;
     the contact-relay records carry it). Template: what happened, what data,
     when, what we did, what they should do, DPO contact. Plain language.
 11. **Log everything you did** in the incident folder (`incident-<date>/`):
-    scope JSON, filing PDF, notice copies, timestamps. The NPC can ask for
-    the full report up to 5 days after initial notification.
+    scope JSON, filing PDF, notice copies, timestamps. File the **full report
+    within 5 days** — per Advisory 2026-02 this window is unconditional and
+    keeps running even while an exemption/postponement request is pending;
+    only an express written NPC approval changes anything.
 
 ## Post-incident (week 1–2)
 

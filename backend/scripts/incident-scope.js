@@ -2,9 +2,10 @@
 /**
  * incident-scope.js — SEC26 Wave 6: incident impact scoping (READ-ONLY).
  *
- * Supports the NPC notification duty (RA 10173 §20, NPC Circular 16-03):
- * within the 72-hour clock the operator must determine who is affected and
- * which data classes were involved. This tool answers that from the
+ * Supports the NPC notification duty (RA 10173 §20, NPC Circular 16-03; see
+ * also NPC Advisory 2026-02 — the full-report window runs unconditionally,
+ * so scope EARLY): within the 72-hour clock the operator must determine who
+ * is affected and which data classes were involved. This tool answers that from the
  * append-only auditLogs collection for a given time window (optionally
  * narrowed to one account or branch): which conversations were viewed or
  * exported, which guests are in the affected population, plus the auth
