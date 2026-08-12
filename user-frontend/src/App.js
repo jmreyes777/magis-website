@@ -11,6 +11,7 @@ import GuestCsatToast from "./components/Guest-Csat-Toast";
 const routeImports = {
   home: () => import("./pages/Home-User-Page"),
   contact: () => import("./pages/ContactUs-User-Page"),
+  about: () => import("./pages/About-Us-User-Page"),
   branches: () => import("./pages/Branches-List-User-Page"),
   terms: () => import("./pages/Terms-Conditions-User-Page"),
   privacy: () => import("./pages/Footer-Privacy-Policy-User-Page"),
@@ -43,6 +44,7 @@ function lazyPreload(thunk, pick = (m) => m.default) {
 
 const Home = lazyPreload(routeImports.home);
 const ContactUs = lazyPreload(routeImports.contact);
+const AboutUs = lazyPreload(routeImports.about);
 const BranchesMapView = lazyPreload(routeImports.branches);
 const Terms = lazyPreload(routeImports.terms);
 const PrivacyPolicy = lazyPreload(routeImports.privacy);
@@ -63,6 +65,7 @@ export function preloadRouteForPath(pathname) {
     "/": Home,
     "/branches": BranchesMapView,
     "/contact-us": ContactUs,
+    "/about-us": AboutUs,
     "/terms": Terms,
     "/privacy-policy": PrivacyPolicy,
     "/faqs": FAQsUserPage,
@@ -136,6 +139,7 @@ function App() {
                 <Route path="/branches/:slug" element={<BranchesMapView branchStatuses={branchStatuses} />} />
 
                 <Route path="/contact-us" element={<ContactUs branchStatuses={branchStatuses} />} />
+                <Route path="/about-us" element={<AboutUs />} />
                 <Route path="/terms" element={<Terms branchStatuses={branchStatuses} />} />
                 <Route path="/privacy-policy" element={<PrivacyPolicy branchStatuses={branchStatuses} />} />
                 <Route path="/faqs" element={<FAQsUserPage branchStatuses={branchStatuses} />} />

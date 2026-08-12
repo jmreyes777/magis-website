@@ -44,6 +44,7 @@ const ROUTES = [
   "/terms",
   "/privacy-policy",
   "/contact-us",
+  "/about-us",
   "/guides/gold-prices-appraisal",
   "/guides/how-to-pawn",
   "/guides/gold-karat-guide",

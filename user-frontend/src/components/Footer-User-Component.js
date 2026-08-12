@@ -316,6 +316,7 @@ function Footer() {
               {/* SEO W2: dead "/about" link (it 404'd) replaced with the guide
                   hub — sitewide internal links to the keyword-targeted guides. */}
               <li><Link to="/branches">Branch Finder</Link></li>
+              <li><Link to="/about-us">About Us</Link></li>
               <li><Link to="/faqs">FAQs</Link></li>
               <li><Link to="/guides/how-to-pawn">How to Pawn (Sangla)</Link></li>
               <li><Link to="/guides/gold-prices-appraisal">Gold Prices &amp; Appraisal</Link></li>

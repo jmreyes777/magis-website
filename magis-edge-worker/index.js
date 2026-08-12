@@ -335,6 +335,11 @@ const ROUTE_META = {
     description:
       "Contact Magis Gold & Gems — message us or live-chat about pawning, jewelry, and branch services, including our contact number and customer service.",
   },
+  "/about-us": {
+    title: "About Us — Vision & Mission | Magis Gold & Gems Pawnshop & Jewelry",
+    description:
+      "Since 1996, Magis Gold & Gems has served Filipino communities with transparent gold pawning (sangla), certified subasta jewelry, and bills payment. Read our vision and mission.",
+  },
   "/faqs": {
     title: "FAQs: Pawning & Sangla | Magis Gold & Gems",
     description:
@@ -511,6 +516,7 @@ const PRERENDERED_ROUTES = new Set([
   "/terms",
   "/privacy-policy",
   "/contact-us",
+  "/about-us",
   "/guides/gold-prices-appraisal",
   "/guides/how-to-pawn",
   "/guides/gold-karat-guide",
