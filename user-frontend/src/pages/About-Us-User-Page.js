@@ -5,7 +5,7 @@
 // gold diamond ornament. Reveal classes are applied by JS ONLY when animation
 // is viable (IO support + no reduced-motion + element below the fold), so the
 // prerender snapshot and crawlers always see fully visible content.
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import {
   FaBolt,
@@ -17,6 +17,7 @@ import {
 } from "react-icons/fa";
 import Footer from "../components/Footer-User-Component";
 import Seo, { SITE_ORIGIN, SITE_NAME } from "../components/Seo";
+import useScrollReveal from "../hooks/useScrollReveal";
 import "./About-Us-User-Page.css";
 
 // ===========================================================================
@@ -83,44 +84,11 @@ const PILLARS = [
   },
 ];
 
-// Scroll-reveal: adds .about-reveal (hidden state) + observes; .in reveals.
-// Applied AFTER mount and only to elements still below the viewport, so
-// content is never hidden from crawlers, the prerenderer, keyboard users, or
-// anyone with reduced motion.
-function useScrollReveal() {
-  const rootRef = useRef(null);
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root || typeof IntersectionObserver === "undefined") return undefined;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
-
-    const targets = Array.from(root.querySelectorAll("[data-reveal]"));
-    const pending = targets.filter(
-      (el) => el.getBoundingClientRect().top > window.innerHeight * 0.92
-    );
-    if (pending.length === 0) return undefined;
-
-    pending.forEach((el) => el.classList.add("about-reveal"));
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (!entry.isIntersecting) return;
-          entry.target.classList.add("in");
-          io.unobserve(entry.target);
-        });
-      },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.15 }
-    );
-    pending.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, []);
-
-  return rootRef;
-}
-
 function AboutUs() {
-  const rootRef = useScrollReveal();
+  // Shared scroll-reveal (src/hooks/useScrollReveal) with this page's local
+  // hidden-state class — .about-reveal also drives the ornament line-draw
+  // and the phrase stagger in About-Us-User-Page.css.
+  const rootRef = useScrollReveal("about-reveal");
 
   return (
     <div className="about-page" ref={rootRef}>

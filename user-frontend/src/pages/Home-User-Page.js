@@ -16,6 +16,8 @@ import {
 } from 'react-icons/fa';
 import { Link } from "react-router-dom";
 import Seo, { SITE_ORIGIN, SITE_NAME } from '../components/Seo';
+import useScrollReveal from '../hooks/useScrollReveal';
+import '../styles/scroll-reveal.css';
 import './Home-User-Page.css';
 
 // SPD2-4 (speed megaplan): the auction date now comes from the cached public
@@ -150,6 +152,9 @@ function AuctionCountdown({ target, onRollover }) {
 }
 
 function Home() {
+  // Scroll-reveals for below-fold sections (shared hook; hydration/SEO safe).
+  const revealRef = useScrollReveal();
+
   // Target date for the auction display + countdown. The per-second ticking is
   // isolated in <AuctionCountdown/> so the rest of the page stays static.
   const [nextAuctionDate, setNextAuctionDate] = useState(() => computeNextAuctionFallback());
@@ -213,7 +218,7 @@ function Home() {
   }, []);
 
   return (
-    <div className="home-page flex flex-col min-h-screen">
+    <div className="home-page flex flex-col min-h-screen" ref={revealRef}>
       <Seo
         title="Magis Pawnshop & Jewelry | Instant Cash for Your Gold"
         description="Sangla ng gold jewelry, subasta, at jewelry sales since 1996. Mataas ang appraisal, mababa ang interest, at mabilis ang proseso — instant cash for your gold."
@@ -246,7 +251,7 @@ function Home() {
         {/* Use cases */}
         <section className="home-section">
           <div className="home-shell">
-            <div className="home-section-head">
+            <div className="home-section-head" data-reveal>
               <p className="home-eyebrow">Para saan?</p>
               <h2 className="home-h2">Praktikal na tulong para sa biglaang gastos.</h2>
               <p className="home-lead">
@@ -255,27 +260,27 @@ function Home() {
               </p>
             </div>
             <div className="home-grid">
-              <div className="home-cell">
+              <div className="home-cell" data-reveal>
                 <span className="home-cell__icon"><FaHeartbeat aria-hidden="true" /></span>
                 <h3 className="home-cell__title">Pang-ospital at gamot</h3>
                 <p className="home-cell__text">Hospital bill, biglaang check-up, o mga gamot.</p>
               </div>
-              <div className="home-cell">
+              <div className="home-cell" data-reveal style={{ "--d": "0.08s" }}>
                 <span className="home-cell__icon"><FaGraduationCap aria-hidden="true" /></span>
                 <h3 className="home-cell__title">Pang-eskwela</h3>
                 <p className="home-cell__text">Tuition at school requirements ng mga anak.</p>
               </div>
-              <div className="home-cell">
+              <div className="home-cell" data-reveal style={{ "--d": "0.16s" }}>
                 <span className="home-cell__icon"><FaStore aria-hidden="true" /></span>
                 <h3 className="home-cell__title">Pang-negosyo</h3>
                 <p className="home-cell__text">Pandagdag-puhunan sa sari-sari store o maliit na negosyo mo.</p>
               </div>
-              <div className="home-cell">
+              <div className="home-cell" data-reveal>
                 <span className="home-cell__icon"><FaWallet aria-hidden="true" /></span>
                 <h3 className="home-cell__title">Pang-araw-araw</h3>
                 <p className="home-cell__text">Pantawid habang hinihintay ang sweldo.</p>
               </div>
-              <div className="home-cell">
+              <div className="home-cell" data-reveal style={{ "--d": "0.08s" }}>
                 <span className="home-cell__icon"><FaFileInvoiceDollar aria-hidden="true" /></span>
                 <h3 className="home-cell__title">Biglaang bayarin</h3>
                 <p className="home-cell__text">Home repair o mga bill na dumating nang hindi inaasahan.</p>
@@ -287,7 +292,7 @@ function Home() {
         {/* Process */}
         <section className="home-section home-section--navy">
           <div className="home-shell">
-            <div className="home-section-head">
+            <div className="home-section-head" data-reveal>
               <p className="home-eyebrow">Ganito kadali</p>
               <h2 className="home-h2">Paano mag-sangla sa Magis.</h2>
               <p className="home-lead">
@@ -295,32 +300,32 @@ function Home() {
               </p>
             </div>
             <div className="home-steps">
-              <div className="home-step">
+              <div className="home-step" data-reveal>
                 <span className="home-step__num">STEP 1</span>
                 <h3 className="home-step__title">Dalhin ang alahas mo</h3>
                 <p className="home-step__text">Pumunta sa kahit anong branch dala ang gold jewelry mo.</p>
               </div>
-              <div className="home-step">
+              <div className="home-step" data-reveal style={{ "--d": "0.08s" }}>
                 <span className="home-step__num">STEP 2</span>
                 <h3 className="home-step__title">Patas na appraisal</h3>
                 <p className="home-step__text">Titimbangin at susuriin namin ang ginto mo base sa karat at timbang, at sasabihin agad kung magkano ang pwede mong ma-loan.</p>
               </div>
-              <div className="home-step">
+              <div className="home-step" data-reveal style={{ "--d": "0.16s" }}>
                 <span className="home-step__num">STEP 3</span>
                 <h3 className="home-step__title">Malinaw na usapan</h3>
                 <p className="home-step__text">Ipapaliwanag namin nang maayos ang terms at interest rate. Walang hidden charges.</p>
               </div>
-              <div className="home-step">
+              <div className="home-step" data-reveal>
                 <span className="home-step__num">STEP 4</span>
                 <h3 className="home-step__title">Ikaw ang bahala</h3>
                 <p className="home-step__text">Ikaw ang magdedesisyon kung tutuloy — no pressure, walang obligasyon.</p>
               </div>
-              <div className="home-step">
+              <div className="home-step" data-reveal style={{ "--d": "0.08s" }}>
                 <span className="home-step__num">STEP 5</span>
                 <h3 className="home-step__title">Kunin ang cash mo</h3>
                 <p className="home-step__text">Kapag pumayag ka, hawak mo na ang pera within minutes.</p>
               </div>
-              <div className="home-step">
+              <div className="home-step" data-reveal style={{ "--d": "0.16s" }}>
                 <span className="home-step__num">STEP 6</span>
                 <h3 className="home-step__title">Tubusin nang ligtas</h3>
                 <p className="home-step__text">Bayaran ang loan within the agreed term para mabawi mo nang buo at ligtas ang alahas mo.</p>
@@ -332,7 +337,7 @@ function Home() {
         {/* Trust / privacy / fairness */}
         <section className="home-section">
           <div className="home-shell">
-            <div className="home-section-head">
+            <div className="home-section-head" data-reveal>
               <p className="home-eyebrow">Privacy</p>
               <h2 className="home-h2">Ang privacy mo, priority namin.</h2>
               <p className="home-lead">
@@ -341,17 +346,17 @@ function Home() {
               </p>
             </div>
             <div className="home-feature-grid">
-              <div className="home-feature">
+              <div className="home-feature" data-reveal>
                 <span className="home-feature__icon"><FaUserShield aria-hidden="true" /></span>
                 <h3 className="home-feature__title">Diskretong serbisyo</h3>
                 <p className="home-feature__text">Private at may respeto ang bawat transaksyon — diskreto at walang husga.</p>
               </div>
-              <div className="home-feature">
+              <div className="home-feature" data-reveal style={{ "--d": "0.08s" }}>
                 <span className="home-feature__icon"><FaLock aria-hidden="true" /></span>
                 <h3 className="home-feature__title">Ligtas ang alahas mo</h3>
                 <p className="home-feature__text">Nakatago nang ligtas ang ginto mo hanggang sa araw na tubusin mo ito.</p>
               </div>
-              <div className="home-feature">
+              <div className="home-feature" data-reveal style={{ "--d": "0.16s" }}>
                 <span className="home-feature__icon"><FaBalanceScale aria-hidden="true" /></span>
                 <h3 className="home-feature__title">Patas na rates</h3>
                 <p className="home-feature__text">Mataas ang appraisal at malinaw ang interest rate — nagsisimula sa 1%.</p>
@@ -363,7 +368,7 @@ function Home() {
         {/* Monthly subasta */}
         <section className="home-section home-section--navy">
           <div className="home-shell">
-            <div className="home-section-head">
+            <div className="home-section-head" data-reveal>
               <p className="home-eyebrow">Buwanang subasta</p>
               <h2 className="home-h2">Malinaw na patakaran sa mga hindi natubos.</h2>
               <p className="home-lead">
@@ -371,13 +376,13 @@ function Home() {
                 sa simula pa lang kung ano ang mangyayari kapag hindi nabayaran ang loan.
               </p>
             </div>
-            <ul className="home-policy">
+            <ul className="home-policy" data-reveal>
               <li>Kapag lumagpas ang loan term at hindi mo na-renew o natubos ang alahas, isasama ito sa nakatakdang buwanang subasta (auction).</li>
               <li>Standard at malinaw na proseso ito para mabawi ng pawnshop ang hindi nabayarang loan.</li>
               <li>Ipapaliwanag namin ang lahat ng deadline at patakaran bago ka pumirma — para walang surprises.</li>
             </ul>
 
-            <div className="home-countdown-wrap">
+            <div className="home-countdown-wrap" data-reveal>
               <p className="home-countdown-meta">
                 Susunod na subasta
                 <strong>
@@ -392,7 +397,7 @@ function Home() {
             </div>
 
             {/* ⤵️ Automatically fetches the latest Facebook album */}
-            <div className="home-album">
+            <div className="home-album" data-reveal>
               <FacebookAlbumCarousel pageSize={12} />
             </div>
           </div>

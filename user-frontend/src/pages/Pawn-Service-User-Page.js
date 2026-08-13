@@ -16,6 +16,8 @@ import {
 import Footer from "../components/Footer-User-Component";
 import Seo, { SITE_ORIGIN } from "../components/Seo";
 import { getRateFromDays, daysBetween, computeInterest } from "../utils/pawnMath";
+import useScrollReveal from "../hooks/useScrollReveal";
+import "../styles/scroll-reveal.css";
 import "./Pawn-Service-User-Page.css";
 
 // ===========================================================================
@@ -84,6 +86,9 @@ const todayLocal = () => {
 };
 
 function Pawning() {
+  // Scroll-reveals for below-fold sections (shared hook; hydration/SEO safe).
+  const revealRef = useScrollReveal();
+
   // ===== Sample Interest Calculator State & Logic =====
   const [principal, setPrincipal] = useState("");
   // SEO prerender hydration safety: "today" differs between the build-time
@@ -136,7 +141,7 @@ function Pawning() {
     n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <div className="pawn-page flex flex-col min-h-screen">
+    <div className="pawn-page flex flex-col min-h-screen" ref={revealRef}>
       <Seo
         title="Pawn Gold & Jewelry (Sangla) | Magis Gold & Gems"
         description="Pawn (sangla) your gold and jewelry for instant cash — see how much you can pawn 18k/21k gold for, with low interest, easy renewal and redemption. BSP-regulated."
@@ -173,7 +178,7 @@ function Pawning() {
         {/* SECTION 1: How to Pawn */}
         <section id="how-to-pawn" className="pawn-section">
           <div className="pawn-shell">
-            <div className="pawn-section-head">
+            <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Paano mag-sangla</p>
               <h2 className="pawn-h2">Simple at straightforward na proseso.</h2>
               <p className="pawn-lead">
@@ -208,7 +213,7 @@ function Pawning() {
                   text: "Itatago namin nang secure ang alahas mo hanggang sa tubos o renewal, ayon sa BSP standards.",
                 },
               ].map((step, i) => (
-                <div key={i} className="pawn-cell">
+                <div key={i} className="pawn-cell" data-reveal style={{ "--d": `${(i % 4) * 0.08}s` }}>
                   <span className="pawn-cell__icon">{step.icon}</span>
                   <span className="pawn-cell__num">{step.num}</span>
                   <h3 className="pawn-cell__title">{step.title}</h3>
@@ -217,7 +222,7 @@ function Pawning() {
               ))}
             </div>
 
-            <div className="pawn-note">
+            <div className="pawn-note" data-reveal>
               <FaShieldAlt aria-hidden="true" />
               <p>
                 <strong>Para sa peace of mind mo:</strong> Bawat alahas ay ina-appraise ng trained
@@ -230,7 +235,7 @@ function Pawning() {
         {/* SECTION 2: Accepted Items */}
         <section id="accepted-items" className="pawn-section pawn-section--navy">
           <div className="pawn-shell">
-            <div className="pawn-section-head">
+            <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Mga tinatanggap</p>
               <h2 className="pawn-h2">Anong alahas ang tinatanggap namin.</h2>
               <p className="pawn-lead">
@@ -239,21 +244,21 @@ function Pawning() {
             </div>
 
             <div className="pawn-cell-grid">
-              <div className="pawn-cell">
+              <div className="pawn-cell" data-reveal>
                 <span className="pawn-cell__icon"><FaMoneyBillAlt aria-hidden="true" /></span>
                 <h3 className="pawn-cell__title">Gold jewelry</h3>
                 <p className="pawn-cell__text">
                   Singsing, kwintas, pulseras, hikaw, pendant — lahat ng karat mula 10K hanggang 24K, susuriin base sa karat at timbang.
                 </p>
               </div>
-              <div className="pawn-cell">
+              <div className="pawn-cell" data-reveal style={{ "--d": "0.08s" }}>
                 <span className="pawn-cell__icon"><FaBalanceScale aria-hidden="true" /></span>
                 <h3 className="pawn-cell__title">May bato</h3>
                 <p className="pawn-cell__text">
                   Maingat naming susuriin ang gold jewelry na may bato (tulad ng diamond).
                 </p>
               </div>
-              <div className="pawn-cell">
+              <div className="pawn-cell" data-reveal style={{ "--d": "0.16s" }}>
                 <span className="pawn-cell__icon"><FaInfoCircle aria-hidden="true" /></span>
                 <h3 className="pawn-cell__title">Itanong lang sa amin</h3>
                 <p className="pawn-cell__text">
@@ -267,7 +272,7 @@ function Pawning() {
         {/* SECTION 3: How to Renew */}
         <section id="how-to-renew" className="pawn-section">
           <div className="pawn-shell">
-            <div className="pawn-section-head">
+            <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Paano mag-renew</p>
               <h2 className="pawn-h2">I-extend ang term — interest lang ang babayaran.</h2>
               <p className="pawn-lead">
@@ -275,7 +280,7 @@ function Pawning() {
               </p>
             </div>
 
-            <div className="pawn-feature pawn-feature--solo">
+            <div className="pawn-feature pawn-feature--solo" data-reveal>
               <h3 className="pawn-feature__title">3 easy steps lang</h3>
               <ul className="pawn-checklist">
                 <li>Pumunta sa kahit anong Magis branch bago o sakto sa maturity date.</li>
@@ -289,7 +294,7 @@ function Pawning() {
         {/* SECTION 4: How to Redeem */}
         <section id="how-to-redeem" className="pawn-section pawn-section--navy">
           <div className="pawn-shell">
-            <div className="pawn-section-head">
+            <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Paano tumubos</p>
               <h2 className="pawn-h2">Tubusin ang alahas mo.</h2>
               <p className="pawn-lead">
@@ -298,7 +303,7 @@ function Pawning() {
             </div>
 
             <div className="pawn-feature-grid">
-              <div className="pawn-feature">
+              <div className="pawn-feature" data-reveal>
                 <h3 className="pawn-feature__title">Mga kailangan</h3>
                 <ul className="pawn-checklist">
                   <li>Original na pawn ticket.</li>
@@ -306,7 +311,7 @@ function Pawning() {
                   <li>Bayad sa principal at mga charges.</li>
                 </ul>
               </div>
-              <div className="pawn-feature">
+              <div className="pawn-feature" data-reveal style={{ "--d": "0.08s" }}>
                 <h3 className="pawn-feature__title">Mga paalala</h3>
                 <ul className="pawn-checklist">
                   <li className="is-warn">
@@ -324,7 +329,7 @@ function Pawning() {
         {/* SECTION 5: Sample Interest Calculator */}
         <section id="interest-calculator" className="pawn-section">
           <div className="pawn-shell">
-            <div className="pawn-section-head">
+            <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Interest calculator</p>
               <h2 className="pawn-h2">I-estimate ang babayaran mo.</h2>
               <p className="pawn-lead">
@@ -443,14 +448,14 @@ function Pawning() {
         {/* SECTION 6: Terms & Conditions */}
         <section id="terms-and-conditions" className="pawn-section pawn-section--navy">
           <div className="pawn-shell">
-            <div className="pawn-section-head">
+            <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Terms &amp; conditions</p>
               <h2 className="pawn-h2">Patas na terms, malinaw na paliwanag.</h2>
               <p className="pawn-lead">Simpleng buod kung paano gumagana ang sangla mo — mula ticket hanggang araw ng pagtubos.</p>
             </div>
 
             <div className="pawn-feature-grid">
-              <div className="pawn-feature">
+              <div className="pawn-feature" data-reveal>
                 <h3 className="pawn-feature__title">Ang transaksyon mo</h3>
                 <ul className="pawn-checklist">
                   <li>
@@ -469,7 +474,7 @@ function Pawning() {
                   </li>
                 </ul>
               </div>
-              <div className="pawn-feature">
+              <div className="pawn-feature" data-reveal style={{ "--d": "0.08s" }}>
                 <h3 className="pawn-feature__title">Pagtubos at pag-iingat</h3>
                 <ul className="pawn-checklist">
                   <li>
@@ -491,7 +496,7 @@ function Pawning() {
               </div>
             </div>
 
-            <div className="pawn-note">
+            <div className="pawn-note" data-reveal>
               <FaExclamationTriangle aria-hidden="true" />
               <p>
                 Simple na buod lang ito. Kung may pagkakaiba, ang <strong>pawn ticket</strong> mo
@@ -505,7 +510,7 @@ function Pawning() {
         {/* Final CTA */}
         <section className="pawn-section">
           <div className="pawn-shell">
-            <div className="pawn-section-head">
+            <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Ready ka na?</p>
               <h2 className="pawn-h2">Drop by sa kahit anong branch — free appraisal!</h2>
               <p className="pawn-lead">
@@ -513,7 +518,7 @@ function Pawning() {
                 charges at terms — no pressure, no obligation.
               </p>
             </div>
-            <div className="pawn-cta-row">
+            <div className="pawn-cta-row" data-reveal style={{ "--d": "0.08s" }}>
               <Link to="/branches" className="pawn-cta">
                 <FaComments aria-hidden="true" /> Chat with a Branch{" "}
                 <FaArrowRight aria-hidden="true" />

@@ -6,6 +6,8 @@ import Footer from "../components/Footer-User-Component";
 import FacebookLatestVideo from "../components/FacebookLatestVideo";
 import { FaGem, FaShieldAlt, FaCheckCircle, FaMapMarkedAlt, FaComments } from "react-icons/fa";
 import { peso, opt1, opt2 } from "../utils/layawayMath";
+import useScrollReveal from "../hooks/useScrollReveal";
+import "../styles/scroll-reveal.css";
 import "./Jewelry-Sales-User-Page.css";
 
 /* --------------------------------------------
@@ -150,6 +152,9 @@ function LayawayCalculator() {
    Jewelry Sales Page
 --------------------------------------------- */
 export default function JewelrySales() {
+  // Scroll-reveals for below-fold sections (shared hook; hydration/SEO safe).
+  const revealRef = useScrollReveal();
+
   // Images live under public/images/, e.g. `${BASE}/images/pendant.png`
   const types = [
     { key: "rings",     label: "Singsing", src: `${BASE}/images/ring.png`,      alt: "Gold rings" },
@@ -259,7 +264,7 @@ export default function JewelrySales() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-white text-gray-800">
+    <div className="flex flex-col min-h-screen bg-white text-gray-800" ref={revealRef}>
       <Seo
         title="Gold Jewelry for Sale (Alahas) | Magis Gold & Gems"
         description="Buy fine gold jewelry (alahas) in the Philippines — rings, necklaces, earrings and bracelets at fair, transparent prices, with layaway (hulugan) options."
@@ -310,7 +315,7 @@ export default function JewelrySales() {
 
         {/* ITEM TYPES */}
         <section id="types" className="jewelry-section">
-          <div className="jewelry-section-header">
+          <div className="jewelry-section-header" data-reveal>
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
               <FaGem className="text-3xl" style={{ color: '#d4a853' }} />
               <h2 className="jewelry-section-title">Mga Klase ng Gold Jewelry</h2>
@@ -321,10 +326,12 @@ export default function JewelrySales() {
           </div>
 
           <div className="jewelry-types-grid">
-            {types.map((t) => (
+            {types.map((t, i) => (
               <div
                 key={t.key}
                 className="jewelry-type-card"
+                data-reveal
+                style={{ "--d": `${(i % 3) * 0.08}s` }}
               >
                 <ImageWithFallback
                   src={t.src}
@@ -339,7 +346,7 @@ export default function JewelrySales() {
 
         {/* LAYAWAY */}
         <section id="layaway" className="jewelry-section jewelry-section-alt">
-          <div className="jewelry-section-header">
+          <div className="jewelry-section-header" data-reveal>
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
               <FaShieldAlt className="text-3xl" style={{ color: '#d4a853' }} />
               <h2 className="jewelry-section-title">Layaway (Hulugan) Options</h2>
@@ -350,7 +357,7 @@ export default function JewelrySales() {
           </div>
 
           <div className="jewelry-layaway-grid">
-            <div className="jewelry-layaway-card">
+            <div className="jewelry-layaway-card" data-reveal>
               <h4 className="jewelry-layaway-title">
                 Payment Option 1
               </h4>
@@ -364,7 +371,7 @@ export default function JewelrySales() {
               </p>
             </div>
 
-            <div className="jewelry-layaway-card">
+            <div className="jewelry-layaway-card" data-reveal style={{ "--d": "0.08s" }}>
               <h4 className="jewelry-layaway-title">
                 Payment Option 2
               </h4>
@@ -388,7 +395,7 @@ export default function JewelrySales() {
 
         {/* FAQS */}
         <section id="faqs" className="jewelry-section">
-          <div className="jewelry-section-header">
+          <div className="jewelry-section-header" data-reveal>
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
               <FaCheckCircle className="text-3xl" style={{ color: '#d4a853' }} />
               <h2 className="jewelry-section-title">Mga Madalas Itanong</h2>
@@ -398,7 +405,7 @@ export default function JewelrySales() {
             </p>
           </div>
 
-          <div className="jewelry-faq-container">
+          <div className="jewelry-faq-container" data-reveal>
             {faqs.map((f, i) => (
               <details
                 key={i}
@@ -420,7 +427,7 @@ export default function JewelrySales() {
 
         {/* TERMS */}
         <section id="terms" className="jewelry-section">
-          <div className="jewelry-section-header">
+          <div className="jewelry-section-header" data-reveal>
             <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
               <FaCheckCircle className="text-3xl" style={{ color: '#d4a853' }} />
               <h2 className="jewelry-section-title">
@@ -433,7 +440,7 @@ export default function JewelrySales() {
           </div>
 
           <div className="jewelry-terms-grid">
-            <div className="jewelry-terms-card">
+            <div className="jewelry-terms-card" data-reveal>
               <p className="jewelry-terms-item">
                 <strong>Karat at timbang:</strong> Nakasulat sa tag ang karat, timbang, at presyo. I-verify bago bilhin.
               </p>
@@ -448,7 +455,7 @@ export default function JewelrySales() {
               </p>
             </div>
 
-            <div className="jewelry-terms-card">
+            <div className="jewelry-terms-card" data-reveal style={{ "--d": "0.08s" }}>
               <p className="jewelry-terms-item">
                 <strong>Returns at palitan:</strong> Maingat naming inaasikaso at nakabatay sa patakaran ng store — i-contact kami agad kung may concern.
               </p>
@@ -463,7 +470,7 @@ export default function JewelrySales() {
         </section>
 
         {/* CTA */}
-        <section className="jewelry-cta-banner">
+        <section className="jewelry-cta-banner" data-reveal>
             <h2 className="jewelry-cta-title">
               May tanong ka ba sa mga available na alahas?
             </h2>
@@ -487,7 +494,7 @@ export default function JewelrySales() {
         </section>
 
         <section id="live-video" className="jewelry-live-section">
-          <div className="jewelry-live-header">
+          <div className="jewelry-live-header" data-reveal>
             <h2 className="jewelry-live-title">Live Selling Sessions</h2>
             <p className="jewelry-live-subtitle">
               Panoorin ang live selling namin para makita ang mga featured na designs. Para sa current availability, mag-message o bumisita sa pinakamalapit na branch.
