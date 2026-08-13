@@ -6,11 +6,6 @@ import {
   FaCertificate,
   FaBalanceScale,
   FaClock,
-  FaHeartbeat,
-  FaGraduationCap,
-  FaStore,
-  FaWallet,
-  FaFileInvoiceDollar,
   FaUserShield,
   FaLock
 } from 'react-icons/fa';
@@ -248,47 +243,6 @@ function Home() {
       </section>
 
       <main className="flex-grow">
-        {/* Use cases */}
-        <section className="home-section">
-          <div className="home-shell">
-            <div className="home-section-head" data-reveal>
-              <p className="home-eyebrow">Para saan?</p>
-              <h2 className="home-h2">Praktikal na tulong para sa biglaang gastos.</h2>
-              <p className="home-lead">
-                Mabilis at walang-hassle na paraan para magka-cash agad kapag may
-                biglaang gastos.
-              </p>
-            </div>
-            <div className="home-grid">
-              <div className="home-cell" data-reveal>
-                <span className="home-cell__icon"><FaHeartbeat aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Pang-ospital at gamot</h3>
-                <p className="home-cell__text">Hospital bill, biglaang check-up, o mga gamot.</p>
-              </div>
-              <div className="home-cell" data-reveal style={{ "--d": "0.08s" }}>
-                <span className="home-cell__icon"><FaGraduationCap aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Pang-eskwela</h3>
-                <p className="home-cell__text">Tuition at school requirements ng mga anak.</p>
-              </div>
-              <div className="home-cell" data-reveal style={{ "--d": "0.16s" }}>
-                <span className="home-cell__icon"><FaStore aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Pang-negosyo</h3>
-                <p className="home-cell__text">Pandagdag-puhunan sa sari-sari store o maliit na negosyo mo.</p>
-              </div>
-              <div className="home-cell" data-reveal>
-                <span className="home-cell__icon"><FaWallet aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Pang-araw-araw</h3>
-                <p className="home-cell__text">Pantawid habang hinihintay ang sweldo.</p>
-              </div>
-              <div className="home-cell" data-reveal style={{ "--d": "0.08s" }}>
-                <span className="home-cell__icon"><FaFileInvoiceDollar aria-hidden="true" /></span>
-                <h3 className="home-cell__title">Biglaang bayarin</h3>
-                <p className="home-cell__text">Home repair o mga bill na dumating nang hindi inaasahan.</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* Process */}
         <section className="home-section home-section--navy">
           <div className="home-shell">
