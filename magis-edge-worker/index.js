@@ -5,7 +5,7 @@
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const CLOCK_TOLERANCE_SECONDS = 60;         // keep in sync with backend
-const MAX_REQUESTS_PER_MINUTE = 60;         // soft default; auto-skips if RATE_LIMIT_KV missing
+const MAX_REQUESTS_PER_MINUTE = 300;        // soft default; auto-skips if RATE_LIMIT_KV missing
 
 // JWT verification using Web Crypto API. P2-3: supports BOTH HS256 (verified
 // with the shared secret) and RS256 (verified with the RSA PUBLIC key), chosen
@@ -590,10 +590,25 @@ async function maybeRateLimit(ip) {
   if (typeof RATE_LIMIT_KV === "undefined" || !RATE_LIMIT_KV) return true;
   try {
     const key = `rl::${ip}`;
+    // Fixed 60s window stored IN the value. The previous plain counter set
+    // `expirationTtl: 60` on EVERY put — each request pushed expiry 60s out,
+    // so for any client that never went quiet for a full minute (this SPA
+    // polls branch-status + sends RUM beacons) the counter accumulated
+    // FOREVER and the IP eventually 429'd on every request. The window start
+    // now lives in the value itself; the KV TTL (120s) is just garbage
+    // collection and never extends the window.
+    const now = Date.now();
     const raw = await RATE_LIMIT_KV.get(key);
-    const count = Number(raw || 0);
-    if (count >= MAX_REQUESTS_PER_MINUTE) return false;
-    await RATE_LIMIT_KV.put(key, String(count + 1), { expirationTtl: 60 });
+    let st = null;
+    if (raw) {
+      try { st = JSON.parse(raw); } catch { st = null; }
+    }
+    if (!st || typeof st.reset !== "number" || now >= st.reset) {
+      st = { n: 0, reset: now + 60_000 };
+    }
+    if (st.n >= MAX_REQUESTS_PER_MINUTE) return false; // no write when blocked
+    st.n += 1;
+    await RATE_LIMIT_KV.put(key, JSON.stringify(st), { expirationTtl: 120 });
     return true;
   } catch (e) {
     // KV is bound but erroring (P2-1). Default: fail-open so a transient KV blip
@@ -1045,7 +1060,19 @@ async function handle(request, event) {
   {
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     const ok = await maybeRateLimit(ip);
-    if (!ok) return new Response("Too Many Requests", { status: 429 });
+    if (!ok) {
+      // CORS headers so cross-origin pages receive a real 429 they can back
+      // off from — without them the browser reports an opaque ERR_FAILED.
+      const h = new Headers({
+        "Retry-After": "60",
+        "Cache-Control": "no-store",
+      });
+      if (allowedOrigin) {
+        h.set("Access-Control-Allow-Origin", allowedOrigin);
+        h.set("Access-Control-Allow-Credentials", "true");
+      }
+      return new Response("Too Many Requests", { status: 429, headers: h });
+    }
   }
 
   // 4) CORS preflight
