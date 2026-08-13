@@ -265,6 +265,52 @@
   margin: 0;
 }
 
+/* ── 30th anniversary video ─────────────────────────────────────────────── */
+.about-anniv {
+  background: var(--paper-2);
+}
+.about-anniv__inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 56px;
+  align-items: center;
+}
+.about-anniv__copy .about-h2 { max-width: 15em; }
+.about-anniv__text {
+  max-width: 34em;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: var(--muted);
+  margin: 0;
+}
+.about-anniv__text strong { color: var(--ink); }
+
+/* Portrait (9:16) reel in a hard gold hairline frame — same "no cards, only
+   hairlines" language as the rest of the site. */
+.about-anniv__player {
+  width: min(320px, 78vw);
+  aspect-ratio: 9 / 16;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--navy);
+  justify-self: end;
+}
+.about-anniv__player video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--navy);
+}
+
+@media (max-width: 900px) {
+  .about-anniv__inner {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 36px;
+  }
+  .about-anniv__player { justify-self: center; }
+}
+
 /* ── Closing strip ──────────────────────────────────────────────────────── */
 .about-closing {
   text-align: center;

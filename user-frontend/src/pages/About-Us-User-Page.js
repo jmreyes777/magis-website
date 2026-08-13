@@ -23,6 +23,20 @@ import "./About-Us-User-Page.css";
 // STRUCTURED DATA (module scope) — AboutPage referencing the homepage
 // LocalBusiness node by @id (same pattern as the Service pages).
 // ===========================================================================
+const ANNIV_VIDEO_JSONLD = {
+  "@type": "VideoObject",
+  "@id": `${SITE_ORIGIN}/about-us#anniversary-video`,
+  name: "Magis Pawnshop 30th Anniversary",
+  description:
+    "Thirty years of serving Filipino communities — a look back at Magis Gold & Gems Pawnshop & Jewelry since 1996.",
+  thumbnailUrl: `${SITE_ORIGIN}/images/30th-anniversary-poster.jpg`,
+  contentUrl: `${SITE_ORIGIN}/videos/30th-anniversary.mp4`,
+  uploadDate: "2026-08-13",
+  duration: "PT1M",
+  inLanguage: "en-PH",
+  publisher: { "@id": `${SITE_ORIGIN}/#business` },
+};
+
 const ABOUT_JSONLD = {
   "@type": "AboutPage",
   "@id": `${SITE_ORIGIN}/about-us#webpage`,
@@ -118,7 +132,7 @@ function AboutUs() {
           { name: "Home", path: "/" },
           { name: "About Us", path: "/about-us" },
         ]}
-        jsonLd={ABOUT_JSONLD}
+        jsonLd={[ABOUT_JSONLD, ANNIV_VIDEO_JSONLD]}
       />
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
@@ -250,6 +264,40 @@ function AboutUs() {
                   <p className="about-pillar__text">{text}</p>
                 </article>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── 30th anniversary ──────────────────────────────────────── */}
+        <section className="about-section about-anniv" aria-labelledby="about-anniv-h" data-reveal>
+          <div className="about-shell">
+            <div className="about-anniv__inner">
+              <div className="about-anniv__copy">
+                <p className="about-eyebrow">Celebrating 30 Years</p>
+                <h2 id="about-anniv-h" className="about-h2">
+                  Three decades of turning trust into relief
+                </h2>
+                <p className="about-anniv__text">
+                  From a single counter in 1996 to <strong>11 branches</strong>{" "}
+                  across Central Luzon and Quezon City — watch how three
+                  decades of <strong>transparent appraisals</strong> and
+                  neighborly service shaped the Magis of today.
+                </p>
+              </div>
+              <div className="about-anniv__player">
+                {/* preload=none: the ~20 MB reel downloads ONLY when the
+                    visitor presses play — the page itself stays light. */}
+                <video
+                  controls
+                  playsInline
+                  preload="none"
+                  poster="/images/30th-anniversary-poster.jpg"
+                  aria-label="Magis Pawnshop 30th anniversary video"
+                >
+                  <source src="/videos/30th-anniversary.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
             </div>
           </div>
         </section>

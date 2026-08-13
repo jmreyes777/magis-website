@@ -11,6 +11,11 @@
 # production
 /build
 
+# ── Video masters (93MB+ originals stay local; only web-optimized renditions
+#    like 30th-anniversary.mp4 are committed) ─────────────────────────────────
+/public/videos/*
+!/public/videos/30th-anniversary.mp4
+
 # misc
 .DS_Store
 npm-debug.log*
