@@ -4,7 +4,7 @@ import Seo from "../components/Seo";
 import { Link } from "react-router-dom";
 import Footer from "../components/Footer-User-Component";
 import FacebookLatestVideo from "../components/FacebookLatestVideo";
-import { FaGem, FaShieldAlt, FaCheckCircle, FaMapMarkedAlt, FaComments } from "react-icons/fa";
+import { FaGem, FaShieldAlt, FaCheckCircle, FaMapMarkedAlt, FaComments, FaCalculator } from "react-icons/fa";
 import { peso, opt1, opt2 } from "../utils/layawayMath";
 import useScrollReveal from "../hooks/useScrollReveal";
 import "../styles/scroll-reveal.css";
@@ -313,6 +313,23 @@ export default function JewelrySales() {
           </div>
         </section>
 
+        {/* LAYAWAY CALCULATOR — first thing visitors reach (per design request) */}
+        <section id="layaway-calculator" className="jewelry-section jewelry-section-alt">
+          <div className="jewelry-section-header" data-reveal>
+            <div className="flex flex-col md:flex-row items-center justify-center md:justify-start gap-3 mb-2">
+              <FaCalculator className="text-3xl" style={{ color: '#d4a853' }} />
+              <h2 className="jewelry-section-title">Layaway (Hulugan) Calculator</h2>
+            </div>
+            <p className="jewelry-section-subtitle">
+              I-compute agad ang down payment at balance mo — ilagay ang tag price at piliin ang payment option.
+            </p>
+          </div>
+
+          <div className="jewelry-calculator-container">
+            <LayawayCalculator />
+          </div>
+        </section>
+
         {/* ITEM TYPES */}
         <section id="types" className="jewelry-section">
           <div className="jewelry-section-header" data-reveal>
@@ -386,10 +403,6 @@ export default function JewelrySales() {
                 <strong>Halimbawa:</strong> ₱4,000 + 4% = ₱4,160 → Rounded ₱4,200 → 20% = ₱832 → ₱850 down → ₱3,350 balance.
               </p>
             </div>
-          </div>
-
-          <div className="jewelry-calculator-container">
-            <LayawayCalculator />
           </div>
         </section>
 

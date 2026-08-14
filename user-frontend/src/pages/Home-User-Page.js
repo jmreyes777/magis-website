@@ -244,7 +244,7 @@ function Home() {
 
       <main className="flex-grow">
         {/* Process */}
-        <section className="home-section home-section--navy">
+        <section className="home-section">
           <div className="home-shell">
             <div className="home-section-head" data-reveal>
               <p className="home-eyebrow">Ganito kadali</p>
@@ -320,7 +320,7 @@ function Home() {
         </section>
 
         {/* Monthly subasta */}
-        <section className="home-section home-section--navy">
+        <section className="home-section">
           <div className="home-shell">
             <div className="home-section-head" data-reveal>
               <p className="home-eyebrow">Buwanang subasta</p>
