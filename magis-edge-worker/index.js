@@ -1103,6 +1103,10 @@ async function handle(request, event) {
     // SPD2-4 (speed megaplan): public auction schedule — replaces the homepage's
     // client-Firestore read so the Firebase SDK stays out of the critical path.
     (request.method === "GET" && pathname === "/api/site-config/auction") ||
+    // SPD2-4 follow-up: public branch directory — replaces the /branches
+    // page's client-Firestore read (the last page shipping the Firebase SDK).
+    // Field-whitelisted + cached on the backend (routes/siteConfig.js).
+    (request.method === "GET" && pathname === "/api/site-config/branches") ||
     (request.method === "GET" &&
       pathname.startsWith("/api/branch-status")) ||
     (request.method === "POST" && pathname.startsWith("/api/guest")) ||
@@ -1221,7 +1225,10 @@ async function handle(request, event) {
       (pathname === "/api/facebook/latest-video" ||
         pathname.startsWith("/api/facebook/albums/latest") ||
         // SPD2-4: auction schedule rides the same edge cache (s-maxage=600).
-        pathname === "/api/site-config/auction");
+        pathname === "/api/site-config/auction" ||
+        // SPD2-4 follow-up: public branch directory (field-whitelisted,
+        // non-personalized, s-maxage=600 from the origin) — same treatment.
+        pathname === "/api/site-config/branches");
 
     const cache = caches.default;
     // Key by the proxied URL only (GET, no headers) so a shared entry never
