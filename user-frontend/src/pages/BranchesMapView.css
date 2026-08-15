@@ -372,10 +372,14 @@ body {
   /* Stacked layout: pin the map under the fixed header (110px) while the
      list scrolls, so it stays visible during browsing/chat instead of the
      footer taking over. Search moves above the map (order) so filtering
-     stays reachable from the top. */
+     stays reachable from the top.
+     svh (NOT dvh): the map height and .branch-item scroll-margin-top must
+     resolve to the SAME length or scrollIntoView lands cards under the
+     sticky map — dvh grows when the mobile URL bar collapses mid-scroll,
+     which is exactly how the drift happened. svh is constant. */
   .map-container {
     height: min(400px, 42vh);
-    height: min(400px, 42dvh);
+    height: min(400px, 42svh);
     position: sticky;
     top: 118px;
     z-index: 20;
@@ -392,9 +396,12 @@ body {
   }
 
   /* scrollIntoView targets the page here (list is no longer its own
-     scroller) — land cards below the fixed header + pinned map. */
+     scroller) — land cards below the fixed header + pinned map. The vh
+     line is the no-svh fallback (was missing: browsers without dvh dropped
+     the whole declaration and pulled cards fully under the header + map). */
   .branch-item {
-    scroll-margin-top: calc(130px + min(400px, 42dvh));
+    scroll-margin-top: calc(130px + min(400px, 42vh));
+    scroll-margin-top: calc(130px + min(400px, 42svh));
   }
 
   .search-filter-container {
@@ -424,7 +431,7 @@ body {
 
   .map-container {
     height: min(300px, 38vh);
-    height: min(300px, 38dvh);
+    height: min(300px, 38svh); /* svh, not dvh — must match scroll-margin-top */
     top: 98px; /* tablet header offset (90px) + slack */
     border-radius: 12px;
   }
@@ -456,7 +463,8 @@ body {
   .branch-item {
     padding: 14px;
     margin-bottom: 12px;
-    scroll-margin-top: calc(110px + min(300px, 38dvh));
+    scroll-margin-top: calc(110px + min(300px, 38vh));
+    scroll-margin-top: calc(110px + min(300px, 38svh));
   }
 
   .branch-name {
