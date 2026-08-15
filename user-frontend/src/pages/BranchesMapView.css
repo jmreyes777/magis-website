@@ -380,7 +380,13 @@ body {
   .map-container {
     height: min(400px, 42vh);
     height: min(400px, 42svh);
-    position: sticky;
+    /* !important is LOAD-BEARING: google.maps.Map() sets position:relative
+       INLINE on this div at init. Inline beats normal sheet rules, so the
+       map silently lost sticky — and the media-query top offset then applied
+       as a RELATIVE shift, displacing the map ~90-120px down over the first
+       branch card. Author !important outranks inline styles and restores
+       sticky. (top/z-index aren't set inline, so they need no escalation.) */
+    position: sticky !important;
     top: 118px;
     z-index: 20;
   }
@@ -492,7 +498,7 @@ body {
 @media (max-width: 480px) {
   .map-container {
     height: min(250px, 34vh);
-    height: min(250px, 34dvh);
+    height: min(250px, 34svh); /* svh, not dvh — must match scroll-margin-top */
     top: 88px; /* mobile header offset (80px) + slack */
   }
 
@@ -506,7 +512,8 @@ body {
   }
 
   .branch-item {
-    scroll-margin-top: calc(100px + min(250px, 34dvh));
+    scroll-margin-top: calc(100px + min(250px, 34vh));
+    scroll-margin-top: calc(100px + min(250px, 34svh));
   }
 
   .branch-name {
