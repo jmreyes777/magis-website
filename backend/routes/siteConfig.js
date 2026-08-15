@@ -16,7 +16,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../utils/firebase");
 const publicCache = require("../middlewares/publicCache");
-const { cached } = require("../utils/cache");
+const { cached, key } = require("../utils/cache");
 
 const TTL = Number(process.env.CACHE_SITECONFIG_TTL || 300);
 
@@ -30,6 +30,50 @@ function toIso(value) {
     return null;
   }
 }
+
+// GET /api/site-config/branches — public branch directory for the guest SPA.
+//
+// SPD2-4 follow-up: /branches was the LAST public page shipping the client
+// Firestore SDK (~105KB gzip) just to read this near-static collection, and
+// the SDK's cold-start channel handshake delayed the list render by several
+// roundtrips. This endpoint returns ONLY the whitelisted, non-sensitive
+// fields the page already rendered via the client SDK (list/map/SEO + the
+// branch email the guest chat flow targets). It reuses the admin list's
+// Redis key (PERF2-1) so the branch write routes' invalidation covers it,
+// and publicCache adds browser/edge caching on top.
+const BRANCHES_TTL = Number(process.env.CACHE_BRANCHES_TTL || 300);
+const PUBLIC_BRANCH_FIELDS = [
+  "name",
+  "slug",
+  "email",
+  "phone",
+  "address",
+  "actualAddress",
+  "schedule",
+  "location",
+  "hasJewelryDisplay",
+];
+
+router.get("/branches", publicCache(300, 600), async (_req, res) => {
+  try {
+    // Same producer + key as the admin list route (routes/branches.js).
+    const full = await cached(key("branches", "list"), BRANCHES_TTL, async () => {
+      const snap = await db.collection("branches").get();
+      return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    });
+    const rows = (Array.isArray(full) ? full : []).map((b) => {
+      const row = { id: b.id };
+      for (const f of PUBLIC_BRANCH_FIELDS) {
+        if (b[f] !== undefined) row[f] = b[f];
+      }
+      return row;
+    });
+    return res.status(200).json(rows);
+  } catch (e) {
+    console.error("[site-config] branches read failed:", e.message);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
 
 router.get("/auction", publicCache(300, 600), async (_req, res) => {
   try {

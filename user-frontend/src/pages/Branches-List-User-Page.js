@@ -1,18 +1,15 @@
 import "../utils/patchPassiveTouchListeners";  // must come before any React import
 import Footer from '../components/Footer-User-Component';
 import Seo from "../components/Seo";
-import React, { useState, useEffect, useRef, useMemo, lazy } from "react";
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
 import { useLocation, useParams } from "react-router-dom";
-import { collection, getDocs } from "firebase/firestore";
-import GuestChatBox from "../components/Guest-Chat-Box-Component";
-
-import { db } from "../firebase-config";
 import { 
   initializeMap, 
   updateMarkers, 
   fitMapToBounds,
   MAX_ZOOM_LEVEL
 } from "../utils/mapUtils";
+import { loadGoogleMapsApi } from "../utils/googleMapsLoader";
 import { FaMapMarkerAlt, FaPhoneAlt, FaClock, FaSearch, FaTimes } from "react-icons/fa";
 import "./BranchesMapView.css";
 import { getSocketInstance, connectSocket, disconnectSocket } from "../Shared/User-Utils-socket";
@@ -26,6 +23,14 @@ const socket = getSocketInstance();
 // NotFound chunk isn't pulled into this page's bundle on the happy path.
 // Suspension bubbles to the route-level <Suspense> boundary in App.js.
 const NotFoundPage = lazy(() => import("./NotFound-User-Page"));
+
+// SPD: the chat UI (message list, transcript modal, media handling) is only
+// needed once a guest actually opens a chat, so it loads on demand instead of
+// inflating this route's initial JS. openChatBox() warms the chunk in
+// parallel with the guest-session roundtrips, so by the time <GuestChatBox/>
+// mounts the code is normally already here.
+const chatBoxImport = () => import("../components/Guest-Chat-Box-Component");
+const GuestChatBox = lazy(chatBoxImport);
 
 // Utility function for formatting schedules
 const formatSchedule = (schedule) => {
@@ -128,8 +133,14 @@ function BranchesMapView() {
   // default — it fires the bot check and creates a guest session).
   const autoChatFiredRef = useRef(false);
 
-  // Start map init immediately on mount — map is above the fold
-  useEffect(() => { setMapReady(true); }, []);
+  // Start map init immediately on mount — map is above the fold. Warming the
+  // Google Maps script here lets it download IN PARALLEL with the branches
+  // fetch (initializeMap awaits the same deduped loader promise; previously
+  // the script only started loading after the branch data arrived).
+  useEffect(() => {
+    setMapReady(true);
+    loadGoogleMapsApi({ libraries: ["places", "marker"] }).catch(() => {});
+  }, []);
 
   // Warm the Turnstile script on mount so chat opens fast (P1-4)
   useEffect(() => { preloadTurnstile(); }, []);
@@ -140,13 +151,19 @@ function BranchesMapView() {
     let cancelled = false;
 
     const fetchAndInit = async () => {
-      console.log("[DEBUG] Fetching branches…");
       try {
-        const snap = await getDocs(collection(db, "branches"));
-        const data = snap.docs.map(doc => ({
-          id: doc.id,
-          hasJewelryDisplay: doc.data().hasJewelryDisplay ?? false,
-          ...doc.data(),
+        // SPD2-4 follow-up: the branch directory now comes from the cached
+        // public API (Redis + edge cached, same data the client Firestore SDK
+        // used to read) — this page was the last one shipping the ~105KB-gzip
+        // Firebase chunk, and the SDK handshake delayed the first list paint.
+        const res = await fetch(
+          `${process.env.REACT_APP_API_URL || ""}/api/site-config/branches`
+        );
+        if (!res.ok) throw new Error(`Branches fetch failed (${res.status})`);
+        const rows = await res.json();
+        const data = (Array.isArray(rows) ? rows : []).map((b) => ({
+          ...b,
+          hasJewelryDisplay: b.hasJewelryDisplay ?? false,
         }));
         if (cancelled) return;
 
@@ -322,6 +339,7 @@ function BranchesMapView() {
     setOpenError(null);
     setOpeningBranchId(branch.id);
     setOpeningStage("connecting");
+    chatBoxImport().catch(() => {}); // warm the lazy chat chunk in parallel
     try {
       // If there’s an active chat for another branch, prompt first
       const activeFlag  = sessionStorage.getItem("chatOpen") === "true";
@@ -652,17 +670,19 @@ function BranchesMapView() {
         </div>
       </div>
 
-      {/* 💬 Chat Overlay */}
+      {/* 💬 Chat Overlay (lazy — chunk is warmed by openChatBox) */}
       {activeChat && (
-        <GuestChatBox
-          key={`${activeChat.branchId}-${activeChat.guestId}`}
-          branchId={activeChat.branchId}
-          branchEmail={activeChat.branchEmail}
-          branchName={activeChat.branchName}
-          schedule={activeChat.schedule || []}
-          guestId={activeChat.guestId}
-          onClose={closeChatBox}
-        />
+        <Suspense fallback={null}>
+          <GuestChatBox
+            key={`${activeChat.branchId}-${activeChat.guestId}`}
+            branchId={activeChat.branchId}
+            branchEmail={activeChat.branchEmail}
+            branchName={activeChat.branchName}
+            schedule={activeChat.schedule || []}
+            guestId={activeChat.guestId}
+            onClose={closeChatBox}
+          />
+        </Suspense>
       )}
       <Footer />
     </div>
