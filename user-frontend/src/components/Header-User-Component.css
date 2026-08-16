@@ -145,12 +145,14 @@ button:focus-visible,
   width: 35px; height: 2px; background-color: white; transition: all 0.3s ease;
 }
 
-/* Desktop nav list */
+/* Desktop nav list. 32px gap was previously Tailwind's md:gap-8 on the <ul>;
+   the utility classes were removed because Tailwind loads after this file and
+   its min-width:768px rules leaked 2rem gaps into the tablet drawer. */
 .nav-links {
   list-style: none;
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 32px;
   transition: all 0.3s ease;
 }
 
@@ -287,7 +289,9 @@ button:focus-visible,
 /* Keep main page scrollable while menu is open — use margin (not transform) */
 body.menu-open .site-content { margin-left: 16px; }
 
-@media (max-width: 768px) {
+/* Breakpoint MUST match MOBILE_NAV_QUERY in Header-User-Component.js (see the
+   comment there for why it is 1024 and why the two must agree exactly). */
+@media (max-width: 1024px) {
   .hamburger { display: flex; }
 
   /* Drawer */

@@ -5,6 +5,16 @@ import { FaFacebookMessenger } from "react-icons/fa6";
 import { MdEmail } from "react-icons/md";
 import './Header-User-Component.css';
 
+// Single source of truth for the hamburger/drawer breakpoint. MUST stay in
+// sync with the @media block in Header-User-Component.css. JS uses the same
+// matchMedia query (not window.innerWidth < N) because CSS media queries are
+// INCLUSIVE of their max-width: at exactly 768px (iPad Mini) the old `< 768`
+// check said "desktop" while CSS showed the drawer, so the drawer opened with
+// desktop innards — no close ×, no social buttons, dead "+" toggles.
+// 1024 (not 768): six links + the logo wrap/clip between ~769–1024px
+// (iPad Air 820, Surface Pro 912), so tablets get the drawer too.
+const MOBILE_NAV_QUERY = '(max-width: 1024px)';
+
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   // SEO prerender hydration safety: first render must match the build-time
@@ -13,7 +23,7 @@ function Header() {
   // desktop nav flash. CSR mounts behave identically (pre-paint sync).
   const [isMobile, setIsMobile] = useState(false);
   useLayoutEffect(() => {
-    if (window.innerWidth < 768) setIsMobile(true);
+    if (window.matchMedia(MOBILE_NAV_QUERY).matches) setIsMobile(true);
   }, []);
 
   // Desktop hover menus
@@ -74,7 +84,7 @@ function Header() {
   // Resize: switch mobile/desktop behaviors
   useEffect(() => {
     const onResize = () => {
-      const mobile = window.innerWidth < 768;
+      const mobile = window.matchMedia(MOBILE_NAV_QUERY).matches;
       setIsMobile(mobile);
       if (!mobile) {
         setIsMenuOpen(false);
@@ -286,7 +296,7 @@ function Header() {
       {/* Nav list (desktop) / Drawer (mobile) */}
       <ul
         id="primary-navigation"
-        className={`nav-links ${isMenuOpen ? 'show-menu' : ''} md:flex md:gap-8`}
+        className={`nav-links ${isMenuOpen ? 'show-menu' : ''}`}
         role={isMobile ? 'dialog' : undefined}
         aria-modal={isMobile && isMenuOpen ? 'true' : undefined}
         tabIndex={-1}
