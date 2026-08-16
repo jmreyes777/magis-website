@@ -1,0 +1,94 @@
+/* Mobile sticky bottom navigation (app-style tab bar).
+   Hidden on ≥768px — the desktop header nav is the primary navigation there.
+   The --mbn-h variable is the bar's total clearance (content height + iOS
+   safe-area inset); every rule that must stay above the bar derives from it. */
+
+:root {
+  --mbn-h: calc(58px + env(safe-area-inset-bottom, 0px));
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767.98px) {
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 9000; /* under the fixed header/drawer (10000) and chat overlay (9999) */
+    display: flex;
+    align-items: stretch;
+    background: #ffffff;
+    border-top: 1px solid rgba(212, 168, 83, 0.35);
+    box-shadow: 0 -4px 16px rgba(26, 26, 46, 0.08);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .mobile-bottom-nav__item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 9px 2px 7px;
+    color: #4b5563;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-bottom-nav__item:hover {
+    color: #1a1a2e;
+  }
+
+  .mobile-bottom-nav__item:focus-visible {
+    outline: 2px solid #c9a227;
+    outline-offset: -2px;
+    border-radius: 8px;
+  }
+
+  .mobile-bottom-nav__icon {
+    font-size: 19px;
+  }
+
+  .mobile-bottom-nav__label {
+    font-size: 10.5px;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.01em;
+  }
+
+  .mobile-bottom-nav__item--active {
+    color: #b8860b;
+  }
+
+  .mobile-bottom-nav__item--active .mobile-bottom-nav__label {
+    color: #1a1a2e;
+    font-weight: 800;
+  }
+
+  /* Keep page content (footer copyright, CTAs) reachable above the bar. */
+  body {
+    padding-bottom: var(--mbn-h);
+  }
+
+  /* Fixed bottom-anchored widgets lift above the bar. `body .x` outranks the
+     originals' single-class selectors regardless of CSS import order. */
+  body .chat-widget {
+    bottom: calc(20px + var(--mbn-h));
+  }
+
+  body .chat-overlay {
+    bottom: calc(10px + var(--mbn-h));
+  }
+
+  body .guest-chat-box {
+    bottom: calc(10px + var(--mbn-h));
+  }
+
+  body .csat-toast {
+    bottom: calc(12px + var(--mbn-h));
+  }
+}

@@ -4,6 +4,7 @@ import { Helmet, HelmetProvider } from "react-helmet-async";
 import ScrollToTop from "./Shared/ScrollToTop-Component";
 import ErrorBoundary from "./Shared/ErrorBoundary-Component";
 import Header from "./components/Header-User-Component";
+import MobileBottomNav from "./components/Mobile-Bottom-Nav-Component";
 import GuestCsatToast from "./components/Guest-Csat-Toast";
 
 // Public Components. Import thunks are declared once so the lazy() routes and
@@ -157,6 +158,10 @@ function App() {
             </ErrorBoundary>
           </Suspense>
         </main>
+
+        {/* Mobile-only sticky bottom nav (hidden ≥768px in CSS). Outside
+            <Routes> so it persists across navigation without re-mounting. */}
+        <MobileBottomNav />
 
         {/* CHATUX2: post-chat rating toast — renders nothing until an eligible
             chat close dispatches the magis:csat event (utils/csat.js). Lives
