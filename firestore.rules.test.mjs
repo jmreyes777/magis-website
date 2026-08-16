@@ -5,7 +5,10 @@
  *   - DENY all unauthenticated access to `messages` (read / list / create / update)
  *   - keep branch-admin reads scoped to their own branch
  *   - DENY anonymous `guests` creation
- *   - keep the intended public reads (`siteConfig`, `branches`, `branchStatus`)
+ *   - DENY the formerly-public reads (`siteConfig`, `branches`, `branchStatus`)
+ *     — closed once the public site moved to the backend API endpoints
+ *     (/api/site-config/*, /api/branch-status) and dropped the client SDK
+ *   - keep the superadmin/branchadmin dashboard access paths working
  *
  * Run against the Firestore emulator (no production project touched):
  *
@@ -61,6 +64,10 @@ const anon = () => testEnv.unauthenticatedContext().firestore();
 const branchAdmin = (email, branchId) =>
   testEnv
     .authenticatedContext("admin-uid", { role: "branchadmin", email, branchId })
+    .firestore();
+const superAdmin = () =>
+  testEnv
+    .authenticatedContext("super-uid", { role: "superadmin" })
     .firestore();
 
 // Seed docs through the privileged path (bypasses rules), mirroring the
@@ -121,17 +128,55 @@ test("guests: branch admin CAN read a guest in their own branch", async () => {
   await assertSucceeds(getDoc(doc(db, "guests", "guest-abcdefghij")));
 });
 
-test("public: anyone can read siteConfig", async () => {
+test("siteConfig: anonymous client CANNOT read (served via /api/site-config/*)", async () => {
   await seed("siteConfig", "auction", { date: "2026-12-01" });
-  await assertSucceeds(getDoc(doc(anon(), "siteConfig", "auction")));
+  await assertFails(getDoc(doc(anon(), "siteConfig", "auction")));
 });
 
-test("public: anyone can read branches", async () => {
+test("branches: anonymous client CANNOT read (served via /api/site-config/branches)", async () => {
   await seed("branches", "branch-1", { name: "Main" });
-  await assertSucceeds(getDoc(doc(anon(), "branches", "branch-1")));
+  await assertFails(getDoc(doc(anon(), "branches", "branch-1")));
 });
 
-test("public: anyone can read branchStatus (presence widget)", async () => {
+test("branches: anonymous client CANNOT list the collection", async () => {
+  await seed("branches", "branch-1", { name: "Main" });
+  await assertFails(getDocs(collection(anon(), "branches")));
+});
+
+test("branches: superadmin CAN list (dashboard branch/staff/password pages)", async () => {
+  await seed("branches", "branch-1", { name: "Main" });
+  await assertSucceeds(getDocs(collection(superAdmin(), "branches")));
+});
+
+test("branches: branchadmin CANNOT read (no branchadmin page reads branches)", async () => {
+  await seed("branches", "branch-1", { name: "Main" });
+  const db = branchAdmin("branch@example.com", "branch-1");
+  await assertFails(getDoc(doc(db, "branches", "branch-1")));
+});
+
+test("branchStatus: anonymous client CANNOT read (served via /api/branch-status)", async () => {
   await seed("branchStatus", "branch@example.com", { online: true });
-  await assertSucceeds(getDoc(doc(anon(), "branchStatus", "branch@example.com")));
+  await assertFails(getDoc(doc(anon(), "branchStatus", "branch@example.com")));
+});
+
+test("branchStatus: branch admin CAN read presence", async () => {
+  await seed("branchStatus", "branch@example.com", { online: true });
+  const db = branchAdmin("branch@example.com", "branch-1");
+  await assertSucceeds(getDoc(doc(db, "branchStatus", "branch@example.com")));
+});
+
+test("branchStatus: owning branch admin CAN update their own presence doc", async () => {
+  await seed("branchStatus", "branch@example.com", { online: false });
+  const db = branchAdmin("branch@example.com", "branch-1");
+  await assertSucceeds(
+    updateDoc(doc(db, "branchStatus", "branch@example.com"), { online: true })
+  );
+});
+
+test("branchStatus: branch admin CANNOT update another branch's presence doc", async () => {
+  await seed("branchStatus", "other@example.com", { online: false });
+  const db = branchAdmin("branch@example.com", "branch-1");
+  await assertFails(
+    updateDoc(doc(db, "branchStatus", "other@example.com"), { online: true })
+  );
 });

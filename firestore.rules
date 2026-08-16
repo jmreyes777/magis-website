@@ -4,26 +4,26 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ─────────────────────────────────────────────────────────────
-    // Public CMS-style config for home page countdown, etc.
-    // Marketing can edit without a deploy.
+    // Site config (auction schedule, etc.)
+    // SPD2-4: the public site reads this via GET /api/site-config/* (backend
+    // Admin SDK + Redis/edge cache) — the old client-SDK read is gone. No
+    // client writes exist either (edits happen via the Firebase console or
+    // backend tooling, both of which bypass these rules). Deny everything.
     // ─────────────────────────────────────────────────────────────
     match /siteConfig/{docId} {
-      // Anyone can read (home page needs to read auction date)
-      allow read: if true;
-
-      // Only authenticated admins/superadmins can change
-      allow write: if request.auth != null
-                   && (request.auth.token.role == 'superadmin'
-                       || request.auth.token.role == 'admin');
+      allow read, write: if false;
     }
 
     // ─────────────────────────────────────────────────────────────
     // Branches
+    // The public /branches page now reads GET /api/site-config/branches
+    // (field-whitelisted, backend Admin SDK) — raw docs are no longer
+    // publicly enumerable. The only remaining client-SDK readers are the
+    // superadmin dashboard pages (branch list/edit, staff, passwords).
     // ─────────────────────────────────────────────────────────────
     match /branches/{branchId} {
-      allow read: if true;
-      allow write: if request.auth != null
-                   && request.auth.token.role == 'superadmin';
+      allow read, write: if request.auth != null
+                         && request.auth.token.role == 'superadmin';
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -139,10 +139,11 @@ service cloud.firestore {
     // Branch Status (Presence)
     // ─────────────────────────────────────────────────────────────
     match /branchStatus/{branchEmail} {
-      // Public read (guest widgets poll this) OR branch admins
-      allow read: if request.auth == null
-                  || (request.auth != null
-                      && request.auth.token.role == 'branchadmin');
+      // Guest widgets moved to GET /api/branch-status (backend Admin SDK,
+      // cached) — the anonymous client read is closed. Branch admins keep
+      // read access (dashboard presence).
+      allow read: if request.auth != null
+                  && request.auth.token.role == 'branchadmin';
 
       // Only the owning branch admin updates their own presence doc
       allow create, update: if request.auth != null

@@ -128,11 +128,6 @@
     <link rel="preconnect" href="https://scontent.xx.fbcdn.net" crossorigin />
     <link rel="dns-prefetch" href="//platform-lookaside.fbsbx.com" />
     <link rel="preconnect" href="https://platform-lookaside.fbsbx.com" crossorigin />
-    <!-- Firebase (Firestore + Auth) — hit on every page load. crossorigin: CORS fetch/XHR -->
-    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
-    <link rel="dns-prefetch" href="//firestore.googleapis.com" />
-    <link rel="dns-prefetch" href="//identitytoolkit.googleapis.com" />
-    <link rel="dns-prefetch" href="//securetoken.googleapis.com" />
     <!-- Inter is self-hosted (SPD2-2): preload the single variable-font file so
          text renders in the brand font on first paint (same-origin, no
          connection setup; the old fonts.googleapis/gstatic preconnects are gone
@@ -198,7 +193,6 @@
         script-src 'self' 'nonce-xyz123'
           https://maps.googleapis.com
           https://apis.google.com
-          https://identitytoolkit.googleapis.com
           https://connect.facebook.net
           https://challenges.cloudflare.com;
         script-src-elem 'self' 'nonce-xyz123'
@@ -215,11 +209,7 @@
           wss://*.magis-edge-worker.workers.dev
           https://magis-website.onrender.com
           wss://magis-website.onrender.com
-          wss://magis-website.firebaseapp.com
-          https://identitytoolkit.googleapis.com
-          https://firestore.googleapis.com
           https://maps.googleapis.com
-          https://securetoken.googleapis.com
           https://www.googleapis.com
           https://challenges.cloudflare.com;
         frame-src 'self'
@@ -228,7 +218,6 @@
           https://m.facebook.com
           https://connect.facebook.net
           https://staticxx.facebook.com
-          https://magis-website.firebaseapp.com
           https://apis.google.com
           https://challenges.cloudflare.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
