@@ -56,6 +56,52 @@
   color: #4b5563;
 }
 
+/* Topic filter pills */
+.faq-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.faq-pill {
+  appearance: none;
+  cursor: pointer;
+  border: 1px solid rgba(212, 168, 83, 0.35);
+  border-radius: 9999px;
+  background: #ffffff;
+  padding: 8px 18px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1.2;
+  color: #1a1a2e;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.faq-pill:hover {
+  background: rgba(212, 168, 83, 0.1);
+  border-color: rgba(212, 168, 83, 0.55);
+}
+
+.faq-pill:focus-visible {
+  outline: 2px solid #c9a227;
+  outline-offset: 2px;
+}
+
+.faq-pill--active {
+  background: #1a1a2e;
+  border-color: #1a1a2e;
+  color: #d4a853;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.25);
+}
+
+.faq-pill--active:hover {
+  background: #2d2d42;
+  border-color: #2d2d42;
+}
+
 @media (max-width: 480px) {
   .faq-accordion summary {
     padding: 16px;

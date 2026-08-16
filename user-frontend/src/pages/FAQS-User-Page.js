@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo";
@@ -29,6 +29,7 @@ const COMPANY_FAQS = [
     a: "“Tubos” means redeeming—reclaiming your item by paying the amount due. “Patubo” is the interest on the loan. You can also renew by paying the interest to extend your loan to a new maturity date.",
   },
   {
+    cat: "jewelry",
     q: "Do you offer jewelry layaway (hulugan)?",
     a: "Yes—you can reserve gold jewelry and pay in installments (hulugan). See our Jewelry Sales page for details and a layaway calculator that estimates your payments.",
   },
@@ -81,10 +82,12 @@ const COMPANY_FAQS = [
     a: "Items are kept with reasonable care and secure storage. Liability is limited as permitted by law—please review the ticket terms.",
   },
   {
+    cat: "policies",
     q: "Do you accept minors as customers?",
     a: "Pawn transactions are generally for customers of legal age. Minors typically require a parent/guardian and proper documentation (branch discretion).",
   },
   {
+    cat: "policies",
     q: "Is the live chat binding for a pawn transaction?",
     a: "No. Chat is for assistance only. Official records are branch-issued documents and your pawn ticket.",
   },
@@ -93,30 +96,37 @@ const COMPANY_FAQS = [
     a: "Yes. We can show a clear breakdown before you accept; the pawn ticket reflects the final terms.",
   },
   {
+    cat: "policies",
     q: "Do you provide reminders for due dates?",
     a: "We may send courtesy reminders (thru SMS) when possible, but tracking your due date remains your responsibility.",
   },
   {
+    cat: "policies",
     q: "What if my contact details change?",
     a: "Update them with our branch staff or customer support so notices and records remain accurate.",
   },
   {
+    cat: "jewelry",
     q: "Do you buy items outright?",
     a: "This depends on branch policy. Please ask the branch for availability and terms.",
   },
   {
+    cat: "policies",
     q: "How is my personal information protected?",
     a: "We follow the Data Privacy Act (RA 10173). We collect only what’s needed, secure it, and keep it only as long as necessary. You can exercise your data rights through our DPO.",
   },
   {
+    cat: "policies",
     q: "Do you use cookies or collect device data on the website?",
     a: "We use cookies to run the site, remember preferences, and improve performance. You can manage cookies in your browser; some features may be affected if disabled.",
   },
   {
+    cat: "policies",
     q: "How do I file a concern or complaint?",
     a: "Start with our branch staff or customer support. If unresolved, you may elevate to BSP Consumer Assistance. For privacy concerns, you may contact the National Privacy Commission (NPC).",
   },
   {
+    cat: "policies",
     q: "Where can I read the full terms and privacy policy?",
     a: "On our website’s Terms & Conditions and Privacy Policy pages, in-branch notices, and on your pawn ticket.",
   },
@@ -141,9 +151,26 @@ const REGULATORY_FAQS = [
   },
 ];
 
+// Flat, categorized list driving both the visible accordions and the pill
+// filter. COMPANY_FAQS items default to "pawning" (the dominant topic) so only
+// exceptions carry an explicit `cat`; REGULATORY_FAQS are all "regulation".
+const ALL_FAQS = [
+  ...COMPANY_FAQS.map((item) => ({ cat: "pawning", ...item })),
+  ...REGULATORY_FAQS.map((item) => ({ ...item, cat: "regulation" })),
+];
+
+const FAQ_CATEGORIES = [
+  { id: "all", label: "All" },
+  { id: "pawning", label: "Pawning (Sangla)" },
+  { id: "jewelry", label: "Jewelry & Layaway" },
+  { id: "policies", label: "Policies & Privacy" },
+  { id: "regulation", label: "BSP & AMLA" },
+];
+
 const FAQ_SCHEMA = {
   "@type": "FAQPage",
-  mainEntity: [...COMPANY_FAQS, ...REGULATORY_FAQS].map((item) => ({
+  // Always the FULL list — the visible filter must not shrink the rich result.
+  mainEntity: ALL_FAQS.map((item) => ({
     "@type": "Question",
     name: item.q,
     acceptedAnswer: { "@type": "Answer", text: item.a },
@@ -154,6 +181,13 @@ function FAQsUserPage() {
   // Real content-revision date (was new Date() — which dishonestly showed every
   // visitor "today" AND breaks prerender hydration). Bump when FAQs change.
   const lastUpdated = "June 20, 2026";
+
+  // Category filter. Defaults to "all", so the first client render matches the
+  // prerendered HTML exactly (hydration-safe); filtering happens only after an
+  // explicit pill click.
+  const [activeCat, setActiveCat] = useState("all");
+  const visibleFaqs =
+    activeCat === "all" ? ALL_FAQS : ALL_FAQS.filter((item) => item.cat === activeCat);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -195,36 +229,30 @@ function FAQsUserPage() {
           </div>
         </section>
 
-        {/* Company FAQs */}
+        {/* FAQs — one list, filterable by topic pills */}
         <section className="bg-[#faf8f5] py-12">
           <div className="container mx-auto max-w-4xl px-4">
             <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-[#1a1a2e] md:text-3xl">
-              Mga Tanong Tungkol sa Magis
+              Mga Tanong at Sagot
             </h2>
+            <div className="faq-filter-bar" role="group" aria-label="Filter FAQs by topic">
+              {FAQ_CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  className={`faq-pill${activeCat === cat.id ? " faq-pill--active" : ""}`}
+                  aria-pressed={activeCat === cat.id}
+                  onClick={() => setActiveCat(cat.id)}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
             <div>
-              {COMPANY_FAQS.map((item, index) => (
+              {visibleFaqs.map((item, index) => (
                 <details key={item.q} className="faq-accordion">
                   <summary>
                     <h3>{index + 1}. {item.q}</h3>
-                  </summary>
-                  <p className="faq-answer">{item.a}</p>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Regulatory / Industry FAQs */}
-        <section className="bg-white py-12">
-          <div className="container mx-auto max-w-4xl px-4">
-            <h2 className="mb-6 text-2xl font-extrabold tracking-tight text-[#1a1a2e] md:text-3xl">
-              FAQs sa Regulasyon / Industriya
-            </h2>
-            <div>
-              {REGULATORY_FAQS.map((item, index) => (
-                <details key={item.q} className="faq-accordion">
-                  <summary>
-                    <h3>{COMPANY_FAQS.length + index + 1}. {item.q}</h3>
                   </summary>
                   <p className="faq-answer">{item.a}</p>
                 </details>
