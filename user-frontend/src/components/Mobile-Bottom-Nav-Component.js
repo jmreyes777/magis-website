@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FaHouse, FaCoins, FaLocationDot, FaCircleQuestion } from "react-icons/fa6";
+import { FaHouse, FaPesoSign, FaLocationDot, FaCircleQuestion } from "react-icons/fa6";
 import { GiNecklaceDisplay } from "react-icons/gi";
 import "./Mobile-Bottom-Nav-Component.css";
 
@@ -17,7 +17,9 @@ import "./Mobile-Bottom-Nav-Component.css";
 // than scattered through their own CSS files.
 const NAV_ITEMS = [
   { to: "/", label: "Home", Icon: FaHouse, end: true },
-  { to: "/pawning", label: "Pawning", Icon: FaCoins },
+  // Philippine Peso sign (₱) — pawning is a peso-loan service, so the
+  // currency glyph is the clearest shorthand for Filipino users.
+  { to: "/pawning", label: "Pawning", Icon: FaPesoSign },
   // Gold chain on a display bust over a diamond glyph — Filipino buyers shop
   // gold chains/necklaces far more than diamonds. GiNecklaceDisplay was picked
   // by measured ink coverage (41% at tab size vs GiNecklace's thin 18%), so it
