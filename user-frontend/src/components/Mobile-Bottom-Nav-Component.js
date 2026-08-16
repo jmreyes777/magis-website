@@ -1,6 +1,7 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { FaHouse, FaCoins, FaGem, FaLocationDot, FaCircleQuestion } from "react-icons/fa6";
+import { FaHouse, FaCoins, FaLocationDot, FaCircleQuestion } from "react-icons/fa6";
+import { GiNecklace } from "react-icons/gi";
 import "./Mobile-Bottom-Nav-Component.css";
 
 // Mobile-only sticky bottom navigation (app-style tab bar).
@@ -17,7 +18,10 @@ import "./Mobile-Bottom-Nav-Component.css";
 const NAV_ITEMS = [
   { to: "/", label: "Home", Icon: FaHouse, end: true },
   { to: "/pawning", label: "Pawning", Icon: FaCoins },
-  { to: "/jewelry-sales", label: "Jewelry", Icon: FaGem },
+  // GiNecklace (gold chain) over a diamond glyph — Filipino buyers shop gold
+  // chains/necklaces far more than diamonds, so the tab icon mirrors the
+  // actual inventory.
+  { to: "/jewelry-sales", label: "Jewelry", Icon: GiNecklace },
   { to: "/branches", label: "Branches", Icon: FaLocationDot },
   { to: "/faqs", label: "FAQs", Icon: FaCircleQuestion },
 ];
