@@ -33,7 +33,7 @@
     align-items: center;
     justify-content: center;
     gap: 3px;
-    padding: 9px 2px 7px;
+    padding: 6px 2px 7px;
     color: #4b5563;
     text-align: center;
     -webkit-tap-highlight-color: transparent;
@@ -49,8 +49,19 @@
     border-radius: 8px;
   }
 
+  /* Every icon carries the same pill-sized box (transparent when inactive) so
+     activating a tab recolors it without any layout jump. */
   .mobile-bottom-nav__icon {
     font-size: 19px;
+    /* Explicit box: the global `* { box-sizing: border-box }` would otherwise
+       subtract the padding from the SVG's 1em attribute size and shrink the
+       chip to hug the glyph. 43x27 = 19px glyph + 12px/4px breathing room. */
+    width: 43px;
+    height: 27px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    background: transparent;
+    transition: background 0.15s ease, color 0.15s ease;
   }
 
   .mobile-bottom-nav__label {
@@ -60,8 +71,12 @@
     letter-spacing: 0.01em;
   }
 
-  .mobile-bottom-nav__item--active {
-    color: #b8860b;
+  /* Active page: the site's signature yellow (#f1c40f — same as the header's
+     .active-link) on a navy chip, so the highlight is unmistakable on the
+     white bar. */
+  .mobile-bottom-nav__item--active .mobile-bottom-nav__icon {
+    color: #f1c40f;
+    background: #1a1a2e;
   }
 
   .mobile-bottom-nav__item--active .mobile-bottom-nav__label {
