@@ -157,15 +157,19 @@ export default function JewelrySales() {
   // Scroll-reveals for below-fold sections (shared hook; hydration/SEO safe).
   const revealRef = useScrollReveal();
 
-  // Images live under public/images/, e.g. `${BASE}/images/pendant.png`
+  // Images live under public/images/. The -200 variants are 200px tiles
+  // (scripts one-off resize) — the originals were 800px for an element the CSS
+  // caps at 100px, ~255 KB of webp where ~40 KB serves 2x DPR perfectly
+  // (Lighthouse: unnecessarily large images). ImageWithFallback still derives
+  // the .webp twin from each .png automatically.
   const types = [
-    { key: "rings",     label: "Singsing", src: `${BASE}/images/ring.png`,      alt: "Gold rings" },
-    { key: "earrings",  label: "Hikaw",    src: `${BASE}/images/earring.png`,   alt: "Gold earrings" },
-    { key: "bracelets", label: "Pulseras", src: `${BASE}/images/bracelet.png`,  alt: "Gold bracelets" },
-    { key: "chains",    label: "Kadena",   src: `${BASE}/images/chain.png`,     alt: "Gold chains" },
-    { key: "necklace",  label: "Kwintas",  src: `${BASE}/images/necklace.png`,  alt: "Gold necklaces" },
-    { key: "bangles",   label: "Bangle",   src: `${BASE}/images/bangle.png`,    alt: "Gold bangles" },
-    { key: "pendants",  label: "Pendant",  src: `${BASE}/images/pendant.png`,   alt: "Gold pendants" },
+    { key: "rings",     label: "Singsing", src: `${BASE}/images/ring-200.png`,      alt: "Gold rings" },
+    { key: "earrings",  label: "Hikaw",    src: `${BASE}/images/earring-200.png`,   alt: "Gold earrings" },
+    { key: "bracelets", label: "Pulseras", src: `${BASE}/images/bracelet-200.png`,  alt: "Gold bracelets" },
+    { key: "chains",    label: "Kadena",   src: `${BASE}/images/chain-200.png`,     alt: "Gold chains" },
+    { key: "necklace",  label: "Kwintas",  src: `${BASE}/images/necklace-200.png`,  alt: "Gold necklaces" },
+    { key: "bangles",   label: "Bangle",   src: `${BASE}/images/bangle-200.png`,    alt: "Gold bangles" },
+    { key: "pendants",  label: "Pendant",  src: `${BASE}/images/pendant-200.png`,   alt: "Gold pendants" },
   ];
 
   // Answers may be a string or an array of paragraphs (rendered as separate

@@ -15,10 +15,38 @@ export default function FacebookLatestVideo() {
   const [sdkReady, setSdkReady] = useState(!!window.FB);
   const [playerReady, setPlayerReady] = useState(false);
   const [painted, setPainted] = useState(false); // hide poster when FB paints
+  // PERF facade: nothing Facebook-related loads until the section is close to
+  // the viewport. Eager-mounting the SDK cost every /jewelry-sales visitor
+  // ~1 MB of fbcdn JS/CSS plus a 1.7 MB video prefetch during page load —
+  // measured 1.4s of main-thread blocking (Lighthouse TBT 1.74s) for an
+  // embed that lives at the very bottom of the page.
+  const [inView, setInView] = useState(false);
 
+  const containerRef = useRef(null); // stable node the observer watches
   const wrapperRef = useRef(null);
   const playerRef = useRef(null);   // FB player instance
   const nodeRef = useRef(null);     // fb-video div
+
+  /* ---------------- Arm loading when the section approaches ---------------- */
+  useEffect(() => {
+    if (window.__PRERENDER__) return; // keep prerender DOM in the loading state
+    if (!("IntersectionObserver" in window)) {
+      setInView(true); // ancient browser: behave like before
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      // Start ~2 screens early so the poster/player are usually ready on arrival
+      { rootMargin: "1200px 0px" }
+    );
+    io.observe(containerRef.current);
+    return () => io.disconnect();
+  }, []);
 
   /* ---------------- Fetch Latest Video ---------------- */
   useEffect(() => {
@@ -28,6 +56,7 @@ export default function FacebookLatestVideo() {
     // otherwise the captured error/video markup mismatches (#425). Real
     // visitors never have the flag, so behavior is unchanged for them.
     if (window.__PRERENDER__) return;
+    if (!inView) return; // facade: wait for approach
     let mounted = true;
     (async () => {
       try {
@@ -52,10 +81,11 @@ export default function FacebookLatestVideo() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [inView]);
 
   /* ---------------- Load FB SDK once (with nonce if present) ---------------- */
   useEffect(() => {
+    if (!inView) return; // facade: the SDK is the expensive part
     if (window.FB) {
       setSdkReady(true);
       return;
@@ -81,7 +111,7 @@ export default function FacebookLatestVideo() {
     return () => {
       try { document.head.removeChild(s); } catch {}
     };
-  }, []);
+  }, [inView]);
 
   /* ---------------- Compute aspect & href ---------------- */
   const { href, ratio } = useMemo(() => {
@@ -176,20 +206,30 @@ export default function FacebookLatestVideo() {
   };
 
   /* ---------------- States ---------------- */
+  // All states render inside the observed container so the facade's
+  // IntersectionObserver has a stable node from first paint.
   if (loading)
-    return <div className="text-center text-gray-500 py-8">Loading latest video…</div>;
+    return (
+      <div ref={containerRef} className="text-center text-gray-500 py-8">
+        Loading latest video…
+      </div>
+    );
   if (err)
-    return <div className="text-center text-red-500 py-8">{err}</div>;
+    return (
+      <div ref={containerRef} className="text-center text-red-500 py-8">
+        {err}
+      </div>
+    );
   if (!video || !href)
     return (
-      <div className="text-center text-gray-500 py-8">
+      <div ref={containerRef} className="text-center text-gray-500 py-8">
         No live selling video available right now.
       </div>
     );
 
   /* ---------------- UI ---------------- */
   return (
-    <section className="max-w-5xl mx-auto px-4 text-center">
+    <section ref={containerRef} className="max-w-5xl mx-auto px-4 text-center">
       <h2 className="text-2xl md:text-3xl font-bold mb-3 text-gray-900">
         Latest Live-Selling Session
       </h2>
