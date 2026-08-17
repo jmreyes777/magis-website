@@ -222,28 +222,30 @@ function Home() {
         jsonLd={HOME_JSONLD}
       />
 
-      {/* Hero */}
-      <section className="home-hero">
-        <div className="home-shell home-hero__inner">
-          <h1 className="home-hero__title">Isangla ang gold jewelry mo — instant cash, patas na presyo.</h1>
-          <p className="home-hero__sub">
-            Safe, private, at patas na paraan para magka-cash kapag kailangan.
-            Walang mahabang proseso, walang hassle — diretso at mabilis na
-            serbisyo kapag kailangan mo talaga.
-          </p>
-          <Link to="/branches" className="home-cta">
-            <FaMapMarkerAlt aria-hidden="true" /> Find a Branch Near You{' '}
-            <FaArrowRight aria-hidden="true" />
-          </Link>
-          <div className="home-trustline">
-            <span><FaCertificate className="mr-2" aria-hidden="true" /> Serbisyo simula 1996</span>
-            <span><FaBalanceScale className="mr-2" aria-hidden="true" /> Patas na appraisal</span>
-            <span><FaClock className="mr-2" aria-hidden="true" /> Cash in minutes</span>
-          </div>
-        </div>
-      </section>
-
       <main className="flex-grow">
+        {/* Hero lives INSIDE <main>: content outside landmarks fails axe's
+            region rule (screen-reader users navigating by landmark would
+            never reach it). Visual order is unchanged. */}
+        <section className="home-hero">
+          <div className="home-shell home-hero__inner">
+            <h1 className="home-hero__title">Isangla ang gold jewelry mo — instant cash, patas na presyo.</h1>
+            <p className="home-hero__sub">
+              Safe, private, at patas na paraan para magka-cash kapag kailangan.
+              Walang mahabang proseso, walang hassle — diretso at mabilis na
+              serbisyo kapag kailangan mo talaga.
+            </p>
+            <Link to="/branches" className="home-cta">
+              <FaMapMarkerAlt aria-hidden="true" /> Find a Branch Near You{' '}
+              <FaArrowRight aria-hidden="true" />
+            </Link>
+            <div className="home-trustline">
+              <span><FaCertificate className="mr-2" aria-hidden="true" /> Serbisyo simula 1996</span>
+              <span><FaBalanceScale className="mr-2" aria-hidden="true" /> Patas na appraisal</span>
+              <span><FaClock className="mr-2" aria-hidden="true" /> Cash in minutes</span>
+            </div>
+          </div>
+        </section>
+
         {/* Process */}
         <section className="home-section">
           <div className="home-shell">

@@ -298,14 +298,30 @@ async function captureRoute(browser, origin, route, shell, shellNonceCount) {
     // React 18 hydrateRoot expects a server-rendered <Suspense> boundary to be
     // delimited by <!--$--> … <!--/$--> comment markers (renderToString emits
     // them). App.js has exactly one Suspense boundary — the direct child of
-    // <main class="content site-content"> — so mark its content as a completed
-    // boundary; without this, hydration throws #418/#423 on every route.
+    // <div class="content site-content"> (a div since the a11y fix: pages own
+    // the <main> landmark now) — so mark its content as a completed boundary;
+    // without this, hydration throws #418/#423 on every route. The matching
+    // close tag is found by depth-counting div tags — lastIndexOf would grab
+    // the app-wrapper's close instead.
     {
-      const openTag = '<main class="content site-content">';
+      const openTag = '<div class="content site-content">';
       const openIdx = captured.rootHtml.indexOf(openTag);
-      const closeIdx = captured.rootHtml.lastIndexOf("</main>");
+      let closeIdx = -1;
+      if (openIdx !== -1) {
+        const tagRe = /<\/?div\b[^>]*>/gi;
+        tagRe.lastIndex = openIdx + openTag.length;
+        let depth = 1;
+        let m;
+        while ((m = tagRe.exec(captured.rootHtml))) {
+          depth += m[0][1] === "/" ? -1 : 1;
+          if (depth === 0) {
+            closeIdx = m.index;
+            break;
+          }
+        }
+      }
       if (openIdx === -1 || closeIdx <= openIdx) {
-        throw new Error("app <main> wrapper not found — cannot mark Suspense boundary");
+        throw new Error("app content wrapper not found — cannot mark Suspense boundary");
       }
       captured.rootHtml =
         captured.rootHtml.slice(0, openIdx + openTag.length) +

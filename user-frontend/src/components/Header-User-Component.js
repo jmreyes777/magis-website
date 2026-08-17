@@ -294,13 +294,19 @@ function Header() {
       </button>
 
       {/* Nav list (desktop) / Drawer (mobile) */}
+      {/* role=presentation on mobile — NOT dialog: ARIA does not allow the
+          dialog role on <ul> (axe aria-allowed-role), and an overridden list
+          role orphans the li children's implicit listitem role (Lighthouse
+          "<li> not contained in <ul>"). presentation IS allowed on ul and
+          cascades to the direct li children, so both audits pass. The drawer
+          uses the disclosure pattern instead: the hamburger carries
+          aria-expanded + aria-controls, Esc closes. No tabIndex: nothing
+          focuses the ul, and tabindex on a presentational element is an ARIA
+          role conflict (axe presentation-role-conflict). */}
       <ul
         id="primary-navigation"
         className={`nav-links ${isMenuOpen ? 'show-menu' : ''}`}
-        role={isMobile ? 'dialog' : undefined}
-        aria-label={isMobile ? 'Navigation menu' : undefined}
-        aria-modal={isMobile && isMenuOpen ? 'true' : undefined}
-        tabIndex={-1}
+        role={isMobile ? 'presentation' : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button (mobile) */}

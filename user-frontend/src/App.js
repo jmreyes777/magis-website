@@ -126,8 +126,11 @@ function App() {
         {/* Default document title (overridden per-page by <Seo>) */}
         <Helmet defaultTitle="Magis Gold & Gems Pawnshop & Jewelry" />
 
-        {/* Main Content (pushes & dims when mobile drawer is open) */}
-        <main className="content site-content">
+        {/* Content wrapper (pushes & dims when mobile drawer is open).
+            div, not <main>: every page renders its own <main> landmark, and
+            nesting them inside a second one is an axe/Lighthouse failure
+            (landmark-no-duplicate-main / landmark-main-is-top-level). */}
+        <div className="content site-content">
           <Suspense fallback={<div className="loading-screen">Loading...</div>}>
             <ErrorBoundary>
               <Routes>
@@ -157,7 +160,7 @@ function App() {
               </Routes>
             </ErrorBoundary>
           </Suspense>
-        </main>
+        </div>
 
         {/* Mobile-only sticky bottom nav (hidden ≥768px in CSS). Outside
             <Routes> so it persists across navigation without re-mounting. */}
