@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import Footer from "../components/Footer-User-Component";
 import FacebookLatestVideo from "../components/FacebookLatestVideo";
 import { FaGem, FaShieldAlt, FaCheckCircle, FaMapMarkedAlt, FaComments, FaCalculator } from "react-icons/fa";
+import { GiGoldBar } from "react-icons/gi";
 import { peso, opt1, opt2 } from "../utils/layawayMath";
 import useScrollReveal from "../hooks/useScrollReveal";
 import "../styles/scroll-reveal.css";
@@ -306,7 +307,9 @@ export default function JewelrySales() {
               </button>
             </div>
             <div className="jewelry-hero-trust">
-              <span className="jewelry-hero-trust-item"><FaGem /> 10K–24K gold</span>
+              {/* Gold bar, not FaGem: the chip is about gold karat range and
+                  Filipino buyers shop gold, not diamonds. */}
+              <span className="jewelry-hero-trust-item"><GiGoldBar /> 10K–24K gold</span>
               <span className="jewelry-hero-trust-item"><FaShieldAlt /> Aktwal na presyo</span>
               <span className="jewelry-hero-trust-item"><FaCheckCircle /> May layaway (hulugan)</span>
             </div>
