@@ -114,6 +114,11 @@ function BranchesMapView() {
   const branchListRef = useRef(null);
 
   const [mapReady, setMapReady] = useState(false);
+  // True once the live map has actually PAINTED (first tilesloaded) — the
+  // static placeholder stays visible until then, so the map box is never a
+  // blank white card while the Maps JS boots (this was also the page's LCP
+  // gap: nothing above the fold painted until Maps finished).
+  const [mapLive, setMapLive] = useState(false);
   const [filter, setFilter] = useState(initialFilter);
   const [openingBranchId, setOpeningBranchId] = useState(null);
   const [openingStage, setOpeningStage] = useState(""); // "verifying" | "connecting"
@@ -133,17 +138,33 @@ function BranchesMapView() {
   // default — it fires the bot check and creates a guest session).
   const autoChatFiredRef = useRef(false);
 
+  // Directory still in flight (skeleton state). Ends on data OR fetch error —
+  // never show skeletons forever.
+  const branchesPending = branches.length === 0 && !error;
+
   // Start map init immediately on mount — map is above the fold. Warming the
   // Google Maps script here lets it download IN PARALLEL with the branches
   // fetch (initializeMap awaits the same deduped loader promise; previously
   // the script only started loading after the branch data arrived).
+  // PERF: "places" was requested here (and in mapUtils) but nothing on the
+  // site calls the Places API — the search box filters the local list — so
+  // dropping it trims the Maps download/eval that dominates this page's TBT.
   useEffect(() => {
     setMapReady(true);
-    loadGoogleMapsApi({ libraries: ["places", "marker"] }).catch(() => {});
+    loadGoogleMapsApi({ libraries: ["marker"] }).catch(() => {});
   }, []);
 
-  // Warm the Turnstile script on mount so chat opens fast (P1-4)
-  useEffect(() => { preloadTurnstile(); }, []);
+  // Warm the Turnstile script so chat opens fast (P1-4) — but at idle, not
+  // during startup: its eval was competing with Maps for main-thread time
+  // inside the TBT window.
+  useEffect(() => {
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(() => preloadTurnstile(), { timeout: 4000 });
+      return () => cancelIdleCallback(id);
+    }
+    const t = setTimeout(preloadTurnstile, 2500);
+    return () => clearTimeout(t);
+  }, []);
 
   // 2️⃣ Fetch branches and init map
   useEffect(() => {
@@ -187,6 +208,17 @@ function BranchesMapView() {
         });
         if (cancelled) return;
         fitMapToBounds(initList, mapRef);
+
+        // Swap the static placeholder out only when tiles are on screen
+        // (6s fallback in case tilesloaded never fires, e.g. quota errors).
+        const ctx = mapRef.current;
+        if (ctx?.map && ctx?.googleMaps) {
+          const swap = () => { if (!cancelled) setMapLive(true); };
+          ctx.googleMaps.event.addListenerOnce(ctx.map, "tilesloaded", swap);
+          setTimeout(swap, 6000);
+        } else {
+          setMapLive(true);
+        }
 
         // GBP deep link: the slug-focus effect can run before this async map
         // init resolves, so re-apply the branch centering here where the map
@@ -509,6 +541,11 @@ function BranchesMapView() {
           ]}
         />
       )}
+      {/* Landmark for everything except the footer/dialogs — without it the
+          whole page failed axe landmark-one-main + region (48 nodes).
+          .branches-main cancels the generic main{padding-top} header offset:
+          the app-level .content wrapper already provides that clearance. */}
+      <main className="branches-main flex-grow">
       <h1 className="sr-only">Find a Magis Gold &amp; Gems Pawnshop Branch</h1>
 
       {/* UAT F-G4: inline chat-open error (was a blocking alert) */}
@@ -549,12 +586,17 @@ function BranchesMapView() {
         onCancel={() => setPendingSwitch(null)}
       />
       <div className="map-list-container">
-        {/* 🌍 Google Map */}
+        {/* 🌍 Google Map. reduced-height only for a GENUINE empty result —
+            applying it while branches were still loading made the box grow
+            when data landed (layout shift). The static image is a SIBLING
+            overlay, not a child of #map: the Maps constructor wipes #map's
+            children, which would fight React's bookkeeping; as an overlay it
+            stays painted until the first tilesloaded, then fades. */}
         <div
-          id="map"
-          className={`map-container w-full ${filteredBranches.length === 0 ? 'reduced-height' : ''}`}
+          className={`map-container w-full ${!branchesPending && filteredBranches.length === 0 ? 'reduced-height' : ''}`}
         >
-          {!mapReady && (
+          <div id="map" style={{ width: "100%", height: "100%" }} />
+          {!mapLive && (
             <img
               src={`https://maps.googleapis.com/maps/api/staticmap?center=14.5995,120.9842&zoom=9&size=800x600&scale=2&maptype=roadmap&key=${process.env.REACT_APP_GOOGLE_MAPS_API_KEY}`}
               alt="Map of Magis branch locations"
@@ -562,7 +604,7 @@ function BranchesMapView() {
               height="600"
               fetchpriority="high"
               decoding="async"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              className="map-static-overlay"
             />
           )}
         </div>
@@ -574,6 +616,7 @@ function BranchesMapView() {
             <input
               type="text"
               placeholder="Search for a branch..."
+              aria-label="Search for a branch"
               className="search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -593,21 +636,32 @@ function BranchesMapView() {
             value={filter}
             onChange={handleFilterChange}
             className="filter-select"
+            aria-label="Filter branches"
           >
             <option value="all">All Branches</option>
             <option value="jewelry">With Jewelry Display</option>
           </select>
         </div>
 
-        {/* 📌 Branch List */}
-        <div className="branch-list w-full" ref={branchListRef}>
-          {isLoading ? (
-            <p className="no-results">Loading branches...</p>
+        {/* 📌 Branch List. While branches load, skeleton cards reserve the
+            list's real footprint — previously the list collapsed to one
+            "Loading…" line, so the footer sat mid-viewport and the arriving
+            cards shoved it down (CLS 0.2+, the page's biggest shift). */}
+        <div className="branch-list w-full" ref={branchListRef} aria-busy={isLoading || branchesPending}>
+          {isLoading || branchesPending ? (
+            Array.from({ length: 4 }, (_, i) => (
+              <div key={i} className="branch-skel" aria-hidden="true">
+                <div className="skel-line skel-title" />
+                <div className="skel-line" />
+                <div className="skel-line" />
+                <div className="skel-line skel-btn" />
+              </div>
+            ))
           ) : filteredBranches.length === 0 ? (
             <p className="no-results">
               {filter === "jewelry"
                 ? "Walang nahanap na branch na may jewelry display."
-                : "Loading branches..."}
+                : "Walang nahanap na branch."}
             </p>
           ) : (
             filteredBranches.map((branch) => {
@@ -620,9 +674,9 @@ function BranchesMapView() {
                   onClick={() => handleBranchClickFromList(branch)}
                   aria-current={isActive ? "true" : undefined}
                 >
-                  <h3 className="branch-name">
+                  <h2 className="branch-name">
                     {highlightMatch(branch.name, searchQuery)}
-                  </h3>
+                  </h2>
                   <div className="branch-info">
                     <FaMapMarkerAlt className="branch-icon" />
                     <span>
@@ -669,6 +723,7 @@ function BranchesMapView() {
           )}
         </div>
       </div>
+      </main>
 
       {/* 💬 Chat Overlay (lazy — chunk is warmed by openChatBox) */}
       {activeChat && (

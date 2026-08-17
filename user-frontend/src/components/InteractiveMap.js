@@ -6,7 +6,7 @@ export default function InteractiveMap({ branches }) {
 
   useEffect(() => {
     let map, googleMaps;
-    loadGoogleMapsApi({ libraries: ["places","marker"] }).then(gm => {
+    loadGoogleMapsApi({ libraries: ["marker"] }).then(gm => {
       googleMaps = gm;
       // …initialize map & markers (same as before)…
     });

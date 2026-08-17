@@ -27,7 +27,9 @@ export async function initializeMap(branchData, mapRef, onMapReady) {
     return;
   }
   try {
-    const googleMaps = await loadGoogleMapsApi({ libraries: ["places", "marker"] });
+    // "places" dropped: nothing on the site calls the Places API (branch
+    // search filters the local list) and the library was pure TBT weight.
+    const googleMaps = await loadGoogleMapsApi({ libraries: ["marker"] });
     const mapDiv = document.getElementById("map");
     mapDiv.style.touchAction = "pan-x pan-y";
 
