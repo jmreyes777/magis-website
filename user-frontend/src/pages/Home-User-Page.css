@@ -75,11 +75,6 @@
 .home-section-head { margin-bottom: 48px; }
 
 /* ── Hero ───────────────────────────────────────────────────────────────── */
-/* The hero sits INSIDE <main> (landmark a11y) and clears the fixed header
-   with its own padding — cancel the generic main{padding-top} offset from
-   Header-User-Component.css or the two would stack. */
-.home-page main { padding-top: 0; }
-
 .home-hero {
   background: var(--navy);
   color: #fff;

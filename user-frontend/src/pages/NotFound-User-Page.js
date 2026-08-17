@@ -26,22 +26,22 @@ const NotFound = () => {
         noindex
       />
 
-      {/* Hero */}
-      <section
-        className="relative h-72 md:h-80 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/hero.jpg')" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
-        <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
-          <h1 className="mb-3 text-6xl md:text-7xl font-extrabold tracking-tight text-[#d4a853]">404</h1>
-          <p className="text-base text-gray-200 md:text-lg">
-            Oops! Hindi namin mahanap ang page na hinahanap mo.
-          </p>
-        </div>
-      </section>
-
-      {/* Helpful links */}
+      {/* Main — hero INSIDE the landmark (axe region rule). */}
       <main className="flex-grow">
+        <section
+          className="relative h-72 md:h-80 bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/hero.jpg')" }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
+          <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
+            <h1 className="mb-3 text-6xl md:text-7xl font-extrabold tracking-tight text-[#d4a853]">404</h1>
+            <p className="text-base text-gray-200 md:text-lg">
+              Oops! Hindi namin mahanap ang page na hinahanap mo.
+            </p>
+          </div>
+        </section>
+
+        {/* Helpful links */}
         <section className="py-12 bg-white">
           <div className="container mx-auto px-4 max-w-3xl text-center">
             <p className="text-gray-700 mb-8">

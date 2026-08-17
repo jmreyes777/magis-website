@@ -155,6 +155,9 @@ function ContactUs() {
           { name: "Contact Us", path: "/contact-us" },
         ]}
       />
+      {/* <main> landmark — the page had none at all (axe landmark-one-main +
+          region on every child). */}
+      <main>
       <div className="contact-card">
         <h1 className="contact-header">Contact Us</h1>
         <p className="contact-subtitle">
@@ -235,6 +238,7 @@ function ContactUs() {
           </button>
         </div>
       </div>
+      </main>
 
       {/* Guest Chat Box */}
       {activeChat && (

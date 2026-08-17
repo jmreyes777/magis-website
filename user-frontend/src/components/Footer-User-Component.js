@@ -311,9 +311,10 @@ function Footer() {
 
           {/* Quick Links */}
           <div className="footer-column">
-            {/* h3 (not h4): pages end their content at h2/h3, so h4 skipped a
-                level — axe/Lighthouse heading-order failure. */}
-            <h3>QUICK LINKS</h3>
+            {/* h2 (not h3/h4): the 404 page's outline is just an h1, so an h3
+                here skipped a level there — h2 is valid after ANY page outline
+                (axe heading-order). Styled as small labels in CSS. */}
+            <h2>QUICK LINKS</h2>
             <ul>
               {/* SEO W2: dead "/about" link (it 404'd) replaced with the guide
                   hub — sitewide internal links to the keyword-targeted guides. */}
@@ -331,7 +332,7 @@ function Footer() {
 
           {/* Contact Us */}
           <div className="footer-column">
-            <h3>CONTACT US</h3>
+            <h2>CONTACT US</h2>
             <ul className="footer-contact-list">
               {phones.map((p) => (
                 <li key={p.label}>
@@ -372,7 +373,7 @@ function Footer() {
 
           {/* Head Office */}
           <div className="footer-column">
-            <h3>HEAD OFFICE</h3>
+            <h2>HEAD OFFICE</h2>
             <address className="not-italic footer-copy">
               <div>{headOffice.name}</div>
               <div>{headOffice.street}</div>

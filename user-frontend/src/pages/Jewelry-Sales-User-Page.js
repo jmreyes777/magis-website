@@ -79,10 +79,11 @@ function LayawayCalculator() {
     <div className="jewelry-calculator">
       <div className="jewelry-calculator-header">
         <div className="jewelry-calculator-input-group">
-          <label className="jewelry-calculator-label">
+          <label className="jewelry-calculator-label" htmlFor="layaway-price">
             Tag Price (₱)
           </label>
           <input
+            id="layaway-price"
             type="number"
             min="0"
             value={price}
@@ -378,9 +379,10 @@ export default function JewelrySales() {
 
           <div className="jewelry-layaway-grid">
             <div className="jewelry-layaway-card" data-reveal>
-              <h4 className="jewelry-layaway-title">
+              {/* h3, not h4: the section heading is an h2 (axe heading-order) */}
+              <h3 className="jewelry-layaway-title">
                 Payment Option 1
-              </h4>
+              </h3>
               <ul className="jewelry-layaway-list">
                 <li>10% down payment</li>
                 <li>Hanggang 2 linggo para mabayaran nang buo</li>
@@ -392,9 +394,9 @@ export default function JewelrySales() {
             </div>
 
             <div className="jewelry-layaway-card" data-reveal style={{ "--d": "0.08s" }}>
-              <h4 className="jewelry-layaway-title">
+              <h3 className="jewelry-layaway-title">
                 Payment Option 2
-              </h4>
+              </h3>
               <ul className="jewelry-layaway-list">
                 <li>20% down sa (Principal + 4%)</li>
                 <li>Plan 1: ₱3,000–₱5,000 → 2 buwan</li>

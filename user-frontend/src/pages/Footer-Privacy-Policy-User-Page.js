@@ -20,19 +20,19 @@ function PrivacyPolicy() {
           { name: "Privacy Policy", path: "/privacy-policy" },
         ]}
       />
-      {/* Hero */}
-      <section
-        className="relative h-64 md:h-72 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/hero.jpg')" }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
-        <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
-          <h1 className="mb-2 text-3xl font-extrabold tracking-tight md:text-5xl">Privacy Policy</h1>
-          <p className="text-sm text-gray-300 md:text-base">Last updated: {lastUpdated}</p>
-        </div>
-      </section>
-
+      {/* Main — hero INSIDE the landmark (axe region rule). */}
       <main className="flex-grow legal-prose">
+        <section
+          className="relative h-64 md:h-72 bg-cover bg-center"
+          style={{ backgroundImage: "url('/images/hero.jpg')" }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1a1a2e]/90 via-[#1a1a2e]/80 to-[#2d2d42]/85" />
+          <div className="relative z-10 flex h-full flex-col items-center justify-center px-4 text-center text-white">
+            <h1 className="mb-2 text-3xl font-extrabold tracking-tight md:text-5xl">Privacy Policy</h1>
+            <p className="text-sm text-gray-300 md:text-base">Last updated: {lastUpdated}</p>
+          </div>
+        </section>
+
         {/* Intro */}
         <section className="py-10 bg-white">
           <div className="container mx-auto px-4 max-w-4xl">

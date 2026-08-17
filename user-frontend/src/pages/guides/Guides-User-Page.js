@@ -65,25 +65,26 @@ function GuidePage({ guide }) {
         jsonLd={guide.jsonLd(guide)}
       />
 
-      {/* Hero */}
-      <section className="pawn-hero">
-        <div className="pawn-shell pawn-hero__inner">
-          <p className="pawn-eyebrow">{guide.eyebrow}</p>
-          <h1 className="pawn-hero__title">{guide.h1}</h1>
-          <p className="pawn-hero__sub">{guide.lead}</p>
-          <div className="pawn-cta-row">
-            <Link to="/branches" className="pawn-cta">
-              <FaComments aria-hidden="true" /> Free Appraisal at a Branch{" "}
-              <FaArrowRight aria-hidden="true" />
-            </Link>
-            <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
-              View FAQs <FaArrowRight aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
       <main className="flex-1">
+        {/* Hero INSIDE <main>: content outside landmarks fails axe's region
+            rule (landmark navigation would skip it). */}
+        <section className="pawn-hero">
+          <div className="pawn-shell pawn-hero__inner">
+            <p className="pawn-eyebrow">{guide.eyebrow}</p>
+            <h1 className="pawn-hero__title">{guide.h1}</h1>
+            <p className="pawn-hero__sub">{guide.lead}</p>
+            <div className="pawn-cta-row">
+              <Link to="/branches" className="pawn-cta">
+                <FaComments aria-hidden="true" /> Free Appraisal at a Branch{" "}
+                <FaArrowRight aria-hidden="true" />
+              </Link>
+              <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
+                View FAQs <FaArrowRight aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {guide.sections.map((section, i) => (
           <GuideSection key={i} section={section} index={i} />
         ))}

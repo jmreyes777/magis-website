@@ -51,8 +51,9 @@ footer * {
   min-width: 0;                /* allow text to wrap inside grid cell */
 }
 
-/* Headings (h3 for document outline order; styled as small labels) */
-.footer-column h3 {
+/* Headings (h2 for document outline order — valid after any page's last
+   heading, including the 404 page's bare h1; styled as small labels) */
+.footer-column h2 {
   font-size: 0.95rem;
   font-weight: 500;
   letter-spacing: 0.01em;

@@ -52,11 +52,6 @@ body {
   }
 }
 
-/* Page <main> landmark (a11y). The app-level .content wrapper already clears
-   the fixed header, so cancel the generic main{padding-top} from the header
-   stylesheet — otherwise the two offsets stack. */
-.branches-main { padding-top: 0; }
-
 /* 🌍 Google Map - Premium Presentation */
 .map-container {
   position: relative; /* anchors .map-static-overlay */

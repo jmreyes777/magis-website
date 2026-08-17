@@ -153,28 +153,29 @@ function Pawning() {
         jsonLd={[PAWN_SERVICE_JSONLD, PAWN_FAQ_JSONLD]}
       />
 
-      {/* Hero */}
-      <section className="pawn-hero">
-        <div className="pawn-shell pawn-hero__inner">
-          <p className="pawn-eyebrow">Sangla / Pawn loans</p>
-          <h1 className="pawn-hero__title">I-pawn ang gold mo — safe, mabilis, at walang hassle.</h1>
-          <p className="pawn-hero__sub">
-            Instant cash para sa gold jewelry mo — usually minutes lang,
-            transparent ang usapan, at private ang transaksyon.
-          </p>
-          <div className="pawn-cta-row">
-            <Link to="/branches" className="pawn-cta">
-              <FaComments aria-hidden="true" /> Chat with a Branch{" "}
-              <FaArrowRight aria-hidden="true" />
-            </Link>
-            <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
-              Read the FAQs <FaArrowRight aria-hidden="true" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
       <main className="flex-1">
+        {/* Hero INSIDE <main>: content outside landmarks fails axe's region
+            rule (landmark navigation would skip it). */}
+        <section className="pawn-hero">
+          <div className="pawn-shell pawn-hero__inner">
+            <p className="pawn-eyebrow">Sangla / Pawn loans</p>
+            <h1 className="pawn-hero__title">I-pawn ang gold mo — safe, mabilis, at walang hassle.</h1>
+            <p className="pawn-hero__sub">
+              Instant cash para sa gold jewelry mo — usually minutes lang,
+              transparent ang usapan, at private ang transaksyon.
+            </p>
+            <div className="pawn-cta-row">
+              <Link to="/branches" className="pawn-cta">
+                <FaComments aria-hidden="true" /> Chat with a Branch{" "}
+                <FaArrowRight aria-hidden="true" />
+              </Link>
+              <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
+                Read the FAQs <FaArrowRight aria-hidden="true" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* Interest Calculator — first thing visitors reach (per design request) */}
         <section id="interest-calculator" className="pawn-section">
           <div className="pawn-shell">

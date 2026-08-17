@@ -7,6 +7,9 @@
   --navy-2: #232339;
   --gold: #d4a853;
   --gold-deep: #c9a227;
+  /* WCAG-safe gold for TEXT on paper (5.0:1). --gold-deep is 2.4:1 on white
+     — keep it for borders/icons only (matches Home-User-Page.css). */
+  --gold-text: #8a6b16;
   --line: rgba(212, 168, 83, 0.3);
   --line-soft: rgba(26, 26, 46, 0.1);
   --ink: #1a1a2e;
@@ -45,7 +48,7 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--gold-deep);
+  color: var(--gold-text);
   margin: 0 0 14px;
 }
 .pawn-section--navy .pawn-eyebrow,
@@ -166,7 +169,7 @@
   font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.14em;
-  color: var(--gold-deep);
+  color: var(--gold-text);
   margin-bottom: 6px;
 }
 
@@ -270,7 +273,7 @@
 .pawn-section--navy .pawn-note p strong { color: #fff; }
 .pawn-section--navy .pawn-note > svg { color: var(--gold); }
 
-.pawn-link { color: var(--gold-deep); font-weight: 600; text-decoration: none; }
+.pawn-link { color: var(--gold-text); font-weight: 600; text-decoration: none; }
 .pawn-link:hover { text-decoration: underline; }
 .pawn-section--navy .pawn-link { color: var(--gold); }
 
@@ -389,6 +392,9 @@
 .pawn-stat__value { font-size: 1.05rem; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 
 .pawn-calc__note { margin: 16px 0 0; font-size: 0.82rem; color: var(--muted); font-style: italic; }
+/* Guides render this note inside a navy FAQ section — --muted (#5b5b6b) is
+   1.9:1 on navy. */
+.pawn-section--navy .pawn-calc__note { color: rgba(255, 255, 255, 0.7); }
 
 /* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {

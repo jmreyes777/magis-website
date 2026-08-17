@@ -33,10 +33,11 @@ body {
   background: #ffffff;
 }
 
-/* Add padding to main content when header is fixed */
-main {
-  padding-top: 110px; /* Header height (56px) + Subnav height (54px) */
-}
+/* NOTE: the old `main { padding-top }` clearance rules are gone. The app
+   wrapper (.content, index.css) already pads for the fixed header+subnav
+   (124px computed), so the extra 110px on every page <main> was pure dead
+   space — and a visible blank strip above heroes rendered inside <main>
+   (jewelry-sales). Pages needing custom offsets own them in their CSS. */
 
 /* Utility (optional) */
 .visually-hidden {
@@ -435,9 +436,6 @@ body.menu-open .site-content { margin-left: 16px; }
     margin: 0;
   }
 
-  main {
-    padding-top: 80px; /* Mobile header (44px) + subnav (36px) */
-  }
 }
 
 /* Tablet responsiveness */
@@ -466,9 +464,6 @@ body.menu-open .site-content { margin-left: 16px; }
     margin: 0;
   }
 
-  main {
-    padding-top: 90px; /* Tablet header (54px) + subnav (36px) */
-  }
 }
 
 /* Optional: High-contrast mode support */
