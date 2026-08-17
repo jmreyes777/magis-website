@@ -83,3 +83,5 @@ backend/firebase.json
 # --- Build/source archives (must never be committed; may bundle secrets) ---
 *.zip
 **/*.zip
+
+*.lnk
