@@ -112,22 +112,23 @@
     }
     </script>
 
-    <!-- ▶️ Resource Hints -->
+    <!-- ▶️ Resource Hints. Rules that keep Lighthouse's "valid hints" audit
+         green: (1) crossorigin ONLY on origins fetched via CORS — a CORS
+         preconnect for plain <img> traffic warms a connection the browser
+         then can't reuse (fbcdn/maps images are no-CORS); (2) at most 4
+         preconnects — home-critical origins get preconnect, page-specific
+         ones (FB SDK iframes, avatar CDN) get dns-prefetch only. -->
     <link rel="dns-prefetch" href="//maps.googleapis.com" />
-    <link rel="preconnect" href="https://maps.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://maps.googleapis.com" />
     <link rel="dns-prefetch" href="//maps.gstatic.com" />
-    <link rel="preconnect" href="https://maps.gstatic.com" crossorigin />
-    <link rel="dns-prefetch" href="//storage.googleapis.com" />
-    <link rel="preconnect" href="https://storage.googleapis.com" crossorigin />
-    <!-- NEW: Facebook image CDNs -->
+    <link rel="preconnect" href="https://maps.gstatic.com" />
+    <!-- Facebook: graph API is fetch()/CORS; scontent serves <img> (no-CORS) -->
     <link rel="dns-prefetch" href="//graph.facebook.com" />
     <link rel="preconnect" href="https://graph.facebook.com" crossorigin />
-    <link rel="dns-prefetch" href="//staticxx.facebook.com" />
-    <link rel="preconnect" href="https://staticxx.facebook.com" crossorigin />
     <link rel="dns-prefetch" href="//scontent.xx.fbcdn.net" />
-    <link rel="preconnect" href="https://scontent.xx.fbcdn.net" crossorigin />
+    <link rel="preconnect" href="https://scontent.xx.fbcdn.net" />
+    <link rel="dns-prefetch" href="//staticxx.facebook.com" />
     <link rel="dns-prefetch" href="//platform-lookaside.fbsbx.com" />
-    <link rel="preconnect" href="https://platform-lookaside.fbsbx.com" crossorigin />
     <!-- Inter is self-hosted (SPD2-2): preload the single variable-font file so
          text renders in the brand font on first paint (same-origin, no
          connection setup; the old fonts.googleapis/gstatic preconnects are gone
@@ -248,31 +249,44 @@
     <!-- ✅ Maps error handler (deferred — no timing dependency, just a polling monitor) -->
     <script nonce="xyz123" src="/static/js/maps-error-handler.js" defer></script>
 
-    <!-- ⚡ Preload static map image so browser discovers it at HTML parse time,
-         not after JS executes. Key is already public (domain-restricted, bundled in JS). -->
-    <link
-      rel="preload"
-      as="image"
-      fetchpriority="high"
-      href="https://maps.googleapis.com/maps/api/staticmap?center=14.5995,120.9842&zoom=9&size=800x600&scale=2&maptype=roadmap&key=AIzaSyBXZdKDZPyeWgaRQ5Mxwd7k2zUYi5fQucE"
-    />
+    <!-- The static-map preload that used to live here was removed: it fired
+         with fetchpriority=high on EVERY route, but the map only renders on
+         /branches — so all other pages downloaded a ~1600×900 PNG they never
+         showed (Lighthouse: unused preload + unnecessarily large image). The
+         maps.googleapis preconnect above keeps /branches discovery fast. -->
   </head>
 
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <!-- ⚡ Static map placeholder — visible immediately before React boots.
-         Hidden by React once the interactive map mounts. -->
+    <!-- ⚡ Static map placeholder — visible immediately before React boots on
+         /branches. The img ships with data-src (no src): the inline script
+         below promotes it ONLY on /branches, so the other routes no longer
+         download a hidden ~1600×1200 PNG at fetchpriority=high on every view
+         (Lighthouse: unnecessarily large images / unused requests). -->
     <div id="map-static-placeholder" style="position:fixed;top:0;left:0;width:100%;height:600px;z-index:-1;overflow:hidden;pointer-events:none;" aria-hidden="true">
       <img
-        src="https://maps.googleapis.com/maps/api/staticmap?center=14.5995,120.9842&zoom=9&size=800x600&scale=2&maptype=roadmap&key=AIzaSyBXZdKDZPyeWgaRQ5Mxwd7k2zUYi5fQucE"
+        id="map-static-placeholder-img"
+        data-src="https://maps.googleapis.com/maps/api/staticmap?center=14.5995,120.9842&zoom=9&size=800x600&scale=2&maptype=roadmap&key=AIzaSyBXZdKDZPyeWgaRQ5Mxwd7k2zUYi5fQucE"
         alt=""
         width="800"
         height="600"
-        fetchpriority="high"
         decoding="async"
         style="width:100%;height:100%;object-fit:cover;display:block;"
       />
     </div>
+    <script nonce="xyz123">
+      (function () {
+        var img = document.getElementById('map-static-placeholder-img');
+        if (location.pathname.indexOf('/branches') === 0) {
+          // Kick the request off now — well before the React bundle parses.
+          img.fetchPriority = 'high';
+          img.src = img.getAttribute('data-src');
+        } else {
+          var el = document.getElementById('map-static-placeholder');
+          if (el) el.remove();
+        }
+      })();
+    </script>
     <div id="root"></div>
     <!-- Remove placeholder once React has mounted the real map -->
     <script nonce="xyz123">

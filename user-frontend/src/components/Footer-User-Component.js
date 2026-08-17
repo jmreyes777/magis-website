@@ -311,7 +311,9 @@ function Footer() {
 
           {/* Quick Links */}
           <div className="footer-column">
-            <h4>QUICK LINKS</h4>
+            {/* h3 (not h4): pages end their content at h2/h3, so h4 skipped a
+                level — axe/Lighthouse heading-order failure. */}
+            <h3>QUICK LINKS</h3>
             <ul>
               {/* SEO W2: dead "/about" link (it 404'd) replaced with the guide
                   hub — sitewide internal links to the keyword-targeted guides. */}
@@ -329,7 +331,7 @@ function Footer() {
 
           {/* Contact Us */}
           <div className="footer-column">
-            <h4>CONTACT US</h4>
+            <h3>CONTACT US</h3>
             <ul className="footer-contact-list">
               {phones.map((p) => (
                 <li key={p.label}>
@@ -344,7 +346,9 @@ function Footer() {
                   <li key={c.label}>
                     <Link
                       to={c.to}
-                      aria-label={`${c.sr} (${statusText})`}
+                      /* Accessible name must CONTAIN the visible text (WCAG
+                         2.5.3 label-in-name), so it starts with c.label. */
+                      aria-label={`${c.label} — ${c.sr} (${statusText})`}
                       title={`${c.label} — ${statusText}`}
                       className="footer-chat-link"
                     >
@@ -368,7 +372,7 @@ function Footer() {
 
           {/* Head Office */}
           <div className="footer-column">
-            <h4>HEAD OFFICE</h4>
+            <h3>HEAD OFFICE</h3>
             <address className="not-italic footer-copy">
               <div>{headOffice.name}</div>
               <div>{headOffice.street}</div>
@@ -386,7 +390,7 @@ function Footer() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="map-button"
-                aria-label="Open head office in Google Maps"
+                aria-label="View on Google Maps — head office location"
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true">
                   <path

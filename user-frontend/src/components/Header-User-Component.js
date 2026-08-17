@@ -298,6 +298,7 @@ function Header() {
         id="primary-navigation"
         className={`nav-links ${isMenuOpen ? 'show-menu' : ''}`}
         role={isMobile ? 'dialog' : undefined}
+        aria-label={isMobile ? 'Navigation menu' : undefined}
         aria-modal={isMobile && isMenuOpen ? 'true' : undefined}
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}

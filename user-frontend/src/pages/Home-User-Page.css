@@ -6,6 +6,10 @@
   --navy-2: #232339;
   --gold: #d4a853;
   --gold-deep: #c9a227;
+  /* Text-on-white gold. --gold-deep is only 2.41:1 against --paper — fine
+     for borders/icons, an axe/Lighthouse AA failure for text (needs 4.5:1).
+     This deeper bronze measures ~5.0:1 on white. Keep hue family intact. */
+  --gold-text: #8a6b16;
   --line: rgba(212, 168, 83, 0.3);
   --line-soft: rgba(26, 26, 46, 0.1);
   --ink: #1a1a2e;
@@ -44,7 +48,7 @@
   font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--gold-deep);
+  color: var(--gold-text);
   margin: 0 0 14px;
 }
 
