@@ -7,7 +7,8 @@ import {
   FaBalanceScale,
   FaClock,
   FaUserShield,
-  FaLock
+  FaLock,
+  FaVideo
 } from 'react-icons/fa';
 import { Link } from "react-router-dom";
 import Seo, { SITE_ORIGIN, SITE_NAME } from '../components/Seo';
@@ -316,6 +317,29 @@ function Home() {
                 <p className="home-feature__text">Mataas ang appraisal at malinaw ang interest rate — nagsisimula sa 1%.</p>
               </div>
             </div>
+
+            {/* Security proof: CCTV photo backing the "Ligtas ang alahas mo"
+                claim. webp 13KB + jpg 45KB fallback (sharp-resized from the
+                2.6MB original, which no longer ships). Explicit width/height
+                + CSS aspect-ratio = zero CLS; below the fold, so lazy. */}
+            <figure className="home-security-figure" data-reveal>
+              <picture>
+                <source srcSet="/images/camera.webp" type="image/webp" />
+                <img
+                  src="/images/camera.jpg"
+                  alt="CCTV camera na nagbabantay sa loob ng Magis branch"
+                  width="1200"
+                  height="1018"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </picture>
+              <figcaption>
+                <FaVideo aria-hidden="true" />
+                CCTV-monitored 24/7 ang bawat branch — at nakatago sa secured
+                vault ang alahas mo hanggang matubos.
+              </figcaption>
+            </figure>
           </div>
         </section>
 

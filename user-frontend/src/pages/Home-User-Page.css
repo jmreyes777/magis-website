@@ -255,6 +255,47 @@
   margin: 0;
 }
 
+/* ── Security figure (CCTV photo under the trust cards) ─────────────────── */
+.home-security-figure {
+  margin: 48px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--paper-2);
+}
+
+/* Wide cinematic crop; object-position keeps the camera (left third of the
+   photo) in frame. aspect-ratio + the img width/height attrs = zero CLS. */
+.home-security-figure img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 21 / 9;
+  object-fit: cover;
+  object-position: 30% 42%;
+}
+
+.home-security-figure figcaption {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.home-security-figure figcaption svg {
+  color: var(--gold-deep);
+  flex: none;
+  font-size: 1rem;
+}
+
+@media (max-width: 640px) {
+  .home-security-figure { margin-top: 32px; }
+  .home-security-figure img { aspect-ratio: 16 / 10; }
+}
+
 /* ── Subasta block ──────────────────────────────────────────────────────── */
 .home-policy {
   list-style: none;
