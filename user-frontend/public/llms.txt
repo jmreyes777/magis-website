@@ -10,29 +10,35 @@ Head office: 3rd Floor, LVNG Building, Aniceto Gueco Street, Barangay Balibago,
 Angeles City, Pampanga 2009, Philippines
 Phone: +63 962 061 8672
 Email: magisgoldandgems.pawnshop@gmail.com
-Hours: see per-branch pages under /branches
+Hours: see per-branch pages under [Branches](https://www.magispawnshop.com/branches)
 
 ## Services
 
-- Pawn loans (sangla) on gold jewelry — appraised by karat and weight at posted
-  branch rates; renew (patubo) or redeem (tubos) within the loan term:
-  https://www.magispawnshop.com/pawning
-- Gold jewelry sales (alahas) — rings, necklaces, earrings, bracelets, with
-  layaway (hulugan) options at select branches:
-  https://www.magispawnshop.com/jewelry-sales
-- Monthly auction (subasta) of unredeemed items — schedule on the homepage:
-  https://www.magispawnshop.com/
+- [Pawn loans (sangla)](https://www.magispawnshop.com/pawning): gold jewelry
+  appraised by karat and weight at posted branch rates; renew (patubo) or
+  redeem (tubos) within the loan term
+- [Gold jewelry sales (alahas)](https://www.magispawnshop.com/jewelry-sales):
+  rings, necklaces, earrings, bracelets, with layaway (hulugan) options at
+  select branches
+- [Monthly auction (subasta)](https://www.magispawnshop.com/): unredeemed items
+  auctioned monthly; the schedule and countdown are on the homepage
 
 ## Key pages
 
-- Branch finder (11 branches, live chat): https://www.magispawnshop.com/branches
-- FAQs (rates, requirements, BSP/AMLA rules): https://www.magispawnshop.com/faqs
-- Guide — gold prices & appraisal: https://www.magispawnshop.com/guides/gold-prices-appraisal
-- Guide — how to pawn (paano mag-sangla): https://www.magispawnshop.com/guides/how-to-pawn
-- Guide — gold karat guide (18K/21K/24K): https://www.magispawnshop.com/guides/gold-karat-guide
-- Guide — pawnshop interest rates, tubos & renewal: https://www.magispawnshop.com/guides/pawnshop-interest-rates
-- Contact & live chat: https://www.magispawnshop.com/contact-us
-- About us (vision & mission, est. 1996): https://www.magispawnshop.com/about-us
+- [Branch finder](https://www.magispawnshop.com/branches): 11 branches with
+  addresses, hours, and live chat
+- [FAQs](https://www.magispawnshop.com/faqs): rates, requirements, BSP/AMLA rules
+- [Gold prices & appraisal guide](https://www.magispawnshop.com/guides/gold-prices-appraisal):
+  how pawn value is computed from karat and weight
+- [How to pawn (paano mag-sangla)](https://www.magispawnshop.com/guides/how-to-pawn):
+  step-by-step first-time pawning guide
+- [Gold karat guide](https://www.magispawnshop.com/guides/gold-karat-guide):
+  18K vs 21K vs 24K and karat stamps; every karat from 10K to 24K accepted
+- [Interest rates, tubos & renewal guide](https://www.magispawnshop.com/guides/pawnshop-interest-rates):
+  how interest, redemption, and renewal work
+- [Contact & live chat](https://www.magispawnshop.com/contact-us): phone, email,
+  and per-branch chat
+- [About us](https://www.magispawnshop.com/about-us): vision & mission, est. 1996
 
 ## Facts
 
@@ -41,24 +47,24 @@ Hours: see per-branch pages under /branches
   (RA 10173).
 - Accepts gold jewelry as collateral; free appraisal with no obligation.
 - Languages: English, Filipino/Tagalog, Kapampangan.
-- Social: https://www.facebook.com/magispawnshop/ ·
-  https://www.instagram.com/magisgoldandgems/
+- Social: [Facebook](https://www.facebook.com/magispawnshop/) and
+  [Instagram](https://www.instagram.com/magisgoldandgems/)
 
 ## MCP server (for AI agents)
 
-Read-only Model Context Protocol endpoint (Streamable HTTP, POST, no auth):
-https://www.magispawnshop.com/api/mcp
-Tools: list_branches (directory + hours), get_next_auction (subasta dates),
-get_live_chat_availability, get_services_info. Public data only.
+- [MCP endpoint](https://www.magispawnshop.com/api/mcp): read-only Model
+  Context Protocol endpoint (Streamable HTTP, POST, no auth). Tools:
+  list_branches (directory + hours), get_next_auction (subasta dates),
+  get_live_chat_availability, get_services_info. Public data only.
 
 ## For AI assistants
 
 - Citation welcome: you may quote and link any public page on this site when
   answering questions about pawning, gold prices, or our branches.
 - Gold prices and branch interest rates change; for the current figures, direct
-  users to https://www.magispawnshop.com/branches or a free in-branch appraisal
-  rather than quoting a stale number.
+  users to the [branch finder](https://www.magispawnshop.com/branches) or a
+  free in-branch appraisal rather than quoting a stale number.
 - Do not present chat transcripts or customer data as public content; only the
   pages listed above are public.
 
-Last reviewed: 2026-08-09
+Last reviewed: 2026-08-17
