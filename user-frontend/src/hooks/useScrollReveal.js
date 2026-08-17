@@ -22,23 +22,47 @@ export default function useScrollReveal(className = "scroll-reveal") {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return undefined;
 
     const targets = Array.from(root.querySelectorAll("[data-reveal]"));
-    const pending = targets.filter(
-      (el) => el.getBoundingClientRect().top > window.innerHeight * 0.92
-    );
-    if (pending.length === 0) return undefined;
+    if (targets.length === 0) return undefined;
 
-    pending.forEach((el) => el.classList.add(className));
+    // PERF: no synchronous getBoundingClientRect() sweep here — this effect
+    // runs right after React's commit, when layout is dirty, so measuring N
+    // elements forced a full-page reflow (~40ms on mobile CPUs; Lighthouse
+    // "forced reflow"). Instead the observer's FIRST callback batch supplies
+    // entry.boundingClientRect from the browser's own async layout pass, and
+    // the below-viewport check happens there at zero layout cost. Elements
+    // stay visible for the frame before that batch arrives, preserving the
+    // hydration/SEO guarantee above (below-fold only, so nothing flashes).
+    const measured = new Set();
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
+          const el = entry.target;
+          if (!measured.has(el)) {
+            measured.add(el);
+            const belowFold =
+              entry.boundingClientRect.top > window.innerHeight * 0.92;
+            if (!belowFold) {
+              // Already on screen (or nearly) — never hide it.
+              io.unobserve(el);
+              return;
+            }
+            el.classList.add(className);
+            if (!entry.isIntersecting) return;
+            // Rare: below the 92% line yet already intersecting (tall
+            // viewport overlap) — reveal on the next frame so the hide →
+            // reveal transition still animates.
+            requestAnimationFrame(() => el.classList.add("in"));
+            io.unobserve(el);
+            return;
+          }
           if (!entry.isIntersecting) return;
-          entry.target.classList.add("in");
-          io.unobserve(entry.target);
+          el.classList.add("in");
+          io.unobserve(el);
         });
       },
       { rootMargin: "0px 0px -8% 0px", threshold: 0.15 }
     );
-    pending.forEach((el) => io.observe(el));
+    targets.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, [className]);
 

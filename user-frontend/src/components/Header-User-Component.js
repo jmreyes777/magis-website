@@ -272,10 +272,16 @@ function Header() {
             srcSet="/images/686421984_954054894279692_2045884033687314189_n.webp"
             type="image/webp"
           />
+          {/* LCP element on most routes (mobile): highest fetch priority +
+              a matching preload in index.html so the browser discovers it
+              before React renders. */}
           <img
             src="/images/686421984_954054894279692_2045884033687314189_n.png"
             alt="Magis Gold & Gems Pawnshop & Jewelry"
             className="header-logo"
+            fetchPriority="high"
+            width="480"
+            height="236"
           />
         </picture>
       </NavLink>

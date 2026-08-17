@@ -112,23 +112,29 @@
     }
     </script>
 
-    <!-- ▶️ Resource Hints. Rules that keep Lighthouse's "valid hints" audit
-         green: (1) crossorigin ONLY on origins fetched via CORS — a CORS
-         preconnect for plain <img> traffic warms a connection the browser
-         then can't reuse (fbcdn/maps images are no-CORS); (2) at most 4
-         preconnects — home-critical origins get preconnect, page-specific
-         ones (FB SDK iframes, avatar CDN) get dns-prefetch only. -->
+    <!-- ▶️ Resource Hints — dns-prefetch ONLY, no preconnects. Lighthouse
+         flags any preconnect the page doesn't hit within a few seconds, and
+         no route touches these origins that fast: maps load on /branches
+         after the JS bundle, and the FB origins are only hit by deferred
+         embeds/fetches (album images are self-hosted now). DNS warmup is
+         the cheap 80% of the win with no unused-connection penalty. -->
     <link rel="dns-prefetch" href="//maps.googleapis.com" />
-    <link rel="preconnect" href="https://maps.googleapis.com" />
     <link rel="dns-prefetch" href="//maps.gstatic.com" />
-    <link rel="preconnect" href="https://maps.gstatic.com" />
-    <!-- Facebook: graph API is fetch()/CORS; scontent serves <img> (no-CORS) -->
     <link rel="dns-prefetch" href="//graph.facebook.com" />
-    <link rel="preconnect" href="https://graph.facebook.com" crossorigin />
     <link rel="dns-prefetch" href="//scontent.xx.fbcdn.net" />
-    <link rel="preconnect" href="https://scontent.xx.fbcdn.net" />
     <link rel="dns-prefetch" href="//staticxx.facebook.com" />
     <link rel="dns-prefetch" href="//platform-lookaside.fbsbx.com" />
+    <!-- ⚡ Header logo — the LCP element on most routes (mobile): preload so
+         the request starts at HTML parse time, not after React renders the
+         header. Same-origin webp; every route shows it, so it's never an
+         unused preload. -->
+    <link
+      rel="preload"
+      as="image"
+      type="image/webp"
+      fetchpriority="high"
+      href="%PUBLIC_URL%/images/686421984_954054894279692_2045884033687314189_n.webp"
+    />
     <!-- Inter is self-hosted (SPD2-2): preload the single variable-font file so
          text renders in the brand font on first paint (same-origin, no
          connection setup; the old fonts.googleapis/gstatic preconnects are gone
