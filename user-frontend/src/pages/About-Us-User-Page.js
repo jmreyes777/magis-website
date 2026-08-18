@@ -236,6 +236,40 @@ function AboutUs() {
           </div>
         </section>
 
+        {/* ── Our people ─────────────────────────────────────────────────── */}
+        <section className="about-section about-team" aria-labelledby="about-team-h" data-reveal>
+          <div className="about-shell">
+            <p className="about-eyebrow">Our People</p>
+            <h2 id="about-team-h" className="about-h2">
+              One team behind every counter
+            </h2>
+            <p className="about-team__text">
+              The mission above is carried out by real people — appraisers,
+              tellers, and branch staff who treat every client with the same
+              respect they&rsquo;d want for their own family.
+            </p>
+            <figure className="about-team__figure">
+              {/* 1200px twins generated from the original (2048px, 475 KB) —
+                  webp first, jpg fallback; width/height reserve the box (CLS 0)
+                  and lazy-load keeps the below-fold photo off the critical path. */}
+              <picture>
+                <source srcSet="/images/company-picture-1200.webp" type="image/webp" />
+                <img
+                  src="/images/company-picture-1200.jpg"
+                  alt="The Magis Gold & Gems team gathered around a shared meal at a company celebration"
+                  width="1200"
+                  height="772"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </picture>
+              <figcaption className="about-team__caption">
+                The Magis family — one team across 11 branches.
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
         {/* ── 30th anniversary ──────────────────────────────────────── */}
         <section className="about-section about-anniv" aria-labelledby="about-anniv-h" data-reveal>
           <div className="about-shell">
