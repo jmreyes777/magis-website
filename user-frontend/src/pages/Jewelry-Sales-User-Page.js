@@ -293,9 +293,8 @@ export default function JewelrySales() {
               Quality Gold Jewelry sa Presyong Abot-kaya
             </h1>
             <p className="jewelry-hero-subtitle">
-              May gold jewelry kami para sa everyday wear at special occasions —
-              available sa mga branch namin. Visit us para makita ang actual na
-              items at presyo.
+              Para sa everyday wear at special occasions — visit us para
+              makita ang actual na items at presyo.
             </p>
             <div className="jewelry-hero-cta-container">
               <Link
@@ -329,7 +328,7 @@ export default function JewelrySales() {
               <h2 className="jewelry-section-title">Layaway (Hulugan) Calculator</h2>
             </div>
             <p className="jewelry-section-subtitle">
-              I-compute agad ang down payment at balance mo — ilagay ang tag price at piliin ang payment option.
+              Ilagay ang tag price, piliin ang option — kita agad ang down at balance.
             </p>
           </div>
 
@@ -346,7 +345,7 @@ export default function JewelrySales() {
               <h2 className="jewelry-section-title">Mga Klase ng Gold Jewelry</h2>
             </div>
             <p className="jewelry-section-subtitle">
-              Iba-iba ang styles at availability kada branch. Visit us para makita ang actual na items at presyo.
+              Iba-iba ang styles at availability kada branch.
             </p>
           </div>
 
@@ -422,9 +421,6 @@ export default function JewelrySales() {
               <FaCheckCircle className="text-3xl" style={{ color: '#d4a853' }} />
               <h2 className="jewelry-section-title">Mga Madalas Itanong</h2>
             </div>
-            <p className="jewelry-section-subtitle">
-              Mga karaniwang tanong tungkol sa jewelry sales namin
-            </p>
           </div>
 
           <div className="jewelry-faq-container" data-reveal>
@@ -440,9 +436,7 @@ export default function JewelrySales() {
               </details>
             ))}
             <p className="jewelry-section-subtitle" style={{ marginTop: "1.5rem" }}>
-              Kung may tanong ka tungkol sa isang partikular na piyesa, payment option,
-              o returns, i-message lang kami para magabayan ka base sa kasalukuyang
-              availability at patakaran ng branch.
+              May iba pang tanong? I-message lang kami.
             </p>
           </div>
         </section>
@@ -497,7 +491,7 @@ export default function JewelrySales() {
               May tanong ka ba sa mga available na alahas?
             </h2>
             <p className="mb-6 text-sm md:text-base max-w-2xl mx-auto">
-              Matutulungan ka ng staff namin sa sizing, presyo, at availability. Happy kaming tumulong!
+              Matutulungan ka namin sa sizing, presyo, at availability.
             </p>
             <div className="jewelry-cta-buttons">
               <Link
@@ -519,7 +513,7 @@ export default function JewelrySales() {
           <div className="jewelry-live-header" data-reveal>
             <h2 className="jewelry-live-title">Live Selling Sessions</h2>
             <p className="jewelry-live-subtitle">
-              Panoorin ang live selling namin para makita ang mga featured na designs. Para sa current availability, mag-message o bumisita sa pinakamalapit na branch.
+              Panoorin ang live selling namin para sa mga featured na designs.
             </p>
           </div>
           <div className="jewelry-live-container">

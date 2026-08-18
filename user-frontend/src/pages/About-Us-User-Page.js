@@ -111,9 +111,8 @@ function AboutUs() {
             A community financial anchor, <em>built on trust</em>.
           </h1>
           <p className="about-hero__sub">
-            Since 1996, hardworking Filipino individuals and families have
-            trusted Magis to turn their assets into immediate relief — with
-            transparency, dignity, and empathy at every counter.
+            Since 1996, Filipino families have trusted Magis to turn assets
+            into immediate relief — with dignity at every counter.
           </p>
           <div className="about-hero__stats" aria-label="Company at a glance">
             <div className="about-stat">
@@ -243,11 +242,6 @@ function AboutUs() {
             <h2 id="about-team-h" className="about-h2">
               One team behind every counter
             </h2>
-            <p className="about-team__text">
-              The mission above is carried out by real people — appraisers,
-              tellers, and branch staff who treat every client with the same
-              respect they&rsquo;d want for their own family.
-            </p>
             <figure className="about-team__figure">
               {/* 1200px twins generated from the original (2048px, 475 KB) —
                   webp first, jpg fallback; width/height reserve the box (CLS 0)
@@ -280,10 +274,8 @@ function AboutUs() {
                   Three decades of turning trust into relief
                 </h2>
                 <p className="about-anniv__text">
-                  From a single counter in 1996 to <strong>11 branches</strong>{" "}
-                  across Central Luzon and Quezon City — watch how three
-                  decades of <strong>transparent appraisals</strong> and
-                  neighborly service shaped the Magis of today.
+                  From one counter in 1996 to <strong>11 branches</strong> —
+                  watch three decades in one minute.
                 </p>
               </div>
               <div className="about-anniv__player">

@@ -269,18 +269,10 @@
 }
 
 /* ── Our people (company photo) ─────────────────────────────────────────── */
-.about-team__text {
-  max-width: 40em;
-  font-size: 1rem;
-  line-height: 1.75;
-  color: var(--muted);
-  margin: 0 0 36px;
-}
-
 /* Same hard gold hairline frame as the anniversary player — hairlines, no
    cards. width/height on the img reserve the aspect; the frame just wraps. */
 .about-team__figure {
-  margin: 0;
+  margin: 36px 0 0;
   padding: 10px;
   border: 1px solid var(--line);
   background: var(--navy);
