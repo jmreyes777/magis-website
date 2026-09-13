@@ -161,8 +161,7 @@ function Pawning() {
             <p className="pawn-eyebrow">Sangla / Pawn loans</p>
             <h1 className="pawn-hero__title">I-pawn ang gold mo — safe, mabilis, at walang hassle.</h1>
             <p className="pawn-hero__sub">
-              Instant cash para sa gold jewelry mo — usually minutes lang,
-              transparent ang usapan, at private ang transaksyon.
+              Instant cash para sa gold jewelry mo — minutes lang, malinaw ang usapan.
             </p>
             <div className="pawn-cta-row">
               <Link to="/branches" className="pawn-cta">
@@ -183,7 +182,7 @@ function Pawning() {
               <p className="pawn-eyebrow">Interest calculator</p>
               <h2 className="pawn-h2">I-estimate ang babayaran mo.</h2>
               <p className="pawn-lead">
-                Pang-plano lang ito — iba-iba ang aktwal na rate kada branch at nakasulat ito sa pawn ticket mo.
+                Pang-plano lang ito — nakasulat sa pawn ticket mo ang aktwal na rate.
               </p>
             </div>
 
@@ -302,7 +301,7 @@ function Pawning() {
               <p className="pawn-eyebrow">Paano mag-sangla</p>
               <h2 className="pawn-h2">Simple at straightforward na proseso.</h2>
               <p className="pawn-lead">
-                Safe at diretso — makukuha mo ang patas na halaga ng ginto mo sa ilang steps lang.
+                Apat na steps lang.
               </p>
             </div>
 
@@ -345,8 +344,7 @@ function Pawning() {
             <div className="pawn-note" data-reveal>
               <FaShieldAlt aria-hidden="true" />
               <p>
-                <strong>Para sa peace of mind mo:</strong> Bawat alahas ay ina-appraise ng trained
-                staff, naka-record sa official pawn ticket, at secure na nakatago hanggang sa tubusin mo.
+                <strong>Para sa peace of mind mo:</strong> trained staff ang mag-a-appraise, at naka-record sa official pawn ticket ang bawat transaksyon.
               </p>
             </div>
           </div>
@@ -358,9 +356,6 @@ function Pawning() {
             <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Mga tinatanggap</p>
               <h2 className="pawn-h2">Anong alahas ang tinatanggap namin.</h2>
-              <p className="pawn-lead">
-                Tinatanggap namin ang halos lahat ng klase ng gold jewelry para sa appraisal at sangla.
-              </p>
             </div>
 
             <div className="pawn-cell-grid">
@@ -368,7 +363,7 @@ function Pawning() {
                 <span className="pawn-cell__icon"><FaMoneyBillAlt aria-hidden="true" /></span>
                 <h3 className="pawn-cell__title">Gold jewelry</h3>
                 <p className="pawn-cell__text">
-                  Singsing, kwintas, pulseras, hikaw, pendant — lahat ng karat mula 10K hanggang 24K, susuriin base sa karat at timbang.
+                  Singsing, kwintas, pulseras, hikaw, pendant — lahat ng karat mula 10K hanggang 24K.
                 </p>
               </div>
               <div className="pawn-cell" data-reveal style={{ "--d": "0.08s" }}>
@@ -396,7 +391,7 @@ function Pawning() {
               <p className="pawn-eyebrow">Paano mag-renew</p>
               <h2 className="pawn-h2">I-extend ang term — interest lang ang babayaran.</h2>
               <p className="pawn-lead">
-                Hindi mawawala ang alahas mo — ma-e-extend ang maturity date sa 3 madaling steps.
+                Hindi mawawala ang alahas mo — umuusog lang ang maturity date.
               </p>
             </div>
 
@@ -452,7 +447,6 @@ function Pawning() {
             <div className="pawn-section-head" data-reveal>
               <p className="pawn-eyebrow">Terms &amp; conditions</p>
               <h2 className="pawn-h2">Patas na terms, malinaw na paliwanag.</h2>
-              <p className="pawn-lead">Simpleng buod kung paano gumagana ang sangla mo — mula ticket hanggang araw ng pagtubos.</p>
             </div>
 
             <div className="pawn-feature-grid">
@@ -500,8 +494,8 @@ function Pawning() {
             <div className="pawn-note" data-reveal>
               <FaExclamationTriangle aria-hidden="true" />
               <p>
-                Simple na buod lang ito. Kung may pagkakaiba, ang <strong>pawn ticket</strong> mo
-                at ang batas pa rin ang susundin. Para sa kumpletong terms, puntahan ang{" "}
+                Buod lang ito — kung may pagkakaiba, ang <strong>pawn ticket</strong> mo at ang
+                batas pa rin ang susundin. Basahin ang kumpletong{" "}
                 <Link to="/terms" className="pawn-link">Terms &amp; Conditions</Link>.
               </p>
             </div>
@@ -515,8 +509,7 @@ function Pawning() {
               <p className="pawn-eyebrow">Ready ka na?</p>
               <h2 className="pawn-h2">Drop by sa kahit anong branch — free appraisal!</h2>
               <p className="pawn-lead">
-                I-a-appraise ng staff namin ang alahas mo at ipapaliwanag nang malinaw ang
-                charges at terms — no pressure, no obligation.
+                No pressure, no obligation.
               </p>
             </div>
             <div className="pawn-cta-row" data-reveal style={{ "--d": "0.08s" }}>

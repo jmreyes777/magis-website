@@ -161,8 +161,7 @@ function ContactUs() {
       <div className="contact-card">
         <h1 className="contact-header">Contact Us</h1>
         <p className="contact-subtitle">
-          Mag-iwan ng mensahe o mag-live chat tungkol sa sangla, alahas, at
-          serbisyo ng branch — handa kaming tumulong.
+          Mag-iwan ng mensahe o mag-live chat — handa kaming tumulong.
         </p>
 
         {/* Error Message */}

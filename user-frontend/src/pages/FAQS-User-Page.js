@@ -221,10 +221,7 @@ function FAQsUserPage() {
         <section className="bg-white py-10">
           <div className="container mx-auto max-w-4xl px-4">
             <p className="text-base leading-relaxed text-gray-600">
-              Mabilisang sagot ito sa mga tanong tungkol sa serbisyo namin at sa mga
-              pangkalahatang patakaran ng mga pawnshop sa Pilipinas. Hindi nito pinapalitan ang
-              nakasulat sa pawn ticket mo o ang kumpletong Terms &amp; Conditions at Privacy
-              Policy na nakalathala sa site na ito.
+              Mabilisang sagot lang ito — kung may pagkakaiba, ang pawn ticket mo at ang kumpletong Terms &amp; Conditions pa rin ang susundin.
             </p>
           </div>
         </section>

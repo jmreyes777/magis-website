@@ -230,9 +230,7 @@ function Home() {
           <div className="home-shell home-hero__inner">
             <h1 className="home-hero__title">Isangla ang gold jewelry mo — instant cash, patas na presyo.</h1>
             <p className="home-hero__sub">
-              Safe, private, at patas na paraan para magka-cash kapag kailangan.
-              Walang mahabang proseso, walang hassle — diretso at mabilis na
-              serbisyo kapag kailangan mo talaga.
+              Safe, private, at walang hassle — kapag kailangan mo talaga.
             </p>
             <Link to="/branches" className="home-cta">
               <FaMapMarkerAlt aria-hidden="true" /> Find a Branch Near You{' '}
@@ -298,15 +296,14 @@ function Home() {
               <p className="home-eyebrow">Privacy</p>
               <h2 className="home-h2">Ang privacy mo, priority namin.</h2>
               <p className="home-lead">
-                Alam naming personal na bagay ang pagsasangla. Trained ang staff
-                namin sa discreet at professional na serbisyo.
+                Alam naming personal na bagay ang pagsasangla.
               </p>
             </div>
             <div className="home-feature-grid">
               <div className="home-feature" data-reveal>
                 <span className="home-feature__icon"><FaUserShield aria-hidden="true" /></span>
                 <h3 className="home-feature__title">Diskretong serbisyo</h3>
-                <p className="home-feature__text">Private at may respeto ang bawat transaksyon — diskreto at walang husga.</p>
+                <p className="home-feature__text">Private at may respeto ang bawat transaksyon — walang husga.</p>
               </div>
               <div className="home-feature" data-reveal style={{ "--d": "0.08s" }}>
                 <span className="home-feature__icon"><FaLock aria-hidden="true" /></span>
@@ -338,8 +335,7 @@ function Home() {
               </picture>
               <figcaption>
                 <FaVideo aria-hidden="true" />
-                CCTV-monitored 24/7 ang bawat branch — at nakatago sa secured
-                vault ang alahas mo hanggang matubos.
+                CCTV-monitored 24/7 ang bawat branch.
               </figcaption>
             </figure>
           </div>
@@ -352,13 +348,11 @@ function Home() {
               <p className="home-eyebrow">Buwanang subasta</p>
               <h2 className="home-h2">Malinaw na patakaran sa mga hindi natubos.</h2>
               <p className="home-lead">
-                Naiintindihan naming nagbabago ang sitwasyon. Gusto naming maging malinaw
-                sa simula pa lang kung ano ang mangyayari kapag hindi nabayaran ang loan.
+                Naiintindihan naming nagbabago ang sitwasyon — ganito ang proseso kapag hindi nabayaran ang loan.
               </p>
             </div>
             <ul className="home-policy" data-reveal>
               <li>Kapag lumagpas ang loan term at hindi mo na-renew o natubos ang alahas, isasama ito sa nakatakdang buwanang subasta (auction).</li>
-              <li>Standard at malinaw na proseso ito para mabawi ng pawnshop ang hindi nabayarang loan.</li>
               <li>Ipapaliwanag namin ang lahat ng deadline at patakaran bago ka pumirma — para walang surprises.</li>
             </ul>
 
