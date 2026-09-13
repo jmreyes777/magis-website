@@ -13,7 +13,7 @@
   "type": "commonjs",
   "dependencies": {
     "dotenv": "^17.4.2",
-    "jose": "^6.0.10",
+    "jose": "^6.2.12",
     "jsonschema": "^1.5.0"
   }
 }
