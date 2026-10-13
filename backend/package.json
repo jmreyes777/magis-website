@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/sdk": "^1.31.0",
     "@simplewebauthn/server": "^13.3.2",
     "@socket.io/redis-adapter": "^8.3.0",
     "@testing-library/jest-dom": "^5.17.0",
