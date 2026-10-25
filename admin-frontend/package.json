@@ -85,7 +85,7 @@
     "babel-plugin-transform-remove-console": "^6.9.4",
     "concurrently": "^8.2.2",
     "cross-env": "^7.0.3",
-    "electron": "^42.2.0",
+    "electron": "^42.11.16",
     "electron-builder": "^26.15.3",
     "serve": "^14.2.6",
     "wait-on": "^8.0.3"
