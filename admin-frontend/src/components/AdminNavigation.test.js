@@ -2,6 +2,14 @@
 // is a pure function — test it without rendering.
 import { getNavItems } from "./AdminNavigation-Component";
 
+// AuthContext pulls in Admin-Utils-socket -> firebase-config, which initializes
+// Firebase at import and throws without REACT_APP_FIREBASE_* (CI has no .env).
+// getNavItems is pure, so the context module is stubbed.
+jest.mock("../context/AuthContext", () => ({
+  __esModule: true,
+  default: require("react").createContext({}),
+}));
+
 describe("getNavItems (CHAT-PARK)", () => {
   test("chat-on build keeps the original four items in order", () => {
     expect(getNavItems(true).map((i) => i.path)).toEqual([
