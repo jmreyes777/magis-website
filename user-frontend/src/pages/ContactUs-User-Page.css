@@ -167,6 +167,36 @@
     transform: none;
   }
 
+  /* CHAT-PARK: parked-mode contact alternatives (Messenger / call / branch finder) */
+  .contact-alt {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .contact-alt-title {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #4b5563;
+    text-align: center;
+  }
+
+  .contact-alt-btn {
+    display: block;
+    box-sizing: border-box;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .contact-alt-link {
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1a1a2e;
+    text-decoration: underline;
+  }
+
   /* Error message */
   .error-message {
     margin: 0 0 20px;

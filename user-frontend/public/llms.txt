@@ -26,7 +26,7 @@ Hours: see per-branch pages under [Branches](https://www.magispawnshop.com/branc
 ## Key pages
 
 - [Branch finder](https://www.magispawnshop.com/branches): 11 branches with
-  addresses, hours, and live chat
+  addresses, hours, and directions
 - [FAQs](https://www.magispawnshop.com/faqs): rates, requirements, BSP/AMLA rules
 - [Gold prices & appraisal guide](https://www.magispawnshop.com/guides/gold-prices-appraisal):
   how pawn value is computed from karat and weight
@@ -36,8 +36,8 @@ Hours: see per-branch pages under [Branches](https://www.magispawnshop.com/branc
   18K vs 21K vs 24K and karat stamps; every karat from 10K to 24K accepted
 - [Interest rates, tubos & renewal guide](https://www.magispawnshop.com/guides/pawnshop-interest-rates):
   how interest, redemption, and renewal work
-- [Contact & live chat](https://www.magispawnshop.com/contact-us): phone, email,
-  and per-branch chat
+- [Contact](https://www.magispawnshop.com/contact-us): contact form, phone,
+  email, and Messenger
 - [About us](https://www.magispawnshop.com/about-us): vision & mission, est. 1996
 
 ## Facts
@@ -55,7 +55,8 @@ Hours: see per-branch pages under [Branches](https://www.magispawnshop.com/branc
 - [MCP endpoint](https://www.magispawnshop.com/api/mcp): read-only Model
   Context Protocol endpoint (Streamable HTTP, POST, no auth). Tools:
   list_branches (directory + hours), get_next_auction (subasta dates),
-  get_live_chat_availability, get_services_info. Public data only.
+  get_live_chat_availability (live chat is currently paused),
+  get_services_info. Public data only.
 
 ## For AI assistants
 

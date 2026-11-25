@@ -6,6 +6,7 @@ import ErrorBoundary from "./Shared/ErrorBoundary-Component";
 import Header from "./components/Header-User-Component";
 import MobileBottomNav from "./components/Mobile-Bottom-Nav-Component";
 import GuestCsatToast from "./components/Guest-Csat-Toast";
+import { CHAT_ENABLED } from "./config/features";
 
 // Public Components. Import thunks are declared once so the lazy() routes and
 // the idle-time prefetcher (SPD3-1) share the same chunk requests.
@@ -168,8 +169,9 @@ function App() {
 
         {/* CHATUX2: post-chat rating toast — renders nothing until an eligible
             chat close dispatches the magis:csat event (utils/csat.js). Lives
-            outside <Routes> so it survives navigation while fading out. */}
-        <GuestCsatToast />
+            outside <Routes> so it survives navigation while fading out.
+            CHAT-PARK: gated off while the guest chat is parked. */}
+        {CHAT_ENABLED && <GuestCsatToast />}
       </div>
     </HelmetProvider>
   );

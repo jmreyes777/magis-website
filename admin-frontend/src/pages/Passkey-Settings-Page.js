@@ -6,6 +6,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { BRANCH_HOME } from "../config/features";
 import AuthShell, {
   INPUT,
   BTN_PRIMARY,
@@ -170,7 +171,7 @@ export default function PasskeySettingsPage() {
         </button>
         <button
           type="button"
-          onClick={() => navigate("/admin/chats")}
+          onClick={() => navigate(BRANCH_HOME)} // CHAT-PARK
           className={`${LINK_BTN} mt-3`}
         >
           Back to dashboard

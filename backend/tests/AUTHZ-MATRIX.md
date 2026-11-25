@@ -48,3 +48,24 @@ config) · `/api/gold/*` (public ticker) · `/api/facebook/*` (cached, IP-limite
 - Socket event proofs live in the socket integration path (requires a
   socket.io client + Redis-less adapter) — see TESTING-MEGAPLAN for the
   harness; Wave 4 of this plan adds the load-shaped variant.
+
+## CHAT-PARK gate (`CHAT_ENABLED`)
+
+When `CHAT_ENABLED` is unset/false (the default), the public guest↔branch live
+chat is parked — a gate, not a removal:
+
+- `503` + `{ code: "CHAT_DISABLED" }` (`Cache-Control: no-store`), answered
+  BEFORE auth/rate-limiters on: all of `/api/guest/*` (init, refresh-token,
+  force-close, csat, contact), and the guest side of `/api/messages/*`
+  (`POST /start`, `POST /send`, `POST /conversation-key`, `GET /media/:id`,
+  `PATCH /mark-seen-by-guest/:id`).
+- `GET /api/branch-status/all` and `GET /api/branch-status` answer `200` with
+  everyone offline (`chatEnabled: false`) — no Firestore/Redis read.
+- Guest Socket.IO handshakes (fallback JWT with `role:"user"` + `guestId`) are
+  refused with `ChatDisabled`.
+- Staff/admin routes (`/reply`, `/history/:guestId`, `/all`, `/mark-seen/:id`,
+  `/conversation-key/:guestId`, `/admin-media/:id`) are NOT gated, and admin
+  sockets still connect.
+- `POST /api/contact` (contact form) is not chat — never gated.
+
+Proof: `http.chatDisabled.test.js`.

@@ -25,6 +25,10 @@ const mediaReadLimiter   = hotReadLimiter("media");
 const historyReadLimiter = hotReadLimiter("history");
 const convKeyLimiter     = hotReadLimiter("convkey");
 const { requireMFA }          = require("../middlewares/requireMFA");
+// CHAT-PARK: guest-side chat routes answer 503 while the public live chat is
+// parked. Mounted FIRST (before authenticateGuest) on the guest routes only —
+// staff/admin routes below stay ungated.
+const { requireChatEnabled }  = require("../utils/chatFeature");
 const { recordAuditEvent, auditContextFromReq, ACTIONS } = require("../utils/auditLog");
 const {
   normalizeChatImage,
@@ -574,7 +578,7 @@ async function saveIdempotentMessage(docId, data) {
  * POST /api/messages/start
  * Guest initiates a new chat session.
  */
-router.post("/start", authenticateGuest, async (req, res) => {
+router.post("/start", requireChatEnabled, authenticateGuest, async (req, res) => {
   // P2-5: require a valid guest token. The guest IDENTITY (guestId + branch)
   // comes from the verified token — never trusted from the body — so a caller
   // can only create/overwrite their OWN guest record for their OWN branch,
@@ -615,6 +619,7 @@ router.post("/start", authenticateGuest, async (req, res) => {
  */
 router.post(
   "/send",
+  requireChatEnabled,    // CHAT-PARK
   authenticateGuest,     // verifies guestToken → req.user.{guestId,email}
   rateLimitByGuest,      // per-guest rate limiter
   optionalMediaUpload,   // only parses a file when one was actually sent
@@ -967,7 +972,7 @@ router.patch(
  * own chat. The guest token carries guestId + the branch email (room mapping),
  * so we scope strictly to req.user — a guest can only ever obtain its own key.
  */
-router.post("/conversation-key", authenticateGuest, convKeyLimiter, async (req, res) => {
+router.post("/conversation-key", requireChatEnabled, authenticateGuest, convKeyLimiter, async (req, res) => {
   try {
     const guestId = req.user.guestId;
     const branchEmail = (req.user.email || "").toLowerCase();
@@ -1023,7 +1028,7 @@ router.get(
  * the authenticated participant. Chat objects are stored PRIVATE (P1-3), so a
  * fresh signed URL is minted per request and expires in ~15 min.
  */
-router.get("/media/:id", authenticateGuest, mediaReadLimiter, async (req, res) => {
+router.get("/media/:id", requireChatEnabled, authenticateGuest, mediaReadLimiter, async (req, res) => {
   try {
     const snap = await db.collection("messages").doc(req.params.id).get();
     if (!snap.exists) return res.status(404).json({ error: "Message not found." });
@@ -1070,6 +1075,7 @@ router.get(
  */
 router.patch(
   "/mark-seen-by-guest/:id",
+  requireChatEnabled, // CHAT-PARK
   authenticateGuest,
   async (req, res) => {
     const { id } = req.params;

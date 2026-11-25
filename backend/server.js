@@ -201,6 +201,7 @@ const { getAuth } = require("firebase-admin/auth"); // v14: namespace API remove
 // old behavior). Tests import this file with NODE_ENV=test and no credentials.
 if (process.env.NODE_ENV !== "test") initFirebase();
 const { initializeSocket } = require("./utils/socket");
+const { isChatEnabled, requireChatEnabled } = require("./utils/chatFeature"); // CHAT-PARK
 const { requireEdgeAuth, rateLimitKey } = require("./utils/geoSecurity");
 const authenticateBranchAdmin = require("./middlewares/authenticateBranchAdmin");
 const publicCache = require("./middlewares/publicCache"); // PERF1-3: short Cache-Control on public GETs
@@ -238,6 +239,7 @@ console.log(`[SERVER] HTTP/1.1 server listening at http://localhost:${PORT}`);
 const io = initializeSocket(server);
 app.set("socketio", io);
 console.log("[SERVER] ✅ Socket.IO initialized and attached to Express")
+console.log(`[CHAT] Public live chat is ${isChatEnabled() ? "ENABLED" : "DISABLED (set CHAT_ENABLED=true to turn it on)"}`); // CHAT-PARK
 
 // ✅ Set Backend API Base URL
 const BASE_URL = process.env.BACKEND_URL || `https://localhost:${PORT}`;
@@ -543,6 +545,11 @@ const rlStore = (prefix) =>
   isRedisConfigured()
     ? new RedisStore({ prefix, sendCommand: (...args) => getRedis().call(...args) })
     : undefined;
+
+// CHAT-PARK: park the whole public guest-chat surface with one switch. Must
+// precede every /api/guest limiter and route (incl. the late force-close below)
+// so a disabled call answers 503 without spending any limiter budget.
+app.use("/api/guest", requireChatEnabled);
 
 // P1-4: per-IP throttle on guest-session creation — bot/abuse mitigation on the
 // public /init endpoint. Redis-backed for multi-instance correctness (degrades

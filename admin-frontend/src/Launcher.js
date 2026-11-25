@@ -1,11 +1,12 @@
 // src/Launcher.js
 import React from 'react';
+import { BRANCH_HOME } from './config/features'; // CHAT-PARK
 export default function Launcher() {
   const isElectron = () =>
     navigator.userAgent.toLowerCase().includes('electron');
 
   // If we’re already in Electron, skip straight into the app
-  if (isElectron()) window.location.replace('/admin/chats');
+  if (isElectron()) window.location.replace(BRANCH_HOME);
 
   return (
     <div style={{ textAlign: 'center', marginTop: '20vh' }}>
@@ -13,7 +14,7 @@ export default function Launcher() {
       <p>How would you like to run the app?</p>
       <div style={{ margin: '2rem' }}>
         <a
-          href="/admin/chats"
+          href={BRANCH_HOME}
           style={{
             display: 'inline-block',
             padding: '1rem 2rem',

@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo";
+import { CHAT_ENABLED } from "../config/features";
 import "./legal-prose.css";
 import "./Terms-Conditions-User-Page.css";
 
@@ -28,7 +29,7 @@ function Terms() {
     <div className="flex flex-col min-h-screen">
       <Seo
         title="Terms & Conditions | Magis Gold & Gems Pawnshop"
-        description="Terms governing use of the Magis Gold & Gems website, branch finder, and live chat, including BSP, AMLA, and Data Privacy Act (RA 10173) notices."
+        description="Terms governing use of the Magis Gold & Gems website and branch finder, including BSP, AMLA, and Data Privacy Act (RA 10173) notices."
         path="/terms"
         breadcrumbs={[
           { name: "Home", path: "/" },
@@ -83,8 +84,19 @@ function Terms() {
                 are indicative and may change; verify with the branch before visiting.
               </li>
               <li>
-                <strong>Live Chat.</strong> Used for inquiries/support. Messages may be recorded.
-                Chat does not create, amend, or replace any pawn contract or ticket.
+                {/* CHAT-PARK */}
+                {CHAT_ENABLED ? (
+                  <>
+                    <strong>Live Chat.</strong> Used for inquiries/support. Messages may be recorded.
+                    Chat does not create, amend, or replace any pawn contract or ticket.
+                  </>
+                ) : (
+                  <>
+                    <strong>Live Chat.</strong> Live chat is currently unavailable on this website.
+                    When offered, it is used for inquiries/support; messages may be recorded.
+                    Chat does not create, amend, or replace any pawn contract or ticket.
+                  </>
+                )}
               </li>
               <li>
                 <strong>Privacy (RA 10173).</strong> We collect limited data (e.g., contact details,

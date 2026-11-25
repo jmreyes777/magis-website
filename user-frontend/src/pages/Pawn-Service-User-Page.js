@@ -3,6 +3,7 @@ import React, { useEffect, useLayoutEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   FaComments,
+  FaMapMarkerAlt,
   FaArrowRight,
   FaRegIdCard,
   FaBalanceScale,
@@ -15,6 +16,7 @@ import {
 } from "react-icons/fa";
 import Footer from "../components/Footer-User-Component";
 import Seo, { SITE_ORIGIN } from "../components/Seo";
+import { CHAT_ENABLED } from "../config/features";
 import { getRateFromDays, daysBetween, computeInterest } from "../utils/pawnMath";
 import useScrollReveal from "../hooks/useScrollReveal";
 import "../styles/scroll-reveal.css";
@@ -165,7 +167,12 @@ function Pawning() {
             </p>
             <div className="pawn-cta-row">
               <Link to="/branches" className="pawn-cta">
-                <FaComments aria-hidden="true" /> Chat with a Branch{" "}
+                {/* CHAT-PARK */}
+                {CHAT_ENABLED ? (
+                  <><FaComments aria-hidden="true" /> Chat with a Branch{" "}</>
+                ) : (
+                  <><FaMapMarkerAlt aria-hidden="true" /> Find a Branch{" "}</>
+                )}
                 <FaArrowRight aria-hidden="true" />
               </Link>
               <Link to="/faqs" className="pawn-cta pawn-cta--ghost">
@@ -514,7 +521,12 @@ function Pawning() {
             </div>
             <div className="pawn-cta-row" data-reveal style={{ "--d": "0.08s" }}>
               <Link to="/branches" className="pawn-cta">
-                <FaComments aria-hidden="true" /> Chat with a Branch{" "}
+                {/* CHAT-PARK */}
+                {CHAT_ENABLED ? (
+                  <><FaComments aria-hidden="true" /> Chat with a Branch{" "}</>
+                ) : (
+                  <><FaMapMarkerAlt aria-hidden="true" /> Find a Branch{" "}</>
+                )}
                 <FaArrowRight aria-hidden="true" />
               </Link>
               <Link to="/faqs" className="pawn-cta pawn-cta--ghost">

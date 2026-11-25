@@ -5,6 +5,7 @@ import "./Footer-User-Component.css";
 import { FaFacebookF, FaInstagram } from "react-icons/fa";
 import { FaFacebookMessenger } from "react-icons/fa6";
 import { MdEmail } from "react-icons/md";
+import { CHAT_ENABLED, MESSENGER_URL, SUPPORT_PHONE } from "../config/features";
 
 const EMAIL = "magisgoldandgems.pawnshop@gmail.com";
 const LS_KEY = "emailProviderPreference"; // "gmail" | "outlook" | "yahoo"
@@ -68,12 +69,12 @@ function Footer() {
   // ---- Editable details ----------------------------------------------------
   const socials = [
     { name: "Facebook",  url: "https://www.facebook.com/magispawnshop/",     sr: "Visit us on Facebook",    Icon: FaFacebookF },
-    { name: "Messenger", url: "https://m.me/magispawnshop",                  sr: "Message us on Messenger", Icon: FaFacebookMessenger },
+    { name: "Messenger", url: MESSENGER_URL,                                 sr: "Message us on Messenger", Icon: FaFacebookMessenger },
     { name: "Instagram", url: "https://www.instagram.com/magisgoldandgems/", sr: "See us on Instagram",     Icon: FaInstagram },
     { name: "Email",     url: `mailto:${EMAIL}`,                             sr: "Email us",                Icon: MdEmail },
   ];
 
-  const phones = [{ label: "Globe", number: "0962-061-8672" }];
+  const phones = [SUPPORT_PHONE];
   // Live-chat entry points — branches list (per-branch chat) and the
   // customer-support chat on the contact page. `statusKey` selects which
   // liveStatus flag drives the green/gray presence dot.
@@ -122,6 +123,7 @@ function Footer() {
   // advertising a chat nobody is staffing.
   const [liveStatus, setLiveStatus] = useState({ branches: false, support: false });
   useEffect(() => {
+    if (!CHAT_ENABLED) return; // CHAT-PARK: no presence polling while chat is off
     const controller = new AbortController();
     let cancelled = false;
 
@@ -340,7 +342,10 @@ function Footer() {
                   <a href={`tel:${p.number.replace(/[^\d+]/g, "")}`}>{p.number}</a>
                 </li>
               ))}
-              {chatLinks.map((c) => {
+              {/* CHAT-PARK: parked → Messenger + contact form instead of the
+                  live-chat entry points and their presence dots */}
+              {CHAT_ENABLED ? (
+                chatLinks.map((c) => {
                 const online = !!liveStatus[c.statusKey];
                 const statusText = online ? "online now" : "currently offline";
                 return (
@@ -361,7 +366,18 @@ function Footer() {
                     </Link>
                   </li>
                 );
-              })}
+              })
+              ) : (
+                <>
+                <li>
+                  <span className="footer-contact-label">Messenger:</span>
+                  <a href={MESSENGER_URL} target="_blank" rel="noopener noreferrer">m.me/magispawnshop</a>
+                </li>
+                <li>
+                  <Link to="/contact-us" className="footer-chat-link">Send us a message</Link>
+                </li>
+                </>
+              )}
               {email && (
                 <li>
                   <span className="footer-contact-label">Email:</span>

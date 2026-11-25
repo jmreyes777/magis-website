@@ -21,6 +21,7 @@ process.env.FIREBASE_CLIENT_EMAIL = "";
 process.env.FIREBASE_STORAGE_BUCKET = "";
 process.env.GUEST_CONTACT_RL_MAX = "1"; // second request in the window → 429
 process.env.GUEST_CONTACT_RL_WINDOW_MS = "600000";
+process.env.CHAT_ENABLED = "true"; // CHAT-PARK: existing contract suites exercise the real chat routes
 
 const http = require("node:http");
 

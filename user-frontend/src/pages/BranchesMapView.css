@@ -384,6 +384,31 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* CHAT-PARK: parked-mode replacements for .chat-btn (Call + Messenger links).
+   Reuses .chat-btn for the button look; these only stack the links and adapt
+   anchor defaults to the button rules above (which were written for <button>). */
+.branch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+.branch-action {
+  display: block;
+  box-sizing: border-box;
+  margin-top: 0;
+  text-decoration: none;
+}
+.branch-action--ghost {
+  background: #fff;
+  border: 2px solid rgba(212, 168, 83, 0.5);
+  box-shadow: none;
+}
+.branch-action--ghost:hover {
+  background: rgba(212, 168, 83, 0.08);
+  border-color: rgba(212, 168, 83, 0.8);
+}
+
 /* 🔧 Chat Overlay - Premium Styling */
 .chat-overlay {
   position: fixed;

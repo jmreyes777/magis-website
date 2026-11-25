@@ -11,6 +11,11 @@
 // as they would during a third-party outage.
 const crypto = require("crypto");
 
+// CHAT-PARK: the build under test was compiled with this flag baked in, so the
+// specs read the same env the build did (e2e:chat re-runs the chat suites
+// against a chat-on build).
+const CHAT_ENABLED = process.env.REACT_APP_CHAT_ENABLED === "true";
+
 const GUEST_ID = "guest-e2e-1";
 const SUPPORT_EMAIL = "support@magisgold.com";
 
@@ -235,6 +240,7 @@ const callsTo = (state, prefix) => state.calls.filter((c) => c.path.startsWith(p
 
 module.exports = {
   GUEST_ID,
+  CHAT_ENABLED,
   SUPPORT_EMAIL,
   makeGuestJwt,
   encryptWithKey,

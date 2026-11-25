@@ -43,6 +43,8 @@
     "desktop:installer": "electron-builder --win --x64",
     "build": "react-scripts build",
     "e2e": "playwright test",
+    "build:chat": "cross-env REACT_APP_CHAT_ENABLED=true react-scripts build",
+    "e2e:chat": "cross-env REACT_APP_CHAT_ENABLED=true playwright test",
     "analyze": "react-scripts build && npx source-map-explorer \"build/static/js/*.js\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

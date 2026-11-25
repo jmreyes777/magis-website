@@ -3,6 +3,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../utils/firebase");
 const publicCache = require("../middlewares/publicCache"); // PERF1-3
+const { isChatEnabled } = require("../utils/chatFeature"); // CHAT-PARK
 
 // NEW: Redis presence fast-path
 const { getRedis, ensureRedisConnected } = require("../utils/redis");
@@ -27,6 +28,9 @@ const PRESENCE_PREFIX = process.env.REDIS_PRESENCE_PREFIX || "branch:online:";
  * are distinct so Express routing is unambiguous either way.
  */
 router.get("/branch-status/all", publicCache(30, 60), async (req, res) => {
+  // CHAT-PARK: 200 on purpose — stale cached clients see "offline", and no
+  // Firestore/Redis read happens while the public live chat is parked.
+  if (!isChatEnabled()) return res.status(200).json({ statuses: {}, chatEnabled: false });
   const statuses = {};
 
   // 1) Firestore baseline — enumerates every known branch + lastSeen. The
@@ -111,6 +115,8 @@ router.get("/branch-status/all", publicCache(30, 60), async (req, res) => {
  * responses (errors stay no-store) and appends `Vary: Origin`.
  */
 router.get("/branch-status", publicCache(30, 60), async (req, res) => {
+  // CHAT-PARK: 200 on purpose — stale cached clients see "offline".
+  if (!isChatEnabled()) return res.status(200).json({ online: false, lastSeen: "Unavailable", chatEnabled: false });
   const { branchEmail: rawEmail } = req.query || {};
   if (!rawEmail) {
     return res.status(400).json({ error: "branchEmail is required" });

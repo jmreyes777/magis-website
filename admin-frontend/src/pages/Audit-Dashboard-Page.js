@@ -6,6 +6,7 @@ import DateRangePicker from "../components/DateRangePicker-Component";
 import AdminNavigation from "../components/AdminNavigation-Component";
 import AdminHeaderWidgets from "../components/AdminHeaderWidgets-Component";
 import AuthContext from "../context/AuthContext";
+import { CHAT_ENABLED } from "../config/features";
 
 const API = process.env.REACT_APP_API_URL || "";
 
@@ -207,6 +208,12 @@ function AuditDashboard() {
 
       <div className="flex flex-row flex-grow bg-gray-100">
         <div className="w-full p-6 overflow-y-auto">
+          {/* CHAT-PARK: explain the missing Chat Dashboard to branch sessions */}
+          {!CHAT_ENABLED && !isSuper && (
+            <div className="mb-4 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" role="status">
+              Live chat is paused on the public website, so the Chat Dashboard is hidden for now. Activity History and Analytics are still available.
+            </div>
+          )}
           {/* Scope banner */}
           <div className="mb-4 text-sm text-gray-600">
             {isSuper ? (

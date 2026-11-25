@@ -124,7 +124,7 @@ export const buildBranchSeo = (branch, siteOrigin) => {
     title: `Pawnshop in ${area} | Magis Gold & Gems`,
     description:
       `Magis Gold & Gems ${branch.name} branch in ${area} — pawn (sangla) gold & jewelry, free appraisal` +
-      `${branch.hasJewelryDisplay ? ", jewelry sales" : ""}. Address, opening hours, directions, and live chat.`,
+      `${branch.hasJewelryDisplay ? ", jewelry sales" : ""}. Address, opening hours, and directions.`,
     path,
     breadcrumbs: [
       { name: "Home", path: "/" },

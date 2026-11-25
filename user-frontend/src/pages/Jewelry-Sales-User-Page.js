@@ -5,7 +5,9 @@ import { Link } from "react-router-dom";
 import Footer from "../components/Footer-User-Component";
 import FacebookLatestVideo from "../components/FacebookLatestVideo";
 import { FaGem, FaShieldAlt, FaCheckCircle, FaMapMarkedAlt, FaComments, FaCalculator } from "react-icons/fa";
+import { FaFacebookMessenger } from "react-icons/fa6";
 import { GiGoldBar } from "react-icons/gi";
+import { CHAT_ENABLED, MESSENGER_URL } from "../config/features";
 import { peso, opt1, opt2 } from "../utils/layawayMath";
 import useScrollReveal from "../hooks/useScrollReveal";
 import "../styles/scroll-reveal.css";
@@ -303,12 +305,24 @@ export default function JewelrySales() {
               >
                 Find a Jewelry Branch <FaMapMarkedAlt className="ml-2" />
               </Link>
+              {/* CHAT-PARK: parked → Messenger instead of the chat entry */}
+              {CHAT_ENABLED ? (
               <button
                 onClick={() => window.location.href = '/branches'}
                 className="btn-secondary-cta"
               >
                 Chat With Our Team <FaComments className="ml-2" />
               </button>
+              ) : (
+              <a
+                href={MESSENGER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-secondary-cta"
+              >
+                Message Us on Messenger <FaFacebookMessenger className="ml-2" />
+              </a>
+              )}
             </div>
             <div className="jewelry-hero-trust">
               {/* Gold bar, not FaGem: the chip is about gold karat range and
@@ -500,12 +514,24 @@ export default function JewelrySales() {
               >
                 Find a Jewelry Branch <FaMapMarkedAlt className="ml-2" />
               </Link>
+              {/* CHAT-PARK: parked → Messenger instead of the chat entry */}
+              {CHAT_ENABLED ? (
               <button
                 onClick={() => window.location.href = '/branches'}
                 className="jewelry-cta-secondary"
               >
                 Chat With Our Team <FaComments className="ml-2" />
               </button>
+              ) : (
+              <a
+                href={MESSENGER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="jewelry-cta-secondary"
+              >
+                Message Us on Messenger <FaFacebookMessenger className="ml-2" />
+              </a>
+              )}
             </div>
         </section>
 

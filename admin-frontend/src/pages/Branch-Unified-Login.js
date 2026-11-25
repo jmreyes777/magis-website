@@ -32,6 +32,7 @@ import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import AuthContext from "../context/AuthContext";
 import { connectSocket } from "../components/Admin-Utils-socket";
+import { CHAT_ENABLED, BRANCH_HOME } from "../config/features";
 import { useWakeLock } from "../utils/useWakeLock";
 import {
   getAuth,
@@ -187,7 +188,8 @@ function BranchUnifiedLogin() {
       connectSocket(session.branchEmail);
       localStorage.setItem("activeSocketTabId", session.tabId);
     }, 100);
-    navigate("/admin/chats", {
+    // CHAT-PARK: sessions land on Activity History while the chat dashboard is hidden
+    navigate(BRANCH_HOME, {
       replace: true,
       state: { fromLogin: true, branchId: session.branchId, branchEmail: session.branchEmail, branchName: session.branchName },
     });
@@ -672,7 +674,7 @@ function BranchUnifiedLogin() {
 
   // ── UI ──────────────────────────────────────────────────────────────────────
   return (
-    <AuthShell title="Branch Login" subtitle={<>Staff &amp; Branch Admin &middot; Chat dashboard</>}>
+    <AuthShell title="Branch Login" subtitle={CHAT_ENABLED ? <>Staff &amp; Branch Admin &middot; Chat dashboard</> : <>Staff &amp; Branch Admin</>}>
         {error && <p className={MSG_ERROR}>{error}</p>}
         {info && <p className={MSG_INFO}>{info}</p>}
         {emailSent && <p className={MSG_INFO}>A verification email has been sent. Please check your email.</p>}

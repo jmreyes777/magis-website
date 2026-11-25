@@ -328,12 +328,12 @@ const ROUTE_META = {
   "/branches": {
     title: "Pawnshop Branches Near You | Magis Gold & Gems",
     description:
-      "Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, directions, and live chat.",
+      "Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, and directions.",
   },
   "/contact-us": {
     title: "Contact Us | Magis Gold & Gems Pawnshop",
     description:
-      "Contact Magis Gold & Gems — message us or live-chat about pawning, jewelry, and branch services, including our contact number and customer service.",
+      "Contact Magis Gold & Gems — message us about pawning, jewelry, and branch services, including our contact number and customer service.",
   },
   "/about-us": {
     title: "About Us — Vision & Mission | Magis Gold & Gems Pawnshop & Jewelry",
@@ -363,7 +363,7 @@ const ROUTE_META = {
   "/terms": {
     title: "Terms & Conditions | Magis Gold & Gems Pawnshop",
     description:
-      "Terms governing use of the Magis Gold & Gems website, branch finder, and live chat, including BSP, AMLA, and Data Privacy Act (RA 10173) notices.",
+      "Terms governing use of the Magis Gold & Gems website and branch finder, including BSP, AMLA, and Data Privacy Act (RA 10173) notices.",
   },
   // SEO megaplan W2 — guide hub. Keep byte-identical to each guide's <Seo>
   // values in user-frontend/src/pages/guides/guide-content.js.
@@ -418,7 +418,7 @@ function branchRouteMeta(key) {
     title: `Pawnshop in ${b.area} | Magis Gold & Gems`,
     description:
       `Magis Gold & Gems ${b.name} branch in ${b.area} — pawn (sangla) gold & jewelry, free appraisal` +
-      `${b.jewelry ? ", jewelry sales" : ""}. Address, opening hours, directions, and live chat.`,
+      `${b.jewelry ? ", jewelry sales" : ""}. Address, opening hours, and directions.`,
   };
 }
 

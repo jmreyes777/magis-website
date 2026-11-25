@@ -16,6 +16,7 @@ import HeaderWaitingChip from "./HeaderWaitingChip-Component";
 import BranchIdentityChip from "./BranchIdentityChip-Component";
 import PushBell from "./PushBell-Component";
 import { onUnreadUpdate } from "./Admin-Utils-socket";
+import { CHAT_ENABLED } from "../config/features";
 
 const SNAPSHOT_REFRESH_MS = 30 * 1000;
 
@@ -119,15 +120,17 @@ export default function AdminHeaderWidgets({ chats, unreadCounts }) {
 
   return (
     <>
-      {branchEmail && (
+      {/* CHAT-PARK: waiting-guests chip is chat-only UI — hidden while parked */}
+      {CHAT_ENABLED && branchEmail && (
         <HeaderWaitingChip
           chats={live ? chats : snapChats}
           unreadCounts={live ? unreadCounts : snapUnread}
         />
       )}
       {/* CHATUX3: push toggle is branch-scoped (subscriptions bind to the
-          branch token), so superadmin sessions don't get a dead bell. */}
-      {branchEmail && <PushBell />}
+          branch token), so superadmin sessions don't get a dead bell.
+          CHAT-PARK: hidden while the live chat is parked. */}
+      {CHAT_ENABLED && branchEmail && <PushBell />}
       <GoldPriceTicker />
       <BranchIdentityChip branchEmail={branchEmail} />
     </>

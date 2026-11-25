@@ -8,6 +8,7 @@ import ErrorBoundary from "./components/ErrorBoundary-Component";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { GoogleReCaptchaProvider } from "react-google-recaptcha-v3";
 import AuthContext from "./context/AuthContext";
+import { CHAT_ENABLED, BRANCH_HOME } from "./config/features";
 
 // Lazy-loaded Admin Components
 const BranchLogin = lazy(() => import("./pages/Branch-Unified-Login")); // unified Staff + Branch-Admin login
@@ -115,11 +116,13 @@ const RoutesComponent = () => {
                 }
               />
 
+              {/* CHAT-PARK: chat dashboard hidden while the live chat is parked;
+                  the route stays and redirects to the branch home. */}
               <Route
                 path="/admin/chats"
                 element={
                   <ProtectedRoute requiredRole="branchadmin">
-                    <BranchChatDashboard />
+                    {CHAT_ENABLED ? <BranchChatDashboard /> : <Navigate to={BRANCH_HOME} replace />}
                   </ProtectedRoute>
                 }
               />

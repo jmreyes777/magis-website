@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import axios from 'axios';
-import GuestChatBox from '../components/Guest-Chat-Box-Component'; // Ensure GuestChatBox is imported
+import { Link } from 'react-router-dom';
 import Seo from '../components/Seo';
-import { getSocketInstance, connectSocket } from '../Shared/User-Utils-socket';
 import { getTurnstileToken, preloadTurnstile } from '../Shared/turnstile';
+import { CHAT_ENABLED, MESSENGER_URL, SUPPORT_PHONE } from '../config/features';
 import './ContactUs-User-Page.css'; // Ensure this file exists
 
 // API base: empty in dev (CRA proxy handles /api), absolute in production.
@@ -19,7 +19,12 @@ const SUPPORT_BRANCH_EMAIL =
   process.env.REACT_APP_SUPPORT_BRANCH_EMAIL || 'support@magisgold.com';
 const SUPPORT_BRANCH_NAME = 'Support';
 
-const socket = getSocketInstance();
+// CHAT-PARK: chat UI + socket helpers load on demand so both stay out of this
+// route's bundle while the guest chat is parked. handleChatWithSupport() warms
+// the chunk in parallel with the guest-session roundtrips.
+const chatBoxImport = () =>
+  import(/* webpackChunkName: "guest-chat" */ '../components/Guest-Chat-Box-Component');
+const GuestChatBox = lazy(chatBoxImport);
 
 function ContactUs() {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' });
@@ -74,6 +79,7 @@ function ContactUs() {
   const handleChatWithSupport = async () => {
     setIsStartingChat(true);
     setError(null);
+    chatBoxImport().catch(() => {}); // warm the lazy chat chunk in parallel
 
     try {
       // Reuse an existing guest session only if it's already bound to Support;
@@ -127,7 +133,10 @@ function ContactUs() {
       if (!localStorage.getItem('tabId'))
         localStorage.setItem('tabId', crypto.randomUUID());
       if (!window.name) window.name = crypto.randomUUID();
-      if (!socket.connected) connectSocket(guestId);
+      const { getSocketInstance, connectSocket } = await import(
+        /* webpackChunkName: "guest-socket" */ '../Shared/User-Utils-socket'
+      );
+      if (!getSocketInstance().connected) connectSocket(guestId);
 
       setActiveChat({
         branchId: 'support',
@@ -148,7 +157,7 @@ function ContactUs() {
     <div className="contact-page">
       <Seo
         title="Contact Us | Magis Gold & Gems Pawnshop"
-        description="Contact Magis Gold & Gems — message us or live-chat about pawning, jewelry, and branch services, including our contact number and customer service."
+        description="Contact Magis Gold & Gems — message us about pawning, jewelry, and branch services, including our contact number and customer service."
         path="/contact-us"
         breadcrumbs={[
           { name: "Home", path: "/" },
@@ -161,7 +170,9 @@ function ContactUs() {
       <div className="contact-card">
         <h1 className="contact-header">Contact Us</h1>
         <p className="contact-subtitle">
-          Mag-iwan ng mensahe o mag-live chat — handa kaming tumulong.
+          {CHAT_ENABLED
+            ? 'Mag-iwan ng mensahe o mag-live chat — handa kaming tumulong.'
+            : 'Mag-iwan ng mensahe — handa kaming tumulong.'}
         </p>
 
         {/* Error Message */}
@@ -225,7 +236,8 @@ function ContactUs() {
           </button>
         </form>
 
-        {/* Chat Button */}
+        {/* Chat Button — CHAT-PARK: parked → Messenger / call / branch finder */}
+        {CHAT_ENABLED ? (
         <div className="mt-4">
           <button
             onClick={handleChatWithSupport}
@@ -236,20 +248,30 @@ function ContactUs() {
             {isStartingChat ? 'Starting Chat...' : 'Chat with Support'}
           </button>
         </div>
+        ) : (
+        <div className="mt-4 contact-alt">
+          <p className="contact-alt-title">Kailangan ng mas mabilis na sagot?</p>
+          <a className="chat-button contact-alt-btn" href={MESSENGER_URL} target="_blank" rel="noopener noreferrer">Message us on Messenger</a>
+          <a className="chat-button contact-alt-btn" href={`tel:${SUPPORT_PHONE.number.replace(/[^\d+]/g, "")}`}>Call {SUPPORT_PHONE.number}</a>
+          <Link className="contact-alt-link" to="/branches">Find a branch near you</Link>
+        </div>
+        )}
       </div>
       </main>
 
       {/* Guest Chat Box */}
-      {activeChat && (
-        <GuestChatBox
-          key={`${activeChat.branchId}-${activeChat.guestId}`}
-          branchId={activeChat.branchId}
-          branchEmail={activeChat.branchEmail}
-          branchName={activeChat.branchName}
-          schedule={activeChat.schedule || []}
-          guestId={activeChat.guestId}
-          onClose={() => setActiveChat(null)}
-        />
+      {CHAT_ENABLED && activeChat && (
+        <Suspense fallback={null}>
+          <GuestChatBox
+            key={`${activeChat.branchId}-${activeChat.guestId}`}
+            branchId={activeChat.branchId}
+            branchEmail={activeChat.branchEmail}
+            branchName={activeChat.branchName}
+            schedule={activeChat.schedule || []}
+            guestId={activeChat.guestId}
+            onClose={() => setActiveChat(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

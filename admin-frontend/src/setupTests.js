@@ -4,6 +4,8 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
+process.env.REACT_APP_CHAT_ENABLED = "true"; // CHAT-PARK: Jest runs the chat-on build so the parked chat suites keep running
+
 // CRA's jest 27 jsdom predates crypto.randomUUID and exposes no SubtleCrypto.
 // Wire Node's own webcrypto in so initSession (randomUUID) and e2eeCrypto
 // (subtle AES-GCM/ECDH) exercise real crypto instead of mocks.

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo";
+import { CHAT_ENABLED } from "../config/features";
 import "./FAQS-User-Page.css";
 
 // Single source of truth for the FAQ content. The visible JSX below AND the
@@ -35,7 +36,10 @@ const COMPANY_FAQS = [
   },
   {
     q: "Do I need to go to a branch to pawn an item?",
-    a: "Yes. The website and live chat are for inquiries only. Actual pawning requires in-branch appraisal, a valid ID, and issuance of a pawn ticket.",
+    // CHAT-PARK
+    a: CHAT_ENABLED
+      ? "Yes. The website and live chat are for inquiries only. Actual pawning requires in-branch appraisal, a valid ID, and issuance of a pawn ticket."
+      : "Yes. The website is for inquiries only. Actual pawning requires in-branch appraisal, a valid ID, and issuance of a pawn ticket.",
   },
   {
     q: "What is a pawn ticket and why is it important?",
@@ -88,8 +92,13 @@ const COMPANY_FAQS = [
   },
   {
     cat: "policies",
-    q: "Is the live chat binding for a pawn transaction?",
-    a: "No. Chat is for assistance only. Official records are branch-issued documents and your pawn ticket.",
+    // CHAT-PARK
+    q: CHAT_ENABLED
+      ? "Is the live chat binding for a pawn transaction?"
+      : "Are messages sent through the website or Messenger binding for a pawn transaction?",
+    a: CHAT_ENABLED
+      ? "No. Chat is for assistance only. Official records are branch-issued documents and your pawn ticket."
+      : "No. Online messages are for assistance only. Official records are branch-issued documents and your pawn ticket.",
   },
   {
     q: "Can I get a statement of charges before I decide?",

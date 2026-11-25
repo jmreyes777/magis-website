@@ -29,6 +29,7 @@ const { z } = require("zod");
 const { db } = require("../utils/firebase");
 const { cached, key } = require("../utils/cache");
 const { getRedis, ensureRedisConnected } = require("../utils/redis");
+const { isChatEnabled } = require("../utils/chatFeature"); // CHAT-PARK
 
 const SITE = "https://www.magispawnshop.com";
 const PRESENCE_PREFIX = process.env.REDIS_PRESENCE_PREFIX || "branch:online:";
@@ -226,18 +227,37 @@ function buildMcpServer() {
     "get_live_chat_availability",
     {
       title: "Check live-chat availability",
-      description:
-        "How many Magis branches currently have staff online for the free live chat on the branch finder page. Point users to the branch finder to start a chat.",
+      // CHAT-PARK: while the chat is parked the tool stays registered (tools/list
+      // must keep returning four tools) but reports the parked status instead of
+      // reading presence.
+      description: isChatEnabled()
+        ? "How many Magis branches currently have staff online for the free live chat on the branch finder page. Point users to the branch finder to start a chat."
+        : "Live chat on the Magis website is currently unavailable. Returns that status plus the other ways to reach a branch (phone, Facebook Messenger, contact form).",
       inputSchema: {},
     },
     async () => {
+      if (!isChatEnabled()) {
+        // CHAT-PARK: no Redis read — the feature is off, so nobody is online.
+        const payload = {
+          live_chat_available: false,
+          branches_online_now: 0,
+          note: "Live chat is currently unavailable. Reach a branch by phone (see list_branches), on Facebook Messenger, or through the contact form.",
+          messenger_url: "https://m.me/magispawnshop",
+          contact_url: `${SITE}/contact-us`,
+        };
+        return {
+          content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
+        };
+      }
       const presence = await readLiveChatPresence();
       const payload = presence.known
         ? {
+            live_chat_available: true,
             branches_online_now: presence.onlineCount,
             chat_url: `${SITE}/branches`,
           }
         : {
+            live_chat_available: true,
             branches_online_now: null,
             note: "Availability is briefly unknown; the branch finder page shows per-branch indicators live.",
             chat_url: `${SITE}/branches`,

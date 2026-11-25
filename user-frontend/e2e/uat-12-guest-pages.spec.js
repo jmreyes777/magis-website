@@ -9,6 +9,7 @@ const {
   waitForHydration,
   waitForSocketReady,
   callsTo,
+  CHAT_ENABLED,
 } = require("./uat-fixtures");
 
 test.describe.configure({ timeout: 60_000 });
@@ -43,6 +44,7 @@ test.describe("G3: guest pages & chat lifecycle", () => {
   });
 
   test("privacy notice: visible zero-click, links to policy, minimizes and restores", async ({ page }) => {
+    test.skip(!CHAT_ENABLED, "live chat is parked (REACT_APP_CHAT_ENABLED!=true)");
     const state = await mockGuestNetwork(page);
     await fakeSocketIO(page, state);
     await openSupportChat(page, expect);
@@ -60,6 +62,7 @@ test.describe("G3: guest pages & chat lifecycle", () => {
   });
 
   test("contact-branch button opens the matching modal (F-G5 copy aligned)", async ({ page }) => {
+    test.skip(!CHAT_ENABLED, "live chat is parked (REACT_APP_CHAT_ENABLED!=true)");
     const state = await mockGuestNetwork(page);
     await fakeSocketIO(page, state);
     await openSupportChat(page, expect);
@@ -72,6 +75,7 @@ test.describe("G3: guest pages & chat lifecycle", () => {
   });
 
   test("closing the chat asks for confirmation and force-closes the session", async ({ page }) => {
+    test.skip(!CHAT_ENABLED, "live chat is parked (REACT_APP_CHAT_ENABLED!=true)");
     const state = await mockGuestNetwork(page);
     await fakeSocketIO(page, state);
     await openSupportChat(page, expect);

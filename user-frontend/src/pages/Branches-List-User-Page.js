@@ -12,12 +12,15 @@ import {
 import { loadGoogleMapsApi } from "../utils/googleMapsLoader";
 import { FaMapMarkerAlt, FaPhoneAlt, FaClock, FaSearch, FaTimes } from "react-icons/fa";
 import "./BranchesMapView.css";
-import { getSocketInstance, connectSocket, disconnectSocket } from "../Shared/User-Utils-socket";
 import GuestConfirmDialog from "../components/Guest-Confirm-Dialog";
 import { getTurnstileToken, preloadTurnstile } from "../Shared/turnstile";
 import { findBranchBySlug, buildBranchSeo } from "../utils/branchSeo";
 import { SITE_ORIGIN } from "../components/Seo";
-const socket = getSocketInstance();
+import { CHAT_ENABLED, MESSENGER_URL, telHref } from "../config/features";
+// CHAT-PARK: socket helpers load on demand (same pattern as the chat UI
+// below) so socket.io-client stays out of this route's bundle while the
+// guest chat is parked.
+const socketUtilsImport = () => import(/* webpackChunkName: "guest-socket" */ "../Shared/User-Utils-socket");
 
 // Unknown /branches/<slug> must render the real 404 (noindex) — lazy so the
 // NotFound chunk isn't pulled into this page's bundle on the happy path.
@@ -29,7 +32,7 @@ const NotFoundPage = lazy(() => import("./NotFound-User-Page"));
 // inflating this route's initial JS. openChatBox() warms the chunk in
 // parallel with the guest-session roundtrips, so by the time <GuestChatBox/>
 // mounts the code is normally already here.
-const chatBoxImport = () => import("../components/Guest-Chat-Box-Component");
+const chatBoxImport = () => import(/* webpackChunkName: "guest-chat" */ "../components/Guest-Chat-Box-Component");
 const GuestChatBox = lazy(chatBoxImport);
 
 // Utility function for formatting schedules
@@ -158,6 +161,7 @@ function BranchesMapView() {
   // during startup: its eval was competing with Maps for main-thread time
   // inside the TBT window.
   useEffect(() => {
+    if (!CHAT_ENABLED) return; // CHAT-PARK: this warm-up only serves chat
     if (typeof requestIdleCallback === "function") {
       const id = requestIdleCallback(() => preloadTurnstile(), { timeout: 4000 });
       return () => cancelIdleCallback(id);
@@ -289,7 +293,8 @@ function BranchesMapView() {
   useEffect(() => {
     if (!slugBranch) return;
     handleBranchClickFromList(slugBranch);
-    const wantsChat = new URLSearchParams(location.search).get("chat") === "1";
+    // CHAT-PARK: ?chat=1 still focuses the branch but never opens chat while off
+    const wantsChat = CHAT_ENABLED && new URLSearchParams(location.search).get("chat") === "1";
     if (wantsChat && !autoChatFiredRef.current) {
       autoChatFiredRef.current = true;
       openChatBox(slugBranch);
@@ -354,6 +359,7 @@ function BranchesMapView() {
     }
 
     // Disconnect socket & mark closed
+    const { disconnectSocket } = await socketUtilsImport();
     disconnectSocket(false, "manual");
     sessionStorage.removeItem("chatOpen");
 
@@ -489,7 +495,8 @@ function BranchesMapView() {
       if (!localStorage.getItem("tabId")) localStorage.setItem("tabId", crypto.randomUUID());
       if (!window.name) window.name = crypto.randomUUID();
 
-      if (!socket.connected) {
+      const { getSocketInstance, connectSocket } = await socketUtilsImport();
+      if (!getSocketInstance().connected) {
         console.log("[SOCKET] Connecting socket with guest token…");
         connectSocket(guestId);
       }
@@ -533,7 +540,7 @@ function BranchesMapView() {
       ) : (
         <Seo
           title="Pawnshop Branches Near You | Magis Gold & Gems"
-          description="Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, directions, and live chat."
+          description="Find a Magis pawnshop and jewelry branch near you — Angeles City, Pampanga and more. Addresses, opening hours, contact numbers, and directions."
           path={slug ? `/branches/${slug}` : "/branches"}
           breadcrumbs={[
             { name: "Home", path: "/" },
@@ -549,7 +556,7 @@ function BranchesMapView() {
       <h1 className="sr-only">Find a Magis Gold &amp; Gems Pawnshop Branch</h1>
 
       {/* UAT F-G4: inline chat-open error (was a blocking alert) */}
-      {openError && (
+      {CHAT_ENABLED && openError && (
         <div
           className="mx-4 mt-2 px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded text-sm flex items-center justify-between gap-2"
           role="alert"
@@ -567,6 +574,7 @@ function BranchesMapView() {
       )}
 
       {/* UAT F-G4: in-app switch-conversation confirmation (was window.confirm) */}
+      {CHAT_ENABLED && (
       <GuestConfirmDialog
         open={!!pendingSwitch}
         title="Switch chat?"
@@ -585,6 +593,7 @@ function BranchesMapView() {
         }}
         onCancel={() => setPendingSwitch(null)}
       />
+      )}
       <div className="map-list-container">
         {/* 🌍 Google Map. reduced-height only for a GENUINE empty result —
             applying it while branches were still loading made the box grow
@@ -699,7 +708,8 @@ function BranchesMapView() {
                     </span>
                   </div>
 
-                  {/* 💬 Chat Button */}
+                  {/* 💬 Chat Button — CHAT-PARK: parked → Call + Messenger */}
+                  {CHAT_ENABLED ? (
                   <button
                     className="chat-btn"
                     disabled={openingBranchId !== null}
@@ -717,6 +727,28 @@ function BranchesMapView() {
                       `Chat with ${branch.name}`
                     )}
                   </button>
+                  ) : (
+                    <div className="branch-actions">
+                      {telHref(branch.phone) && (
+                        <a
+                          className="chat-btn branch-action"
+                          href={telHref(branch.phone)}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          Call {branch.name}
+                        </a>
+                      )}
+                      <a
+                        className="chat-btn branch-action branch-action--ghost"
+                        href={MESSENGER_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Message us on Messenger
+                      </a>
+                    </div>
+                  )}
                 </div>
               );
             })
@@ -726,7 +758,7 @@ function BranchesMapView() {
       </main>
 
       {/* 💬 Chat Overlay (lazy — chunk is warmed by openChatBox) */}
-      {activeChat && (
+      {CHAT_ENABLED && activeChat && (
         <Suspense fallback={null}>
           <GuestChatBox
             key={`${activeChat.branchId}-${activeChat.guestId}`}

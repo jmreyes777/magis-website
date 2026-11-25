@@ -2,6 +2,7 @@ import React from "react";
 import Footer from "../components/Footer-User-Component";
 import { Link } from "react-router-dom";
 import Seo from "../components/Seo";
+import { CHAT_ENABLED } from "../config/features";
 import "./legal-prose.css";
 
 function PrivacyPolicy() {
@@ -140,6 +141,10 @@ function PrivacyPolicy() {
 
             <div>
               <h2 className="text-xl font-semibold mb-2">7) Live Chat & Communications</h2>
+              {/* CHAT-PARK */}
+              {!CHAT_ENABLED && (
+                <p className="text-sm mb-2 font-medium">Live chat is currently unavailable on this website. This section describes how chat data is handled when the feature is offered, and it continues to apply to past conversations we still hold.</p>
+              )}
               <p className="text-sm">
                 Our live chat lets you message a branch without creating an account. When you open a chat we
                 assign an anonymous reference for the session; we do not require your name or email. You may

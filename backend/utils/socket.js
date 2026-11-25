@@ -19,6 +19,7 @@ const { db } = require("./firebase");
 const { getAuth } = require("firebase-admin/auth"); // v14: namespace API removed
 const { verifyJWT } = require("./secretPool");   // worker-thread backed JWT ops
 const { recordAuditEvent, ACTIONS } = require("./auditLog");
+const { isChatEnabled } = require("./chatFeature"); // CHAT-PARK
 const CLOCK_TOLERANCE_SEC = Number(process.env.JWT_CLOCK_SKEW_SEC || "30");
 
 // Build an audit `context` block from a Socket.IO handshake (mirrors the
@@ -426,6 +427,13 @@ const initializeSocket = (server) => {
 
       // 3) Guest flow
       if (decodedToken.role === "user" && decodedToken.guestId) {
+        // CHAT-PARK: only GUEST sockets are refused while chat is parked — the
+        // admin flow below still carries session plumbing (token rotation, tab
+        // ownership) and must keep working.
+        if (!isChatEnabled()) {
+          console.warn("[SOCKET AUTH] ⛔ Guest connection refused — live chat is disabled (CHAT_ENABLED)");
+          return next(new Error("ChatDisabled"));
+        }
         branchEmail = (decodedToken.email || clientEmail || "").toLowerCase();
         socket.user = {
           role: "user",

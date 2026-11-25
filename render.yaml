@@ -49,6 +49,13 @@ services:
       # once MFA is stable. Omit or "true" keeps the legacy fail-OPEN behavior.
       - key: MFA_FAIL_OPEN
         value: "false"
+      # CHAT-PARK: public live chat switch. "false" = guest chat endpoints answer
+      # 503 CHAT_DISABLED, branch-status reports everyone offline, guest sockets
+      # refused. KEEP CONV_KEY_SECRET set while off or stored chats can never be
+      # decrypted. Set "true" + REACT_APP_CHAT_ENABLED=true on both frontends to
+      # bring chat back.
+      - key: CHAT_ENABLED
+        value: "false"
       # ── STRONGLY RECOMMENDED for multi-instance ──────────────────────────────
       # REQUIRE_REDIS=true makes the server refuse to start without REDIS_URL, so
       # rate-limiting + JWT revocation can never silently degrade to per-instance.

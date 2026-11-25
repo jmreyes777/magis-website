@@ -35,6 +35,8 @@
     "test": "craco test",
     "test:ci": "cross-env CI=true craco test --watchAll=false",
     "e2e": "playwright test",
+    "build:chat": "cross-env REACT_APP_CHAT_ENABLED=true npm run build",
+    "e2e:chat": "cross-env REACT_APP_CHAT_ENABLED=true playwright test",
     "analyze": "npm run build && npx source-map-explorer \"build/static/js/*.js\"",
     "eject": "react-scripts eject"
   },

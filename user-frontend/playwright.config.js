@@ -4,8 +4,18 @@
 // Run:  npm run build && npx playwright test        (or npm run e2e)
 const { defineConfig, devices } = require("@playwright/test");
 
+// CHAT-PARK: two suites, one testDir. The default (parked) build runs every
+// spec EXCEPT the live-chat UATs — those need a chat-on build
+// (`npm run build:chat && npm run e2e:chat`). The chat-on run inverts it: the
+// chat specs stay green and only chat-off.spec.js (which asserts the parked
+// UI) is skipped. Same env var the build bakes in decides the mode.
+const CHAT_ENABLED = process.env.REACT_APP_CHAT_ENABLED === "true";
+
 module.exports = defineConfig({
   testDir: "./e2e",
+  testIgnore: CHAT_ENABLED
+    ? ["**/chat-off.spec.js"]
+    : ["**/uat-10-*.spec.js", "**/uat-11-*.spec.js", "**/uat-15-*.spec.js"],
   fullyParallel: true,
   // ONE worker, on purpose: the UAT chat specs drive the full (heavy) bundle
   // through hydration + a socket handshake, and concurrent chromium instances

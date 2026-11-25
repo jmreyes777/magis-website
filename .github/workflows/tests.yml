@@ -23,6 +23,7 @@ on:
       - "backend/**"
       - "user-frontend/**"
       - "admin-frontend/**"
+      - "magis-edge-worker/**"
       - ".github/workflows/tests.yml"
   push:
     branches: [main]
@@ -30,6 +31,7 @@ on:
       - "backend/**"
       - "user-frontend/**"
       - "admin-frontend/**"
+      - "magis-edge-worker/**"
       - ".github/workflows/tests.yml"
   # Failure drill: run from the Actions tab with force_fail=true to verify the
   # Telegram paging path end-to-end without touching any code.
@@ -114,6 +116,15 @@ jobs:
   e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # CHAT-PARK: run the e2e smoke twice — chat="false" is what production
+    # ships (parked build, chat-off specs); chat="true" keeps the parked chat
+    # code building and its UAT specs (uat-10/11/12/15) green.
+    strategy:
+      fail-fast: false
+      matrix:
+        chat: ["false", "true"]
+    env:
+      REACT_APP_CHAT_ENABLED: ${{ matrix.chat }}
     defaults:
       run:
         working-directory: user-frontend
@@ -138,7 +149,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: playwright-report
+          name: playwright-report-chat-${{ matrix.chat }}
           path: user-frontend/playwright-report/
           retention-days: 7
 
