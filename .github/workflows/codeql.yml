@@ -43,7 +43,7 @@ jobs:
       - name: Initialize CodeQL
         # v4 (Node 24 runtime): v3 began failing when runners started forcing
         # Node 24 on node20-targeting actions; v3 is deprecated Dec 2026 anyway.
-        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
+        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
         with:
           languages: javascript
           # security-extended adds lower-confidence but valuable queries;
