@@ -10,7 +10,7 @@ export const SUPPORT_PHONE = { label: "Globe", number: "0962-061-8672" };
 // tel: href for a free-text branch phone field. First number only; seed
 // placeholders and unusable values return null (render no call link).
 export const telHref = (phone) => {
-  const first = String(phone || "").split(/[\/,;|]|\bor\b/i)[0];
+  const first = String(phone || "").split(/[/,;|]|\bor\b/i)[0];
   const digits = first.replace(/[^\d+]/g, "");
   if (digits.replace(/\D/g, "").length < 7) return null;
   if (/^1234567890?$/.test(digits.replace(/\D/g, ""))) return null;
